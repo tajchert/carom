@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_pairing_title">Add a device</string>
+    <string name="feature_pairing_body">Show a QR code that another device scans to join. It works for 5 minutes.</string>
+    <string name="feature_pairing_next">Next: the QR code, the countdown and the confirmation of the new device\'s fingerprint.</string>
+</resources>

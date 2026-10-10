@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_onboarding_title">Welcome to Carom</string>
+    <string name="feature_onboarding_body">Carom sends notifications and your clipboard between your own devices, through a Hub that you run.</string>
+    <string name="feature_onboarding_next">Next: scan or paste the carom://setup code from your Hub, or a carom://pair code from a paired device.</string>
+</resources>

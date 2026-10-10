@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Release: HTTPS only. Hub URLs come from setup/pair URIs, which already require https
+    (SPEC §8). The debug build overrides this file to allow a local `wrangler dev` Hub.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

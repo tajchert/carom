@@ -1,0 +1,41 @@
+package com.mtajchert.carom.app.core.database
+
+import androidx.room3.Database
+import androidx.room3.RoomDatabase
+import com.mtajchert.carom.app.core.database.dao.DirectoryDao
+import com.mtajchert.carom.app.core.database.dao.NotificationAppDao
+import com.mtajchert.carom.app.core.database.dao.OutboxDao
+import com.mtajchert.carom.app.core.database.dao.RecentItemDao
+import com.mtajchert.carom.app.core.database.dao.SeenMessageDao
+import com.mtajchert.carom.app.core.database.entity.DirectoryDeviceEntity
+import com.mtajchert.carom.app.core.database.entity.NotificationAppEntity
+import com.mtajchert.carom.app.core.database.entity.OutboxEntity
+import com.mtajchert.carom.app.core.database.entity.RecentItemEntity
+import com.mtajchert.carom.app.core.database.entity.SeenMessageEntity
+
+/**
+ * Carom's local database. Version 1 is the first shipped schema; from here on every change
+ * needs an explicit, tested migration and the exported schema in `schemas/` (never destructive).
+ */
+@Database(
+    entities = [
+        OutboxEntity::class,
+        SeenMessageEntity::class,
+        DirectoryDeviceEntity::class,
+        NotificationAppEntity::class,
+        RecentItemEntity::class,
+    ],
+    version = 1,
+    exportSchema = true,
+)
+abstract class CaromDatabase : RoomDatabase() {
+    abstract fun outboxDao(): OutboxDao
+    abstract fun seenMessageDao(): SeenMessageDao
+    abstract fun directoryDao(): DirectoryDao
+    abstract fun notificationAppDao(): NotificationAppDao
+    abstract fun recentItemDao(): RecentItemDao
+
+    companion object {
+        const val NAME = "carom-database"
+    }
+}

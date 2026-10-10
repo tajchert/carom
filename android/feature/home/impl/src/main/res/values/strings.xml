@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_home_title">Carom</string>
+    <string name="feature_home_devices">Devices</string>
+    <string name="feature_home_settings">Settings</string>
+    <string name="feature_home_not_paired_title">Connect this phone</string>
+    <string name="feature_home_not_paired_body">Carom sends notifications and your clipboard between your own devices through your own Hub. Set up a new Hub, or join one from a device that is already paired.</string>
+    <string name="feature_home_set_up">Set up Carom</string>
+    <string name="feature_home_this_device">This phone</string>
+    <string name="feature_home_hub">Hub: %1$s</string>
+    <plurals name="feature_home_pending">
+        <item quantity="one">%1$d message waiting to be sent</item>
+        <item quantity="other">%1$d messages waiting to be sent</item>
+    </plurals>
+    <string name="feature_home_add_device">Add a device</string>
+    <string name="feature_home_recent">Recent</string>
+    <string name="feature_home_recent_clipboard_sent">Sent clipboard: %1$s</string>
+    <string name="feature_home_recent_clipboard_received">Received clipboard: %1$s</string>
+    <string name="feature_home_recent_device_removed">%1$s was removed</string>
+</resources>
