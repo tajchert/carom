@@ -22,6 +22,16 @@ const WAKE_PAYLOAD = utf8('{"t":"wake"}');
 /** Reuse a cached JWT only while it has at least this much life left. */
 const JWT_MIN_REMAINING_S = 60 * 60;
 
+/**
+ * The VAPID `sub`: the Hub URL (SPEC §9). RFC 8292 allows only https: or mailto:, so the scheme
+ * is https even when a client reached the Hub over plain http.
+ */
+export function vapidSubject(requestUrl: URL): string {
+  const url = new URL(requestUrl.origin);
+  url.protocol = "https:";
+  return url.origin;
+}
+
 export class PushSender {
   // In-memory caches only; both are rebuilt from SQLite after eviction.
   private keys: VapidKeys | null = null;
@@ -51,20 +61,20 @@ export class PushSender {
   }
 
   /** Queues a wake-up push for `device` if it has a subscription and is not throttled. */
-  wake(device: DeviceRow, hubOrigin: string, now: number): void {
+  wake(device: DeviceRow, subject: string, now: number): void {
     if (!device.push_endpoint || !device.push_p256dh || !device.push_auth) return;
     if (device.push_sent_at !== null && now - device.push_sent_at < REPUSH_AFTER_MS) return;
     markPushSent(this.sql, device.id, now);
     const { id, push_endpoint: endpoint, push_p256dh: p256dh, push_auth: auth } = device;
-    this.ctx.waitUntil(this.send(id, endpoint, p256dh, auth, hubOrigin, now));
+    this.ctx.waitUntil(this.send(id, endpoint, p256dh, auth, subject, now));
   }
 
-  private async send(deviceId: string, endpoint: string, p256dh: string, auth: string, hubOrigin: string, now: number): Promise<void> {
+  private async send(deviceId: string, endpoint: string, p256dh: string, auth: string, subject: string, now: number): Promise<void> {
     try {
       const keys = decodeSubscriptionKeys(p256dh, auth);
       if (!keys) return;
       const vapid = await this.vapid();
-      const jwt = await this.jwtFor(vapid, new URL(endpoint).origin, hubOrigin, now);
+      const jwt = await this.jwtFor(vapid, new URL(endpoint).origin, subject, now);
       const body = await encryptPayload(keys, WAKE_PAYLOAD);
       const response = await fetch(pushRequest(endpoint, body, vapidAuthorization(jwt, vapid.publicKey)));
       await response.body?.cancel();

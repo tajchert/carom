@@ -10,7 +10,23 @@ export type Frame =
 /** Close code sent to a revoked device (application range 4000-4999). */
 export const REVOKED_CLOSE_CODE = 4001;
 
-function safeSend(ws: WebSocket, data: string): void {
+/**
+ * How far a socket's backlog has been sent (SPEC §7), kept in its hibernation attachment.
+ * `sent` is the highest seq sent; `done` means the backlog is drained, so live messages may be
+ * sent directly. Until then they wait in the backlog: sending one early would let a cumulative
+ * ack skip the queued messages before it.
+ */
+export type Backlog = { sent: number; done: boolean };
+
+export function backlogOf(ws: WebSocket): Backlog {
+  return (ws.deserializeAttachment() as Backlog | null) ?? { sent: 0, done: true };
+}
+
+export function setBacklog(ws: WebSocket, backlog: Backlog): void {
+  ws.serializeAttachment(backlog);
+}
+
+export function safeSend(ws: WebSocket, data: string): void {
   try {
     ws.send(data);
   } catch {
@@ -27,10 +43,15 @@ export function sendFrame(ctx: DurableObjectState, deviceId: string, frame: Fram
   for (const ws of ctx.getWebSockets(deviceId)) safeSend(ws, data);
 }
 
-/** Sends a stored message without re-parsing its envelope JSON. */
+/**
+ * Sends a new message live, without re-parsing its envelope JSON, to sockets whose backlog is
+ * drained. Sockets still paging pick it up with a later page.
+ */
 export function sendMessageFrame(ctx: DurableObjectState, deviceId: string, seq: number, envelopeJson: string): void {
   const data = messageFrame(seq, envelopeJson);
-  for (const ws of ctx.getWebSockets(deviceId)) safeSend(ws, data);
+  for (const ws of ctx.getWebSockets(deviceId)) {
+    if (backlogOf(ws).done) safeSend(ws, data);
+  }
 }
 
 export function messageFrame(seq: number, envelopeJson: string): string {

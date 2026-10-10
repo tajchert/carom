@@ -1,6 +1,6 @@
 // Pairing (SPEC §6, §8): offer -> accept (pending device) -> welcome (activate) or reject.
 
-import { callerOf, ok, type Call, type Handler } from "../call";
+import { callerOf, ok, stillActiveCaller, type Call, type Handler } from "../call";
 import { setupTokenOf } from "../config";
 import { HttpError } from "../errors";
 import { deviceIdFor, newPairId, PAIR_ID } from "../ids";
@@ -110,6 +110,7 @@ export const welcome: Handler = async (call) => {
   expectB64(box.epk, "box.epk", 32);
   expectB64(box.ct, "box.ct", [16, MAX_BOX_CT_BYTES]);
 
+  stillActiveCaller(call);
   const p = ownPairing(call);
   if (p.state !== "accepted") throw new HttpError("conflict", `pairing is ${p.state}, not accepted`);
   const candidate = p.candidate ? getDevice(hub.sql, p.candidate) : null;

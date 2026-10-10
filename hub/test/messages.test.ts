@@ -5,8 +5,10 @@ import {
   b64,
   call,
   expectError,
+  fillQueue,
   hubSql,
   hubStub,
+  measureSql,
   pairDevice,
   send,
   setupFirstDevice,
@@ -48,7 +50,8 @@ describe("POST /v1/messages + GET /v1/messages + acks", () => {
     expect(await hubSql("SELECT seq FROM messages")).toHaveLength(1);
 
     await call("POST", "/v1/acks", { token: c.token, body: { up_to: posted.seq } });
-    expect(await hubSql("SELECT seq FROM messages")).toEqual([]);
+    // Fully acknowledged: only a tombstone without the envelope is left, until expires_at.
+    expect(await hubSql("SELECT seq, envelope FROM messages")).toEqual([{ seq: posted.seq, envelope: null }]);
   });
 
   it("acks are cumulative and paginate with more", async () => {
@@ -73,7 +76,7 @@ describe("POST /v1/messages + GET /v1/messages + acks", () => {
     const { a, b } = await trio();
     const first = await send(a, { to: [b.id] });
     await call("POST", "/v1/acks", { token: b.token, body: { up_to: first.seq } });
-    expect(await hubSql("SELECT seq FROM messages")).toEqual([]);
+    expect(await hubSql("SELECT seq FROM messages WHERE envelope IS NOT NULL")).toEqual([]);
     const second = await send(a, { to: [b.id] });
     expect(second.seq).toBeGreaterThan(first.seq);
     expect((await inbox(b)).messages.map((m: Json) => m.seq)).toEqual([second.seq]);
@@ -217,5 +220,107 @@ describe("retention", () => {
     await inbox(a);
     const [after] = await hubSql<{ last_seen: number }>("SELECT last_seen FROM devices WHERE id = ?", a.id);
     expect(after!.last_seen).toBeGreaterThan(Date.now() - 60_000);
+  });
+});
+
+describe("tombstones", () => {
+  it("answer duplicate with the original seq after every recipient acked, without redelivering", async () => {
+    const { a, b } = await trio();
+    const envelope = a.seal({ to: [b.id] });
+    const first = await call("POST", "/v1/messages", { token: a.token, body: { envelope } });
+    await call("POST", "/v1/acks", { token: b.token, body: { up_to: first.seq } });
+    const retry = await call("POST", "/v1/messages", { token: a.token, body: { envelope: a.seal({ to: [b.id], msg_id: envelope.msg_id }) } });
+    expect(retry).toEqual({ seq: first.seq, duplicate: true });
+    expect((await inbox(b)).messages).toEqual([]);
+  });
+
+  it("answer superseded for a late retry of an older msg_id after the newer one was acked", async () => {
+    const { a, b } = await trio();
+    const olderId = uuidv7();
+    const newer = await send(a, { to: [b.id], collapse: COLLAPSE });
+    await call("POST", "/v1/acks", { token: b.token, body: { up_to: newer.seq } });
+    const late = await send(a, { to: [b.id], collapse: COLLAPSE, msg_id: olderId });
+    expect(late).toEqual({ seq: null, duplicate: false, superseded: true });
+    expect((await inbox(b)).messages).toEqual([]);
+    // A newer message still replaces the tombstone.
+    const fresh = await send(a, { to: [b.id], collapse: COLLAPSE });
+    expect((await inbox(b)).messages.map((m: Json) => m.seq)).toEqual([fresh.seq]);
+    expect(await hubSql("SELECT seq FROM messages")).toEqual([{ seq: fresh.seq }]);
+  });
+
+  it("are dropped by the alarm once they expire", async () => {
+    const { a, b } = await trio();
+    const posted = await send(a, { to: [b.id] });
+    await call("POST", "/v1/acks", { token: b.token, body: { up_to: posted.seq } });
+    await hubSql("UPDATE messages SET expires_at = ?", Date.now() - 1);
+    expect(await runDurableObjectAlarm(hubStub())).toBe(true);
+    expect(await hubSql("SELECT seq FROM messages")).toEqual([]);
+  });
+});
+
+describe("pending limit", () => {
+  it("refuses a post to a recipient with 1000 pending messages with 429 and the full ids", async () => {
+    const { a, b, c } = await trio();
+    const [oldest] = await fillQueue(c, [b.id], 999);
+    await send(a, { to: [b.id] });
+    const body = await expectError(api("POST", "/v1/messages", { token: a.token, body: { envelope: a.seal({ to: [c.id, b.id] }) } }), 429, "rate_limited");
+    expect(body.full).toEqual([b.id]);
+    await send(a, { to: [c.id] });
+    // Acknowledged and expired messages no longer count.
+    await call("POST", "/v1/acks", { token: b.token, body: { up_to: oldest } });
+    await send(a, { to: [b.id] });
+    await expectError(api("POST", "/v1/messages", { token: a.token, body: { envelope: a.seal({ to: [b.id] }) } }), 429, "rate_limited");
+    await hubSql("UPDATE messages SET expires_at = ? WHERE seq = ?", Date.now() - 1, oldest! + 1);
+    await send(a, { to: [b.id] });
+  });
+
+  it("lets a collapse replace a pending message of a full recipient", async () => {
+    const { a, b } = await trio();
+    await send(a, { to: [b.id], collapse: COLLAPSE });
+    await fillQueue(a, [b.id], 999);
+    await send(a, { to: [b.id], collapse: COLLAPSE });
+  });
+});
+
+describe("SQL cost", () => {
+  it("reads only the acked range on each ack, not the whole queue", async () => {
+    const { a, b, c } = await trio();
+    const seqs = await fillQueue(a, [b.id, c.id], 300);
+    // c is offline, b acks every message on its own.
+    const cost = await measureSql(async () => {
+      for (const seq of seqs) await call("POST", "/v1/acks", { token: b.token, body: { up_to: seq } });
+    });
+    expect(cost.rowsRead / seqs.length).toBeLessThan(20);
+  });
+
+  it("does not scan queued messages when posting or when the alarm runs", async () => {
+    const { a, b, c } = await trio();
+    await fillQueue(a, [c.id], 300);
+    // b has seen everything; c is offline with 300 pending messages.
+    await call("POST", "/v1/acks", { token: b.token, body: { up_to: 300 } });
+    const posting = await measureSql(() => send(a, { to: [b.id] }));
+    expect(posting.rowsRead).toBeLessThan(50);
+    await hubSql("UPDATE messages SET expires_at = ? WHERE seq = 1", Date.now() - 1);
+    const alarm = await measureSql(() => runDurableObjectAlarm(hubStub()));
+    expect(alarm.rowsRead).toBeLessThan(50);
+    expect(await hubSql("SELECT COUNT(*) AS n FROM messages")).toEqual([{ n: 300 }]);
+  });
+
+  it("writes a bounded number of rows per message lifecycle", async () => {
+    const { a, b, c } = await trio();
+    let seq = 0;
+    const post = await measureSql(async () => {
+      seq = (await send(a, { to: [b.id, c.id] })).seq;
+    });
+    const fetch = await measureSql(() => inbox(b));
+    const acks = await measureSql(async () => {
+      await call("POST", "/v1/acks", { token: b.token, body: { up_to: seq } });
+      await call("POST", "/v1/acks", { token: c.token, body: { up_to: seq } });
+    });
+    await hubSql("UPDATE messages SET expires_at = ?", Date.now() - 1);
+    const expiry = await measureSql(() => runDurableObjectAlarm(hubStub()));
+    const total = post.rowsWritten + fetch.rowsWritten + acks.rowsWritten + expiry.rowsWritten;
+    console.log(JSON.stringify({ rowsWritten: { post: post.rowsWritten, fetch: fetch.rowsWritten, acks: acks.rowsWritten, expiry: expiry.rowsWritten, total } }));
+    expect(total).toBeLessThanOrEqual(20);
   });
 });

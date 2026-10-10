@@ -223,6 +223,29 @@ export function hubSql<T extends Record<string, SqlStorageValue>>(query: string,
   return runInDurableObject(hubStub(), (_hub: Hub, state) => state.storage.sql.exec<T>(query, ...args).toArray());
 }
 
+/**
+ * Queues `count` messages from `from` to `to` straight in SQLite, much faster than posting them.
+ * The Hub never parses stored envelopes, so any JSON works. Returns the new seqs.
+ */
+export async function fillQueue(from: TestDevice, to: string[], count: number, envelope = "{}"): Promise<number[]> {
+  const [row] = await hubSql<{ value: string }>("SELECT value FROM meta WHERE key = 'last_seq'");
+  const start = Number(row?.value ?? 0);
+  await hubSql(
+    `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
+     INSERT INTO messages (seq, sender, msg_id, collapse, recipients, envelope, expires_at)
+     SELECT ? + i, ?, 'fill-' || (? + i), NULL, ?, ?, ? FROM n`,
+    count,
+    start,
+    from.id,
+    start,
+    JSON.stringify(to),
+    envelope,
+    Date.now() + 3600_000,
+  );
+  await hubSql("INSERT OR REPLACE INTO meta (key, value) VALUES ('last_seq', ?)", String(start + count));
+  return Array.from({ length: count }, (_, i) => start + i + 1);
+}
+
 /** Wipes the Hub through the same path as POST /v1/reset, bypassing lockouts. */
 export async function wipeHub(): Promise<void> {
   await hubSql("DELETE FROM lockouts");
@@ -268,6 +291,76 @@ export async function connect(device: TestDevice): Promise<SocketClient> {
           });
         });
       }
+    },
+  };
+}
+
+/** Sends `ping` and waits for `pong`, so every frame sent before it has been handled. */
+export async function roundTrip(socket: SocketClient): Promise<void> {
+  socket.ws.send("ping");
+  await socket.next((f: Json) => f === "pong");
+}
+
+export interface SqlCost {
+  rowsRead: number;
+  rowsWritten: number;
+}
+
+/**
+ * Runs `fn` while counting rows read and written by every statement the Hub executes, using the
+ * SQL cursors' own rowsRead / rowsWritten counters.
+ */
+export async function measureSql(fn: () => Promise<unknown>): Promise<SqlCost> {
+  const cursors: SqlStorageCursor<Record<string, SqlStorageValue>>[] = [];
+  const restore = await runInDurableObject(hubStub(), (_hub: Hub, state) => {
+    const proto = Object.getPrototypeOf(state.storage.sql) as SqlStorage;
+    const original = proto.exec;
+    proto.exec = function (this: SqlStorage, query: string, ...args: SqlStorageValue[]) {
+      const cursor = original.call(this, query, ...args);
+      cursors.push(cursor);
+      return cursor;
+    } as SqlStorage["exec"];
+    return () => {
+      proto.exec = original;
+    };
+  });
+  try {
+    await fn();
+  } finally {
+    await runInDurableObject(hubStub(), () => restore());
+  }
+  let rowsRead = 0;
+  let rowsWritten = 0;
+  for (const c of cursors) {
+    rowsRead += c.rowsRead;
+    rowsWritten += c.rowsWritten;
+  }
+  return { rowsRead, rowsWritten };
+}
+
+/**
+ * Sends an authenticated request straight to the Hub with a body that stays open until
+ * `release()` is called, so other requests run while the handler is still awaiting the body.
+ */
+export async function heldRequest(device: TestDevice, method: string, path: string, body: unknown): Promise<{ release(): Promise<Response> }> {
+  const json = te.encode(JSON.stringify(body));
+  const stream = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = stream.writable.getWriter();
+  const response = hubStub().fetch(
+    new Request(BASE + path, {
+      method,
+      headers: { "x-carom-device": device.id, "x-carom-token-hash": b64(sha256(te.encode(device.token))), "content-type": "application/json" },
+      body: stream.readable,
+    }),
+  );
+  void writer.write(json.slice(0, 1));
+  // Let the Hub authenticate the caller and start awaiting the rest of the body.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  return {
+    async release() {
+      await writer.write(json.slice(1));
+      await writer.close();
+      return response;
     },
   };
 }

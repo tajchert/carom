@@ -84,6 +84,30 @@ describe("push subscription", () => {
       await expectError(api("PUT", "/v1/devices/self/push", { token: a.token, body }), 400, "bad_request");
     }
   });
+
+  it("requires the default port and a DNS name that is not the Hub, an IP literal or localhost", async () => {
+    const a = await setupFirstDevice();
+    const host = new URL(BASE).hostname;
+    for (const endpoint of [
+      `https://${host}./v1/info`,
+      `https://${host.toUpperCase()}../v1/info`,
+      `https://${host}:443/v1/info`,
+      "https://push.example.com:8443/abc",
+      "https://127.0.0.1/abc",
+      "https://0x7f.1/abc",
+      "https://10.0.0.1./abc",
+      "https://[::1]/abc",
+      "https://localhost/abc",
+      "https://LocalHost./abc",
+      "https://hub.localhost/abc",
+    ]) {
+      const res = await api("PUT", "/v1/devices/self/push", { token: a.token, body: { endpoint, p256dh: P256DH, auth: AUTH } });
+      expect({ endpoint, status: res.status }).toEqual({ endpoint, status: 400 });
+    }
+    for (const endpoint of ["https://push.example.com:443/abc", "https://Push.Example.com./abc", `https://sub.${host}/abc`]) {
+      await call("PUT", "/v1/devices/self/push", { token: a.token, body: { endpoint, p256dh: P256DH, auth: AUTH } });
+    }
+  });
 });
 
 describe("DELETE /v1/devices/:id", () => {
@@ -104,7 +128,7 @@ describe("DELETE /v1/devices/:id", () => {
     expect(await socketC.next((f: Json) => f.t === "dir")).toEqual({ t: "dir" });
 
     await expectError(api("GET", "/v1/devices", { token: b.token }), 401, "unauthorized");
-    const recipients = await hubSql<{ recipients: string }>("SELECT recipients FROM messages");
+    const recipients = await hubSql<{ recipients: string }>("SELECT recipients FROM messages WHERE envelope IS NOT NULL");
     expect(recipients.map((r) => JSON.parse(r.recipients))).toEqual([[c.id]]);
     const body = await expectError(api("POST", "/v1/messages", { token: a.token, body: { envelope: a.seal({ to: [b.id] }) } }), 409, "conflict");
     expect(body.inactive).toEqual([b.id]);

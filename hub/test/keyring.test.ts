@@ -26,10 +26,12 @@ describe("keyring", () => {
     socket.ws.close();
   });
 
-  it("accepts the setup key kv 1 on an empty keyring", async () => {
+  it("accepts only kv 2 on an empty keyring: kv 1 is the setup key and never stored", async () => {
     const a = await setupFirstDevice();
-    await call("PUT", "/v1/keyring", { token: a.token, body: { kv: 1, by: a.id, boxes: { [a.id]: box() }, sig: sig() } });
-    await expectError(api("PUT", "/v1/keyring", { token: a.token, body: { kv: 1, by: a.id, boxes: { [a.id]: box() }, sig: sig() } }), 409, "conflict");
+    const kv1 = await expectError(api("PUT", "/v1/keyring", { token: a.token, body: { kv: 1, by: a.id, boxes: { [a.id]: box() }, sig: sig() } }), 409, "conflict");
+    expect(kv1.kv).toBe(1);
+    await expectError(api("PUT", "/v1/keyring", { token: a.token, body: { kv: 3, by: a.id, boxes: { [a.id]: box() }, sig: sig() } }), 409, "conflict");
+    expect(await call("GET", "/v1/keyring?have=0", { token: a.token })).toEqual({ versions: [] });
     await call("PUT", "/v1/keyring", { token: a.token, body: { kv: 2, by: a.id, boxes: { [a.id]: box() }, sig: sig() } });
   });
 
