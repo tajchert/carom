@@ -94,6 +94,24 @@ Tests drive the real Worker and Durable Object. Test clients seal envelopes and 
 `@noble/*`, independently of `src/`, so signature checks are verified against a second
 implementation. Web Push encryption is checked against RFC 8291 Appendix A.
 
+## Smoke test
+
+`scripts/smoke.mjs` is an end-to-end check of a deployed Hub. It drives two simulated devices
+(a Mac and a phone) with real crypto from `@carom/protocol`: setup, pairing over the
+`carom://pair` URI and the WebSocket `pair` frame, live WebSocket delivery with latency,
+collapse in the backlog, duplicate and superseded posts, fetch and ack over HTTP, push
+subscription, revocation, rekey through the keyring, and negative auth/signature checks. It
+prints one PASS/FAIL line per step with timings and exits non-zero on any failure.
+
+```sh
+node hub/scripts/smoke.mjs --url https://carom-hub-<name>.<account>.workers.dev [--setup-token-file <path>] [--reset]
+```
+
+The setup token comes from `--setup-token-file` (JSON with a `setupToken` field, or the raw
+token), defaulting to `~/.config/carom-hub/<worker name>.json`, or from `CAROM_SETUP_TOKEN`.
+The Hub must be unclaimed; `--reset` wipes a claimed Hub first. **The test always finishes
+with `POST /v1/reset`, so only point it at a dev Hub.** Tokens are never printed.
+
 ## Deploying
 
 The `carom-hub` CLI (separate) runs, from this folder:
