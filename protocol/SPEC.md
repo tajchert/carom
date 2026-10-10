@@ -372,8 +372,12 @@ Rules the Hub enforces on `POST /v1/messages`:
 3. `sig` verifies with the caller's stored `sign_pub`. This is defence in depth; Workers
    WebCrypto supports Ed25519.
 4. Every `to` id is active. Otherwise the Hub answers `409 {"error":…, "inactive":[ids]}`.
-5. `(from, msg_id)` is unique. A duplicate returns the original `seq` with `duplicate:true`.
-6. The collapse rule from §3.2.
+5. `(from, msg_id)` is unique for as long as the message's TTL lasts, even after every
+   recipient has acknowledged it. Acknowledged messages are reduced to tombstones (the envelope
+   is dropped) until `expires_at`. A duplicate returns the original `seq` with `duplicate:true`.
+6. Each recipient may have at most 1000 pending messages. Beyond that the post is refused with
+   `429 rate_limited` and `{"full": [ids]}`. Collapse keeps normal use far below this.
+7. The collapse rule from §3.2, which also compares against tombstones.
 
 The Hub never decrypts `ct` and never branches on message type.
 
@@ -399,7 +403,8 @@ Rate limits are enforced inside the Hub, which is single-threaded and so counts 
 - `/v1/pair/accept`: one accept per `pair_id`, and at most 5 open offers at a time.
 - Push sends: at most one per recipient per message (see §9).
 
-Push endpoints MUST be `https:` and MUST NOT point at the Hub's own host.
+Push endpoints MUST be `https:` URLs on the default port, with a DNS hostname: not an IP literal, not
+`localhost`, and not the Hub's own host (compared case-insensitively, ignoring a trailing dot).
 
 ## 7. WebSocket
 
@@ -409,7 +414,9 @@ with jittered backoff (1 second doubling to 60 seconds).
 
 Server → client frames:
 
-- `{"t":"msg","seq":N,"envelope":{…}}`. On connect, the Hub first sends every unacknowledged message.
+- `{"t":"msg","seq":N,"envelope":{…}}`. On connect, the Hub sends the oldest unacknowledged
+  messages, up to 100 messages or 1 MiB per page. After each `ack` frame it sends the next page,
+  until the backlog is empty. Clients ack promptly, and may also page with `GET /v1/messages`.
 - `{"t":"dir"}`: the directory changed, so refetch `GET /v1/devices`.
 - `{"t":"pair","pair_id":…,"candidate":{device_id, sign_pub, kx_pub, mac, pop}}`: sent to the offerer.
 - `{"t":"revoked"}`: this device was revoked. Clients wipe their keys.
@@ -455,7 +462,7 @@ carom://pair?v=1&h=<urlenc hub url>&c=<pair_id>&s=<b64 pair_secret>
    B then calls `POST /v1/pair/accept` and stores the returned token. The pairing is
    single-use: the first accept consumes it.
 3. A receives the candidate (a WebSocket `pair` frame, or by polling `GET /v1/pair/:id`)
-   and checks `mac`, `pop` and `device_id`. On a mismatch, A rejects and warns the user.
+   and checks `mac`, `pop` and `device_id`. `pop` is always present; a candidate without it is rejected. On a mismatch, A rejects and warns the user.
    A substituted key from a hostile Hub fails here. A also wipes `pair_secret` on use
    or after 5 minutes.
 4. A sends `POST /v1/pair/:id/welcome` with:
@@ -492,6 +499,7 @@ When woken, a device calls `GET /v1/messages`, handles the messages, then sends 
 
 - Each device has an ack cursor. A message is deleted once every recipient's cursor has
   passed it, or when `ttl_s` has passed, whichever comes first.
-- `last_seen` is written at most once every 10 minutes per device.
+- `last_seen` is written at most once every 10 minutes per device. It is updated by
+  authenticated HTTP requests, WebSocket connects and `ack` frames.
 - Unclaimed pairings expire after 5 minutes. A pending device whose pairing expired is deleted.
 - The Hub uses one alarm, scheduled for the earliest expiry.
