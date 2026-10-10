@@ -113,9 +113,15 @@ export class Hub extends DurableObject<Env> {
     applyAck(this.runtime, device, upTo, now);
   }
 
-  // Nothing to clean up: sockets carry their device id as a tag and no connection state lives
-  // in memory. With web_socket_auto_reply_to_close the runtime completes the close handshake.
-  override webSocketClose(): void {}
+  // No state to clean up: sockets carry their device id as a tag. Echo the close frame so
+  // clients see a clean close; the runtime's auto-reply did not reach clients through workers.dev.
+  override webSocketClose(ws: WebSocket, code: number, reason: string): void {
+    try {
+      ws.close(code === 1005 || code === 1006 ? 1000 : code, reason);
+    } catch {
+      // Already closed.
+    }
+  }
 
   override webSocketError(_ws: WebSocket, error: unknown): void {
     console.warn(JSON.stringify({ event: "ws_error", error: error instanceof Error ? error.name : "unknown" }));

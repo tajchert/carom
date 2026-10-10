@@ -421,7 +421,12 @@ Server → client frames:
   they have handled, and may also page with `GET /v1/messages`.
 - `{"t":"dir"}`: the directory changed, so refetch `GET /v1/devices`.
 - `{"t":"pair","pair_id":…,"candidate":{device_id, sign_pub, kx_pub, mac, pop}}`: sent to the offerer.
-- `{"t":"revoked"}`: this device was revoked. Clients wipe their keys.
+- `{"t":"revoked"}`: this device was revoked. Clients wipe their keys and close the socket
+  themselves. The Hub also closes it with code 4001.
+
+Clients MUST NOT wait for the server's half of a close handshake. Through the Cloudflare edge
+the reply to a client-initiated close is not reliably delivered. Send the close frame, then
+cancel the socket after at most 1 second (`URLSessionWebSocketTask.cancel`, OkHttp `cancel()`).
 
 Client → server frames:
 
