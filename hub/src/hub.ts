@@ -107,7 +107,10 @@ export class Hub extends DurableObject<Env> {
     if (typeof upTo !== "number" || !Number.isSafeInteger(upTo) || upTo < 0) return;
     const id = deviceOf(this.ctx, ws);
     const device = id ? getDevice(this.runtime.sql, id) : null;
-    if (device?.status === "active") applyAck(this.runtime.sql, device, upTo);
+    if (device?.status !== "active") return;
+    const now = Date.now();
+    touchLastSeen(this.runtime.sql, device, now);
+    applyAck(this.runtime, device, upTo, now);
   }
 
   // Nothing to clean up: sockets carry their device id as a tag and no connection state lives

@@ -57,6 +57,28 @@ const MIGRATIONS: readonly string[] = [
     locked_until INTEGER NOT NULL
   ) WITHOUT ROWID;
   `,
+  // v2: a fully acknowledged message stays as a tombstone (envelope NULL) until expires_at, so
+  // duplicate and superseded answers outlive delivery (SPEC §6 rules 5 and 7). The indexes keep
+  // expiry, pending-count and backlog queries from scanning tombstones.
+  `
+  CREATE TABLE messages_v2 (
+    seq        INTEGER PRIMARY KEY,
+    sender     TEXT NOT NULL,
+    msg_id     TEXT NOT NULL,
+    collapse   TEXT,
+    recipients TEXT NOT NULL,                  -- JSON array of device ids; '[]' for a tombstone
+    envelope   TEXT,                           -- NULL once every recipient acknowledged it
+    expires_at INTEGER NOT NULL,
+    UNIQUE (sender, msg_id)
+  );
+  INSERT INTO messages_v2 SELECT seq, sender, msg_id, collapse, recipients, envelope, expires_at FROM messages;
+  DROP TABLE messages;
+  ALTER TABLE messages_v2 RENAME TO messages;
+  CREATE UNIQUE INDEX messages_collapse ON messages (sender, collapse) WHERE collapse IS NOT NULL;
+  CREATE INDEX messages_expires ON messages (expires_at);
+  CREATE INDEX messages_live ON messages (seq) WHERE envelope IS NOT NULL;
+  CREATE INDEX pairings_expires ON pairings (expires_at);
+  `,
 ];
 
 /** Tables wiped by POST /v1/reset (everything except meta.schema_version). */

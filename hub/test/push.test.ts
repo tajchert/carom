@@ -1,3 +1,4 @@
+import { exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { BASE, b64, call, connect, hubSql, pairDevice, send, setupFirstDevice, unb64, wipeHub, type TestDevice } from "./helpers";
 
@@ -98,6 +99,26 @@ describe("Web Push wake-up", () => {
     expect(claims.exp).toBeLessThanOrEqual(Date.now() / 1000 + 12 * 3600 + 1);
     const vapidKey = await crypto.subtle.importKey("raw", unb64(vapid_public_key), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
     expect(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, vapidKey, unb64(s), new TextEncoder().encode(`${h}.${p}`))).toBe(true);
+  });
+
+  it("uses an https Hub URL as the VAPID sub even when the sender used http", async () => {
+    const a = await setupFirstDevice();
+    const b = await pairDevice(a);
+    await subscribe(b);
+    const insecure = new URL(BASE);
+    insecure.protocol = "http:";
+    const res = await exports.default.fetch(
+      new Request(new URL("/v1/messages", insecure), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${a.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ envelope: a.seal({ to: [b.id] }) }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(pushes).toHaveLength(1));
+    const jwt = /^vapid t=([^,]+),/.exec(pushes[0]!.headers.get("Authorization")!)![1]!;
+    const claims = JSON.parse(new TextDecoder().decode(unb64(jwt.split(".")[1]!)));
+    expect(claims.sub).toBe(`https://${insecure.host}`);
   });
 
   it("sends at most one push until the device fetches, or after 5 minutes", async () => {

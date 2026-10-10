@@ -2,7 +2,7 @@
 
 import { HttpError } from "./errors";
 import type { PushSender } from "./push";
-import type { DeviceRow } from "./store/devices";
+import { getDevice, type DeviceRow } from "./store/devices";
 
 export interface HubRuntime {
   readonly sql: SqlStorage;
@@ -30,6 +30,20 @@ export type Handler = (call: Call) => Response | Promise<Response>;
 export function callerOf(call: Call): DeviceRow {
   if (!call.caller) throw new HttpError("unauthorized", "authentication required");
   return call.caller;
+}
+
+/**
+ * Re-reads the caller right before a write. Every await after authentication lets other
+ * requests run, so the device may have been revoked (or the Hub reset) in the meantime. Call it
+ * with no await between it and the write, and use the returned row, which is current.
+ */
+export function stillActiveCaller(call: Call): DeviceRow {
+  const caller = callerOf(call);
+  const current = getDevice(call.hub.sql, caller.id);
+  if (!current || current.status !== "active" || current.token_hash !== caller.token_hash) {
+    throw new HttpError("unauthorized", "device was revoked");
+  }
+  return current;
 }
 
 export function ok(body: Record<string, unknown> = {}): Response {

@@ -1,6 +1,6 @@
 // Keyring (SPEC §5.5): serialized group-key versions with per-device boxes.
 
-import { callerOf, ok, type Handler } from "../call";
+import { callerOf, ok, stillActiveCaller, type Handler } from "../call";
 import { HttpError, badRequest } from "../errors";
 import { DEVICE_ID } from "../ids";
 import { broadcastDir } from "../sockets";
@@ -13,12 +13,12 @@ const MAX_BOXES = 64;
 const MAX_BOX_CT_BYTES = 256;
 
 /**
- * kv must be the stored kv + 1. An empty keyring means only the setup key (kv 1) exists, which
- * the setup device may or may not have published, so both 1 and 2 are accepted then.
+ * kv must be the stored kv + 1. An empty keyring means only the setup key exists, which is kv 1
+ * and is never stored in the keyring (SPEC §5.5), so only 2 is accepted then.
  */
 function isNextKv(sql: SqlStorage, kv: number): boolean {
   const latest = latestKv(sql);
-  return latest === null ? kv === 1 || kv === 2 : kv === latest + 1;
+  return latest === null ? kv === 2 : kv === latest + 1;
 }
 
 export const put: Handler = async (call) => {
@@ -42,6 +42,8 @@ export const put: Handler = async (call) => {
   const sig = expectString(body.sig, "sig");
   expectB64(sig, "sig", 64);
 
+  // A device revoked while the body was read must not install a key it would know.
+  stillActiveCaller(call);
   if (!isNextKv(hub.sql, kv)) {
     throw new HttpError("conflict", "kv must be the current kv + 1", { kv: latestKv(hub.sql) ?? 1 });
   }
