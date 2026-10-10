@@ -97,6 +97,8 @@ include(":feature:settings:api")
 include(":feature:settings:impl")
 include(":feature:notifications:api")
 include(":feature:notifications:impl")
+include(":feature:clipboard:api")
+include(":feature:clipboard:impl")
 
 // =============================================================================
 // Type-safe project accessors (e.g., projects.core.model)

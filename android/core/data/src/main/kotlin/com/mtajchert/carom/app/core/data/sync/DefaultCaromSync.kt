@@ -19,6 +19,7 @@ import com.mtajchert.carom.app.core.protocol.Outcome
 import com.mtajchert.carom.app.core.protocol.Payload
 import com.mtajchert.carom.app.core.protocol.Protocol
 import com.mtajchert.carom.app.core.protocol.ReceiveContext
+import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.protocol.ReceiveError
 import com.mtajchert.carom.app.core.protocol.Receiver
 import com.mtajchert.carom.app.core.protocol.Records
@@ -668,7 +669,11 @@ class DefaultCaromSync(
 
     override suspend fun publishOwnRecord(): Boolean = directoryLock.withLock { publishOwnRecordLocked() }
 
-    private suspend fun publishOwnRecordLocked(): Boolean {
+    override suspend fun setReceiveRule(type: String, rule: ReceiveRule): Boolean = directoryLock.withLock {
+        publishOwnRecordLocked(receiveChange = type to rule)
+    }
+
+    private suspend fun publishOwnRecordLocked(receiveChange: Pair<String, ReceiveRule>? = null): Boolean {
         val s = session() ?: return false
         val profile = profileProvider.profile()
         val entries = directory.all()
@@ -682,7 +687,8 @@ class DefaultCaromSync(
             signPub = B64.encode(s.identity.signPub),
             kxPub = B64.encode(s.identity.kxPub),
             caps = knownTypes,
-            receive = profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind),
+            receive = (profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind))
+                .let { base -> if (receiveChange == null) base else base + receiveChange },
             updated = maxOf(clock.now(), (previous?.updated ?: 0) + 1),
         )
         val sealed = Records.seal(record, s.key.key, s.key.kv, s.identity.signSk, rng = rng)

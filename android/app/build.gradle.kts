@@ -121,6 +121,7 @@ dependencies {
     implementation(projects.feature.devices.impl)
     implementation(projects.feature.settings.impl)
     implementation(projects.feature.notifications.impl)
+    implementation(projects.feature.clipboard.impl)
     implementation(projects.core.designsystem)
     implementation(projects.core.data)
     implementation(projects.core.model)
