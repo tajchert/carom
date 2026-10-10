@@ -122,6 +122,6 @@ class ForegroundSocketSessionTest {
         piggyback.onSent()
         state.setConnected(true)
         piggyback.onSent()
-        assertEquals(listOf(false), scheduler.fetches)
+        assertEquals(1, scheduler.fetches)
     }
 }

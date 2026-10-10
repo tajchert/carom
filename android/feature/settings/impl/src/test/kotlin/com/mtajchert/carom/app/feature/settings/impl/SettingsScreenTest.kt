@@ -8,7 +8,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
-import com.mtajchert.carom.app.core.model.PushState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -25,7 +24,6 @@ class SettingsScreenTest {
         loading = false,
         paired = true,
         deviceName = "Pixel",
-        push = PushState.NO_DISTRIBUTOR,
         hubUrl = "https://hub.example.com",
         deviceId = "dev_3xlhcrwNLeOI88IkAOPtCQ",
         appVersion = "1.0.0",
@@ -62,9 +60,8 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun showsPushProblemAndAbout() {
+    fun showsHubAndDeviceId() {
         show(paired)
-        composeRule.onNodeWithText("No push service", substring = true).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("https://hub.example.com").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("dev_3xlhcrwNLeOI88IkAOPtCQ").performScrollTo().assertIsDisplayed()
     }

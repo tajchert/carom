@@ -131,8 +131,6 @@ dependencies {
     implementation(projects.core.database)
     implementation(projects.core.datastore)
     implementation(projects.core.domain)
-    // UnifiedPush wake-ups; contributes the push start hook, wipe hook and PushStatusRepository
-    implementation(projects.core.push)
 
     // WorkManager with Hilt workers (CaromApplication supplies the HiltWorkerFactory)
     implementation(libs.androidx.work.runtime)

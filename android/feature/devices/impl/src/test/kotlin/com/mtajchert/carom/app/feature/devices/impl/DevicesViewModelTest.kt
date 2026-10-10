@@ -36,8 +36,8 @@ class DevicesViewModelTest {
     private val receiveRules = FakeReceiveRulesStore()
     private val devices = FakeDeviceRepository(
         listOf(
-            DeviceSummary("dev_other", "Mac", DeviceKind.DESKTOP, "macos", 1, false, isSelf = false, trusted = true),
-            DeviceSummary("dev_self", "Pixel", DeviceKind.PHONE, "android", 1, true, isSelf = true, trusted = true),
+            DeviceSummary("dev_other", "Mac", DeviceKind.DESKTOP, "macos", 1, isSelf = false, trusted = true),
+            DeviceSummary("dev_self", "Pixel", DeviceKind.PHONE, "android", 1, isSelf = true, trusted = true),
         ),
     )
     // Built lazily, after MainDispatcherRule has installed the test Main dispatcher.

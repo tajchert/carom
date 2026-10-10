@@ -20,19 +20,12 @@
     <string name="feature_settings_pause">Pause notification forwarding</string>
     <string name="feature_settings_pause_summary">Notifications stay on this phone until you turn this off.</string>
 
-    <string name="feature_settings_section_delivery">Delivery</string>
-    <string name="feature_settings_push">Instant delivery</string>
-    <string name="feature_settings_push_on">On. New items arrive right away.</string>
-    <string name="feature_settings_push_setting_up">Setting up.</string>
-    <string name="feature_settings_push_no_distributor">Off. No push service is available on this phone, so Carom checks every 15 minutes and when you open it.</string>
-    <string name="feature_settings_push_failed">Off. Setup failed, so Carom checks every 15 minutes and when you open it. It tries again next time Carom starts.</string>
-
     <string name="feature_settings_section_about">About</string>
     <string name="feature_settings_hub">Hub</string>
     <string name="feature_settings_device_id">Device ID</string>
     <string name="feature_settings_version">Version</string>
     <string name="feature_settings_licenses">Open-source licenses</string>
-    <string name="feature_settings_licenses_body">Carom is open source under the Apache License 2.0.\n\nIt uses AndroidX and Jetpack Compose, Dagger Hilt, Kotlin and kotlinx libraries, OkHttp, Google Tink (Apache License 2.0), and the UnifiedPush connector and embedded FCM distributor (Apache License 2.0).</string>
+    <string name="feature_settings_licenses_body">Carom is open source under the Apache License 2.0.\n\nIt uses AndroidX and Jetpack Compose, Dagger Hilt, Kotlin and kotlinx libraries, OkHttp, and Google Tink (Apache License 2.0).</string>
 
     <string name="feature_settings_leave">Leave hub</string>
     <string name="feature_settings_leave_title">Leave your Hub?</string>

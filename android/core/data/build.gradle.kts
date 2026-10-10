@@ -11,8 +11,7 @@
 // are bound in di/DataModule.kt.
 //
 // WorkManager: OutboxWorker is the background fallback for sending, FetchWorker
-// handles push wake-ups, piggyback fetches and the 15-minute fallback poll; the
-// HiltWorkerFactory is installed by :app (CaromApplication).
+// handles the piggyback fetch after a send; the HiltWorkerFactory is installed by :app (CaromApplication).
 //
 // runtime/: the foreground-only WebSocket (ProcessLifecycleOwner) and SyncRuntime,
 // which :app starts from Application.onCreate.

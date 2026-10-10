@@ -14,8 +14,8 @@ import javax.crypto.spec.GCMParameterSpec
  * AES-256-GCM with a non-exportable Android Keystore key (docs/CLIENTS.md "Identity and storage").
  *
  * The key never leaves the Keystore and is not part of any backup, so a restored vault file
- * cannot be decrypted on another device. No user authentication is required: the listener and
- * push wake-ups must work while the device is locked.
+ * cannot be decrypted on another device. No user authentication is required: the notification listener
+ * must work while the device is locked.
  *
  * File layout: `iv(12) || ciphertext||tag`.
  */

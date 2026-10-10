@@ -12,9 +12,6 @@
         - MainActivity (launcher), ShareTargetActivity (ACTION_SEND text/plain, reads nothing but
           the shared text), ClipboardTileService (BIND_QUICK_SETTINGS_TILE) and
           CaromListenerService (BIND_NOTIFICATION_LISTENER_SERVICE);
-        - the push libraries: UnifiedPush connector MessagingReceiverImpl and
-          RaiseToForegroundService (distributor IPC) and the embedded FCM distributor's
-          FirebaseReceiver (c2dm SEND permission);
         - system-only library components: WorkManager SystemJobService (BIND_JOB_SERVICE) and
           ProfileInstallReceiver (DUMP, used to install baseline profiles).
         WorkManager's DiagnosticsReceiver is removed below; nothing uses it.

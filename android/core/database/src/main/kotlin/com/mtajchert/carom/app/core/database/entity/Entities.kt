@@ -69,8 +69,6 @@ data class DirectoryDeviceEntity(
     val createdAt: Long,
     @ColumnInfo(name = "last_seen")
     val lastSeen: Long?,
-    @ColumnInfo(name = "has_push")
-    val hasPush: Boolean,
     @ColumnInfo(name = "record_json")
     val recordJson: String?,
     /** The record's `updated`, kept to reject rollbacks. */

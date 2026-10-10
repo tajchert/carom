@@ -10,7 +10,7 @@ import javax.inject.Inject
 /**
  * Hilt root. Also supplies WorkManager's configuration so workers (e.g. `OutboxWorker`) get
  * their dependencies injected; the default WorkManager initializer is removed in the manifest.
- * Starts the sync runtime: the foreground-only WebSocket and push registration.
+ * Starts the sync runtime: the foreground-only WebSocket observer and the start hooks.
  */
 @HiltAndroidApp
 class CaromApplication : Application(), Configuration.Provider {

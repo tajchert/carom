@@ -12,24 +12,17 @@ import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.hub.HubClientFactory
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.security.SecretVault
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Push availability for Home and Settings; implemented by `:core:push`. */
-interface PushStatusRepository {
-    val state: StateFlow<PushState>
-}
-
-/** Work that starts with the app process (push registration); bound with `@IntoSet`. */
+/** Work that starts with the app process; bound with `@IntoSet`. */
 fun interface SyncStartHook {
     fun onAppStart()
 }

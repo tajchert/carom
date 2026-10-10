@@ -109,7 +109,6 @@ class CaromDatabaseTest {
         kxPub = "k",
         createdAt = createdAt,
         lastSeen = null,
-        hasPush = false,
         recordJson = null,
         recordUpdated = null,
         recordKv = null,

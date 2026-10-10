@@ -5,7 +5,6 @@ import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfile
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
 import com.mtajchert.carom.app.core.model.ConnectionStatus
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.protocol.DeviceRecord
@@ -15,7 +14,6 @@ import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.security.VaultContents
 import com.mtajchert.carom.app.core.testing.repository.FakeSessionRepository
 import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesRepository
-import com.mtajchert.carom.app.core.testing.runtime.FakePushStatusRepository
 import com.mtajchert.carom.app.core.testing.runtime.FakeReceiveRulesStore
 import com.mtajchert.carom.app.core.testing.runtime.FakeSyncStatusRepository
 import com.mtajchert.carom.app.core.testing.security.InMemorySecretVault
@@ -42,7 +40,7 @@ class DeviceSettingsTest {
     private fun record(id: String, name: String, kind: DeviceKind, receive: Map<String, ReceiveRule>, caps: List<String> = receive.keys.toList()) =
         DeviceRecord(id, name, kind, "android", "1.0.0", "AAAA", "AAAA", caps, receive, 1)
 
-    private fun entry(record: DeviceRecord?, id: String = record!!.id) = DirectoryEntry(id, "AAAA", "AAAA", 0, null, false, record, 1)
+    private fun entry(record: DeviceRecord?, id: String = record!!.id) = DirectoryEntry(id, "AAAA", "AAAA", 0, null, record, 1)
 
     private suspend fun setUpDirectory(selfReceive: Map<String, ReceiveRule>) {
         directory.replace(
@@ -112,14 +110,12 @@ class DeviceSettingsTest {
     fun `home status shows pair again when the hub refused this device`() = runTest {
         val session = FakeSessionRepository(SessionState.Paired("https://hub", self.deviceId, "Pixel", 1))
         val status = FakeSyncStatusRepository()
-        val push = FakePushStatusRepository(PushState.NO_DISTRIBUTOR)
-        val observe = ObserveHomeStatusUseCase(session, sync, InMemoryOutboxStore(), push, status)
+        val observe = ObserveHomeStatusUseCase(session, sync, InMemoryOutboxStore(), status)
         status.rejected.value = true
         status.lastSyncAt.value = 42
         val home = observe().first()
         assertTrue(home.mustPairAgain)
         assertEquals(ConnectionStatus.REJECTED, home.connection)
-        assertEquals(PushState.NO_DISTRIBUTOR, home.push)
         assertEquals(42L, home.lastSyncAt)
     }
 

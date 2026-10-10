@@ -45,7 +45,6 @@ data class DeviceSummary(
     val kind: DeviceKind?,
     val platform: String?,
     val lastSeen: Long?,
-    val hasPush: Boolean,
     val isSelf: Boolean,
     val trusted: Boolean,
 ) {
@@ -84,22 +83,4 @@ enum class RecentItemKind {
 
     /** "<name> was removed (no rekey)": it left the directory and no rekey followed within 2 minutes. */
     DEVICE_REMOVED_NO_REKEY,
-}
-
-/** Web Push wake-up state (docs/CLIENTS.md "Push (phone)"). */
-enum class PushState {
-    /** Not paired, or not checked yet. */
-    UNKNOWN,
-
-    /** Asking the distributor for an endpoint, or telling the Hub about it. */
-    REGISTERING,
-
-    /** The Hub has our endpoint; no periodic polling is needed. */
-    REGISTERED,
-
-    /** No UnifiedPush distributor (and no Google Play services for the embedded one). */
-    NO_DISTRIBUTOR,
-
-    /** Registration failed; Carom falls back to checking every 15 minutes. */
-    FAILED,
 }

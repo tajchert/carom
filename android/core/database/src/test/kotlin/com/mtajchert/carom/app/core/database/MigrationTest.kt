@@ -58,6 +58,33 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun `2 to 3 drops directory has_push and keeps the cached devices`() = runTest {
+        helper.createDatabase(2).apply {
+            execSQL(
+                "INSERT INTO directory (id, sign_pub, kx_pub, created_at, last_seen, has_push, record_json, " +
+                    "record_updated, record_kv) VALUES ('dev_a', 's', 'k', 1, 2, 1, '{}', 3, 4)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(3, CaromMigrations.ALL.toList()).close()
+
+        val db = Room.databaseBuilder<CaromDatabase>(context, dbFile.absolutePath)
+            .setDriver(AndroidSQLiteDriver())
+            .addMigrations(*CaromMigrations.ALL)
+            .build()
+        try {
+            val device = db.directoryDao().all().single()
+            assertEquals("dev_a", device.id)
+            assertEquals(2L, device.lastSeen)
+            assertEquals("{}", device.recordJson)
+            assertEquals(4L, device.recordKv)
+        } finally {
+            db.close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "migration-test"
     }

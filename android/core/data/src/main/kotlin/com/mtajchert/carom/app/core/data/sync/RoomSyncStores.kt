@@ -79,7 +79,6 @@ class RoomDirectoryStore @Inject constructor(private val dao: DirectoryDao) : Di
         kxPub = kxPub,
         createdAt = createdAt,
         lastSeen = lastSeen,
-        hasPush = hasPush,
         recordJson = record?.encode()?.decodeToString(),
         recordUpdated = record?.updated,
         recordKv = recordKv,
@@ -92,7 +91,6 @@ class RoomDirectoryStore @Inject constructor(private val dao: DirectoryDao) : Di
         kxPub = kxPub,
         createdAt = createdAt,
         lastSeen = lastSeen,
-        hasPush = hasPush,
         record = recordJson?.let { DeviceRecord.fromJson(parseJsonOrNull(it)) },
         recordKv = recordKv,
     )

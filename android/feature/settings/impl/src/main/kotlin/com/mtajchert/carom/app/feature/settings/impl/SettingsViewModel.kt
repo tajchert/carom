@@ -5,14 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mtajchert.carom.app.core.data.repository.SessionRepository
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
-import com.mtajchert.carom.app.core.data.runtime.PushStatusRepository
 import com.mtajchert.carom.app.core.data.sync.AndroidDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.domain.RemoveDeviceUseCase
 import com.mtajchert.carom.app.core.domain.RemoveOutcome
 import com.mtajchert.carom.app.core.domain.RenameOutcome
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.SessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +32,6 @@ data class SettingsUiState(
     val paired: Boolean = false,
     val deviceName: String = "",
     val forwardingPaused: Boolean = false,
-    val push: PushState = PushState.UNKNOWN,
     val hubUrl: String? = null,
     val deviceId: String? = null,
     val appVersion: String = "",
@@ -48,7 +45,6 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val preferences: UserPreferencesRepository,
     session: SessionRepository,
-    push: PushStatusRepository,
     profile: LocalDeviceProfileProvider,
     private val renameThisDevice: RenameThisDeviceUseCase,
     private val removeDevice: RemoveDeviceUseCase,
@@ -62,14 +58,13 @@ class SettingsViewModel @Inject constructor(
     // The profile resolves the default name (the phone model) when the user never set one.
     private val prefsWithName = preferences.userPreferences.map { it to profile.profile().name }
 
-    val uiState: StateFlow<SettingsUiState> = combine(prefsWithName, session.session, push.state, transient) { (prefs, name), s, pushState, t ->
+    val uiState: StateFlow<SettingsUiState> = combine(prefsWithName, session.session, transient) { (prefs, name), s, t ->
         val paired = s as? SessionState.Paired
         SettingsUiState(
             loading = s == SessionState.Loading,
             paired = paired != null,
             deviceName = name,
             forwardingPaused = prefs.forwardingPaused,
-            push = pushState,
             hubUrl = paired?.hubUrl,
             deviceId = paired?.deviceId,
             appVersion = appVersion,

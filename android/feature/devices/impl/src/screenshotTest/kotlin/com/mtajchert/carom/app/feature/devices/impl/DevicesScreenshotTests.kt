@@ -21,9 +21,9 @@ private const val LAPTOP = "dev_Pq0kZr1mT8sVb2nWc4xYdA"
 private val populated = DevicesUiState(
     loading = false,
     devices = listOf(
-        DeviceSummary(SELF, "Michał's Pixel", DeviceKind.PHONE, "android", NOW - 2 * MINUTE, hasPush = true, isSelf = true, trusted = true),
-        DeviceSummary(MAC, "Work Mac", DeviceKind.DESKTOP, "macos", NOW - 40 * MINUTE, hasPush = false, isSelf = false, trusted = true),
-        DeviceSummary(LAPTOP, "Home laptop", DeviceKind.DESKTOP, "macos", NOW - 3 * 24 * 60 * MINUTE, hasPush = false, isSelf = false, trusted = true),
+        DeviceSummary(SELF, "Michał's Pixel", DeviceKind.PHONE, "android", NOW - 2 * MINUTE, isSelf = true, trusted = true),
+        DeviceSummary(MAC, "Work Mac", DeviceKind.DESKTOP, "macos", NOW - 40 * MINUTE, isSelf = false, trusted = true),
+        DeviceSummary(LAPTOP, "Home laptop", DeviceKind.DESKTOP, "macos", NOW - 3 * 24 * 60 * MINUTE, isSelf = false, trusted = true),
     ),
     matrix = ReceiveMatrix(
         types = listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET),

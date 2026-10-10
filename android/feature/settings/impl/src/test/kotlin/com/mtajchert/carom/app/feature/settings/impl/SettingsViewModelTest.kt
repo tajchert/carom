@@ -5,13 +5,11 @@ import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
 import com.mtajchert.carom.app.core.domain.RemoveDeviceUseCase
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.model.UserPreferences
 import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.testing.repository.FakeSessionRepository
 import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesRepository
-import com.mtajchert.carom.app.core.testing.runtime.FakePushStatusRepository
 import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
 import com.mtajchert.carom.app.core.testing.util.MainDispatcherRule
 import kotlinx.coroutines.flow.first
@@ -40,7 +38,6 @@ class SettingsViewModelTest {
         SettingsViewModel(
             prefs,
             session,
-            FakePushStatusRepository(PushState.REGISTERED),
             profile,
             RenameThisDeviceUseCase(prefs, sync),
             RemoveDeviceUseCase(sync),
@@ -59,7 +56,6 @@ class SettingsViewModelTest {
         assertEquals("https://hub.example.com", state.hubUrl)
         assertEquals("dev_self", state.deviceId)
         assertEquals("1.2.3", state.appVersion)
-        assertEquals(PushState.REGISTERED, state.push)
     }
 
     @Test

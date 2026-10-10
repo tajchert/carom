@@ -9,7 +9,6 @@ import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.SyncStatusRepository
 import com.mtajchert.carom.app.core.domain.ObserveHomeStatusUseCase
 import com.mtajchert.carom.app.core.model.ConnectionStatus
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
 import com.mtajchert.carom.app.core.model.SessionState
@@ -31,9 +30,6 @@ sealed interface HomeBanner {
     /** The notification listener is off, so nothing is forwarded. */
     data object NotificationAccess : HomeBanner
 
-    /** No wake-ups: Carom checks every 15 minutes and when opened. */
-    data class PushUnavailable(val noDistributor: Boolean) : HomeBanner
-
     /** "<revoker> removed <device>" or "<device> was removed (no rekey)" (SPEC §5.4). */
     data class DeviceRemoved(val item: RecentItem) : HomeBanner
 }
@@ -51,7 +47,6 @@ sealed interface HomeUiState {
         val hubHost: String,
         val connection: ConnectionStatus,
         val pendingMessages: Int,
-        val push: PushState = PushState.REGISTERED,
         val lastSyncAt: Long? = null,
         val banners: List<HomeBanner> = emptyList(),
         val recent: List<RecentItem> = emptyList(),
@@ -83,9 +78,8 @@ class HomeViewModel @Inject constructor(
                 hubHost = hostOf(session.hubUrl),
                 connection = status.connection,
                 pendingMessages = status.pendingMessages,
-                push = status.push,
                 lastSyncAt = status.lastSyncAt,
-                banners = banners(status.mustPairAgain, granted, status.push, recent, dismissedUpTo),
+                banners = banners(status.mustPairAgain, granted, recent, dismissedUpTo),
                 recent = recent,
             )
         }
@@ -111,7 +105,6 @@ class HomeViewModel @Inject constructor(
     private fun banners(
         mustPairAgain: Boolean,
         accessGranted: Boolean,
-        push: PushState,
         recent: List<RecentItem>,
         dismissedUpTo: Long,
     ): List<HomeBanner> {
@@ -119,9 +112,6 @@ class HomeViewModel @Inject constructor(
         if (mustPairAgain) return listOf(HomeBanner.PairAgain)
         return buildList {
             if (!accessGranted) add(HomeBanner.NotificationAccess)
-            if (push == PushState.NO_DISTRIBUTOR || push == PushState.FAILED) {
-                add(HomeBanner.PushUnavailable(noDistributor = push == PushState.NO_DISTRIBUTOR))
-            }
             recent.filter { it.id > dismissedUpTo && it.kind in REMOVAL_KINDS }
                 .take(MAX_NOTICES)
                 .forEach { add(HomeBanner.DeviceRemoved(it)) }

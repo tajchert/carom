@@ -318,19 +318,17 @@ class TrustAndRevocationTest {
         val h = SyncHarness(this)
         val phone = h.setUp(kind = DeviceKind.PHONE)
         h.join(phone, "Mac")
-        phone.rawClient().putPush("https://push.example/1", "p", "a")
-        var deleted = false
+        var revokesBeforeHook = -1
         phone.beforeWipe = { client ->
-            client!!.deletePush()
-            deleted = true
+            client!!.devices()
+            revokesBeforeHook = h.hub.requests.count { it == "DELETE /v1/devices/:id" }
         }
         val phoneId = phone.id
 
         assertEquals(RevokeResult.RevokedSelf, phone.sync.revoke(phoneId))
-        assertTrue(deleted)
+        assertEquals(0, revokesBeforeHook)
         assertEquals(listOf(true), phone.wipeHookSawKeys)
-        val pushDelete = h.hub.requests.indexOf("DELETE /v1/devices/self/push")
-        assertTrue(pushDelete in 0 until h.hub.requests.lastIndexOf("DELETE /v1/devices/:id"))
+        assertTrue(h.hub.requests.contains("DELETE /v1/devices/:id"))
         assertTrue(phone.vault.wiped)
         assertFalse(phoneId in h.hub.activeDeviceIds)
     }
