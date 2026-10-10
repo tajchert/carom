@@ -1,0 +1,260 @@
+# =============================================================================
+# ANDROID SAMPLE PROJECT - VERSION CATALOG
+# =============================================================================
+# Central dependency management following Now in Android patterns.
+# All versions, libraries, bundles, and plugins are defined here.
+# =============================================================================
+
+[versions]
+# -----------------------------------------------------------------------------
+# SDK Versions
+# -----------------------------------------------------------------------------
+compileSdk = "37"
+minSdk = "26"
+targetSdk = "37"
+
+# -----------------------------------------------------------------------------
+# Core Build Tools
+# -----------------------------------------------------------------------------
+agp = "9.4.1"
+kotlin = "2.4.20"
+ksp = "2.3.12"
+
+# -----------------------------------------------------------------------------
+# Kotlin Libraries
+# -----------------------------------------------------------------------------
+coroutines = "1.11.0"
+kotlinxSerializationJson = "1.11.0"
+
+# -----------------------------------------------------------------------------
+# AndroidX Core
+# -----------------------------------------------------------------------------
+coreKtx = "1.19.1"
+appcompat = "1.8.0"
+activityCompose = "1.13.0"
+splashscreen = "1.2.0"
+
+# -----------------------------------------------------------------------------
+# Lifecycle
+# -----------------------------------------------------------------------------
+lifecycle = "2.11.0"
+
+# -----------------------------------------------------------------------------
+# Compose
+# -----------------------------------------------------------------------------
+composeBom = "2026.09.00"
+material3Adaptive = "1.3.0"
+# Test-only exception to the stable dependency policy; AGP test suites need AGP 9.5.
+screenshot = "0.0.1-alpha16"
+navigation3 = "1.2.0"
+
+# -----------------------------------------------------------------------------
+# Dependency Injection
+# -----------------------------------------------------------------------------
+hilt = "2.60.1"
+hiltLifecycleViewmodelCompose = "1.4.0"
+
+# -----------------------------------------------------------------------------
+# Data Persistence
+# -----------------------------------------------------------------------------
+room = "3.0.3"
+sqlite = "2.7.1"
+benchmark = "1.5.0"
+profileinstaller = "1.4.1"
+uiautomator = "2.4.0"
+datastore = "1.2.1"
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+junit = "4.13.2"
+junitExt = "1.3.0"
+testRunner = "1.7.0"
+espresso = "3.7.0"
+turbine = "1.2.1"
+robolectric = "4.17"
+kover = "0.9.11"
+
+# =============================================================================
+# LIBRARIES
+# =============================================================================
+
+[libraries]
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
+sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
+# -----------------------------------------------------------------------------
+# AndroidX Core
+# -----------------------------------------------------------------------------
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
+
+# -----------------------------------------------------------------------------
+# Lifecycle
+# -----------------------------------------------------------------------------
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-savedstate = { module = "androidx.lifecycle:lifecycle-viewmodel-savedstate", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycle" }
+
+# -----------------------------------------------------------------------------
+# Compose BOM & Core
+# -----------------------------------------------------------------------------
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+androidx-compose-ui-test-junit4-accessibility = { module = "androidx.compose.ui:ui-test-junit4-accessibility" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
+androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+androidx-compose-material3-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "material3Adaptive" }
+androidx-compose-material3-adaptive-layout = { module = "androidx.compose.material3.adaptive:adaptive-layout", version.ref = "material3Adaptive" }
+androidx-compose-material3-adaptive-navigation3 = { module = "androidx.compose.material3.adaptive:adaptive-navigation3", version.ref = "material3Adaptive" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+
+# -----------------------------------------------------------------------------
+# Hilt - Dependency Injection
+# -----------------------------------------------------------------------------
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
+androidx-hilt-lifecycle-viewmodel-compose = { module = "androidx.hilt:hilt-lifecycle-viewmodel-compose", version.ref = "hiltLifecycleViewmodelCompose" }
+hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }
+
+# -----------------------------------------------------------------------------
+# Room - Local Database
+# -----------------------------------------------------------------------------
+room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
+room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
+room-testing = { module = "androidx.room3:room3-testing", version.ref = "room" }
+
+# -----------------------------------------------------------------------------
+# DataStore - Preferences
+# -----------------------------------------------------------------------------
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+
+# -----------------------------------------------------------------------------
+# Serialization
+# -----------------------------------------------------------------------------
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+# -----------------------------------------------------------------------------
+# Coroutines
+# -----------------------------------------------------------------------------
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+junit = { module = "junit:junit", version.ref = "junit" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "junitExt" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "testRunner" }
+androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+
+# -----------------------------------------------------------------------------
+# Build-logic dependencies (for convention plugins if used)
+# -----------------------------------------------------------------------------
+android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+ksp-gradlePlugin = { module = "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
+compose-gradlePlugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+
+# =============================================================================
+# BUNDLES - Grouped dependencies for common use cases
+# =============================================================================
+
+[bundles]
+# Core Compose dependencies used by most UI modules
+compose = [
+    "androidx-compose-ui",
+    "androidx-compose-ui-graphics",
+    "androidx-compose-ui-tooling-preview",
+    "androidx-compose-material3",
+    "androidx-compose-foundation",
+]
+
+# Debug-only Compose dependencies
+compose-debug = [
+    "androidx-compose-ui-tooling",
+    "androidx-compose-ui-test-manifest",
+]
+
+# Lifecycle dependencies for ViewModels
+lifecycle = [
+    "androidx-lifecycle-runtime-compose",
+    "androidx-lifecycle-viewmodel-compose",
+]
+
+# Navigation 3 dependencies (runtime + ui + ViewModel scoping)
+navigation3 = [
+    "androidx-navigation3-runtime",
+    "androidx-navigation3-ui",
+    "androidx-lifecycle-viewmodel-navigation3",
+]
+
+# Material 3 adaptive layouts driven by Navigation 3 scenes
+adaptive = [
+    "androidx-compose-material3-adaptive",
+    "androidx-compose-material3-adaptive-layout",
+    "androidx-compose-material3-adaptive-navigation3",
+]
+
+# Room 3 runtime (coroutine APIs are built in)
+room = [
+    "room-runtime",
+]
+
+
+# Testing dependencies for unit tests
+testing = [
+    "junit",
+    "kotlinx-coroutines-test",
+    "turbine",
+]
+
+# Compose UI tests executed locally on the JVM through Robolectric
+testing-robolectric = [
+    "robolectric",
+    "androidx-test-ext-junit",
+    "androidx-compose-ui-test-junit4",
+]
+
+# AndroidX testing dependencies
+testing-android = [
+    "androidx-test-ext-junit",
+    "androidx-test-espresso-core",
+    "androidx-compose-ui-test-junit4",
+]
+
+# =============================================================================
+# PLUGINS
+# =============================================================================
+
+[plugins]
+android-test = { id = "com.android.test", version.ref = "agp" }
+baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
+# Note: org.jetbrains.kotlin.android is intentionally absent - AGP 9 ships
+# built-in Kotlin support, so Android modules only apply the AGP plugin.
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room = { id = "androidx.room3", version.ref = "room" }
+
+# Kotlin-aware test coverage
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

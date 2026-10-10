@@ -1,0 +1,7 @@
+<resources>
+    <string name="priority_high">High</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_low">Low</string>
+    <string name="task_completion">Completion of %1$s</string>
+    <string name="delete_task_description">Delete task %1$s</string>
+</resources>

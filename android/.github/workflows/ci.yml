@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Adoption script tests
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Unit tests, lint, debug builds, and release R8 verification
+        run: >-
+          ./gradlew --no-daemon --stacktrace
+          testDebugUnitTest lintDebug assembleDebug
+          :core:database:assembleDebugAndroidTest
+          :feature:tasks:impl:assembleDebugAndroidTest
+          :app:lintRelease :app:assembleRelease
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-reports
+          path: '**/build/reports/**'
+          if-no-files-found: ignore
+          retention-days: 7
+
+  device-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools emulator platforms;android-37 build-tools;36.0.0 system-images;android-35;google_apis;x86_64'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Run SQLite, accessibility, and app restart journeys
+        run: |
+          sudo chmod a+rw /dev/kvm
+          echo no | avdmanager create avd --force --name ci-phone --package 'system-images;android-35;google_apis;x86_64' --device pixel_6
+          emulator -avd ci-phone -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > /tmp/emulator.log 2>&1 &
+          EMULATOR_PID=$!
+          trap 'kill "$EMULATOR_PID" || true' EXIT
+          timeout 180 bash -c 'until adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r" | grep -q "^1$"; do sleep 2; done'
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          ./gradlew --no-daemon :core:database:connectedDebugAndroidTest :feature:tasks:impl:connectedDebugAndroidTest
+          ./gradlew --no-daemon :benchmark:connectedNonMinifiedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.mtajchert.carom.app.benchmark.TasksSmokeTest
+      - name: Upload device reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: device-reports
+          path: |
+            **/build/reports/androidTests/**
+            **/build/outputs/androidTest-results/**
+            /tmp/emulator.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  screenshots:
+    # Keep rendering on macOS to match the reviewed reference font environment.
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      TZ: UTC
+      LANG: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Validate reviewed screenshots
+        run: ./gradlew --no-daemon :core:designsystem:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest :feature:tasks:impl:validateDebugScreenshotTest
+      - name: Upload screenshot comparisons
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: screenshot-reports
+          path: |
+            **/build/reports/screenshotTest/**
+            **/build/outputs/screenshotTest*/**
+          if-no-files-found: ignore
+          retention-days: 7

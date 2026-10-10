@@ -1,0 +1,9 @@
+{
+  "package": "com.mtajchert.carom.app",
+  "app_name": "Carom",
+  "host": "tajchert.github.io",
+  "scheme": "carom",
+  "symbol_prefix": "Carom",
+  "project_name": "carom",
+  "database": "carom-database"
+}
