@@ -46,7 +46,7 @@ When the app finds it has no usable keys (reinstall or restore), it starts onboa
 copyable URI) with a 5-minute countdown. When the candidate arrives:
 
 1. Verify `mac`, `pop` and `device_id`.
-2. Ask the user: "Add *<kind>* device `<fingerprint>`?"
+2. Ask the user: "Add device `<fingerprint>`?"
 3. On yes, post the welcome. On no, reject.
 
 The fingerprint is the first 8 characters of the candidate's `device_id` after `dev_`. It is
@@ -97,6 +97,9 @@ Other devices republish their records when they see the new key. A device that r
 `revoked` wipes its keys and returns to onboarding.
 
 ## Notifications (phone → desktop)
+
+**Hide content:** an app set to *Hide content* sends `title` absent, `text` "New notification" in
+the phone's language, and `redacted: false`.
 
 **Phone filters, applied before sending**
 - Skip:
@@ -177,6 +180,10 @@ and finishes.
 
 **Echo suppression (both platforms):** remember `SHA-256` of the last received text for
 10 seconds, and don't send it back.
+
+**Receive lists and new devices:** `"*"` includes every device, including future ones. A list of ids
+is an explicit choice: a newly paired device is **not** added to it, and settings show it as
+unchecked.
 
 **Settings (both platforms):**
 - **Send clipboard to:** a device multi-select, which defaults to every device whose

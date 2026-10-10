@@ -193,7 +193,8 @@ Apply these in order. The first failure drops the message silently (log it local
    whose body fails its schema is dropped (`bad_payload`).
 6. For `clipboard.set`: ignore it if `ts` is older than the last clipboard item applied locally.
 7. A message with `reply_to` is accepted only from a device that was in the `to` of the
-   original message. The original sender knows this.
+   original message. The original sender knows this. For `notification.dismiss@1`, the `key`
+   must also equal the key of that original message.
 
 ## 4. Message types (v1)
 
@@ -283,7 +284,10 @@ A device is a member when all three of these hold:
 The Hub never holds `K`, so it cannot add members. Records sealed under an older `kv` are
 ignored, so a revoked device cannot be brought back with an old record.
 
-One exception covers the window after a rekey (*transitional trust*). A record sealed under
+One exception covers the window after a rekey (*transitional trust*). A device that joined
+through a welcome calls `GET /v1/keyring?have=<newest kv − 1>`, so it also holds the newest
+version's box list. It verifies that version's signature with the `sign_pub` of a trusted
+member. A record sealed under
 `kv − 1` is still trusted when the newest verified keyring version contains a box for that
 device id. Such a device was deliberately kept and simply hasn't republished yet. Receivers keep the
 highest `updated` per id and ignore rollbacks. Records the device cannot open are ignored.
@@ -295,7 +299,8 @@ new pairing.
 
 ### 5.4 Revocation
 
-Any member may call `DELETE /v1/devices/:id`, including on itself. The Hub kills the token,
+Any member may call `DELETE /v1/devices/:id`, including on itself. A device leaving on its
+own first rekeys without itself (§5.5), and only then deletes itself. The Hub kills the token,
 drops pending deliveries, sends `{"t":"revoked"}` to the device, and sends `dir` to everyone
 else. The revoking device MUST then rekey (§5.5), so the revoked device cannot read future
 messages.
@@ -332,7 +337,8 @@ than `kv`, with all boxes included so the signature can be checked. The device t
 
 1. Checks that `by` was a member under the previous key. For kv 2 that means a trusted
    directory member. For kv n+1 it means a device boxed in version n. A device that missed
-   several versions verifies them in order.
+   several versions verifies them in order. It may use its cached directory to find the
+   `sign_pub` of a writer that has since been revoked.
 2. Verifies `sig` over all boxes.
 3. Opens its own box.
 4. Republishes its record under `K'`.
