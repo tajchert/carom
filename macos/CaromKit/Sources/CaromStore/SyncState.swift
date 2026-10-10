@@ -9,14 +9,12 @@ public struct DirectoryEntry: Sendable, Equatable, Codable {
     public var kv: Int
     public var createdAt: Int?
     public var lastSeen: Int?
-    public var hasPush: Bool
 
-    public init(record: DeviceRecord, kv: Int, createdAt: Int? = nil, lastSeen: Int? = nil, hasPush: Bool = false) {
+    public init(record: DeviceRecord, kv: Int, createdAt: Int? = nil, lastSeen: Int? = nil) {
         self.record = record
         self.kv = kv
         self.createdAt = createdAt
         self.lastSeen = lastSeen
-        self.hasPush = hasPush
     }
 }
 

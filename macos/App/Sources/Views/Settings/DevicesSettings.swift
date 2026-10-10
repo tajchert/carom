@@ -126,7 +126,6 @@ private struct DeviceRow: View {
 
     private var details: String {
         var parts = [kindLabel(entry.record.kind), lastSeenText(entry.lastSeen)]
-        if entry.record.kind == .phone { parts.append(entry.hasPush ? "Push on" : "No push") }
         if let battery = model.deviceStatus[entry.record.id]?.battery {
             parts.append("Battery \(battery)%")
         }

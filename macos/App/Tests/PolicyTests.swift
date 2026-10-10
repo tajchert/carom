@@ -98,6 +98,9 @@ struct MessageTests {
     @Test func sentSummary() {
         #expect(UserMessages.sent(to: ["Pixel"]) == "Sent to Pixel.")
         #expect(UserMessages.sent(to: ["A", "B"]) == "Sent to 2 devices.")
+        #expect(UserMessages.sent(to: ["Pixel"], onlyPhones: true)
+                == "Sent to Pixel. It arrives when Carom is opened on your phone.")
+        #expect(UserMessages.arrivesWhenOpened(on: ["Pixel"]) == "Arrives when Carom is opened on Pixel.")
     }
 
     @Test func qrRoundTrip() throws {

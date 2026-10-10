@@ -268,6 +268,8 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
   protocol so tests use a fake) and the realtime socket. It forwards `NSWorkspace` sleep/wake and
   `NetworkPathObserver` changes to `HubSocket`, flushes the outbox every 30 s and on wake, and
   implements the handler side through `SyncBridge` (`SyncHandler` → main actor).
+- **Sending to phones** is pull-only (SPEC §9): a clipboard item for a phone waits at the Hub until the
+  phone is opened. Settings › Clipboard and the Send Clipboard confirmation say so.
 - **Connection state** comes from `SyncEngine.realtimeStates()` (connected after the first frame
   or pong; the engine pings once right away), combined with sleep and no-network from the system
   monitor. After 45 s without a connection a "Can't reach your Hub" banner appears.

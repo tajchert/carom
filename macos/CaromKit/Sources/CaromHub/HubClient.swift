@@ -35,8 +35,7 @@ public struct HubClient: HubAPI {
               let setupDone = j["setup_done"]?.boolValue
         else { throw .invalidResponse("info") }
         return HubInfo(name: name, protocolVersion: proto, version: j["version"]?.stringValue ?? "",
-                       setupDone: setupDone, vapidPublicKey: j["vapid_public_key"]?.stringValue,
-                       jurisdiction: j["jurisdiction"]?.stringValue)
+                       setupDone: setupDone, jurisdiction: j["jurisdiction"]?.stringValue)
     }
 
     public func setup(setupToken: String, signPub: Data, kxPub: Data) async throws(HubError) -> HubCredentials {
@@ -114,15 +113,6 @@ public struct HubClient: HubAPI {
 
     public func putRecord(_ record: SealedRecord) async throws(HubError) {
         _ = try await call("PUT", "/v1/devices/self/record", body: ["record": record.json])
-    }
-
-    public func putPush(endpoint: String, p256dh: String, auth: String) async throws(HubError) {
-        _ = try await call("PUT", "/v1/devices/self/push", body: ["endpoint": .string(endpoint),
-                                                                  "p256dh": .string(p256dh), "auth": .string(auth)])
-    }
-
-    public func deletePush() async throws(HubError) {
-        _ = try await call("DELETE", "/v1/devices/self/push")
     }
 
     public func revoke(deviceId: String) async throws(HubError) {

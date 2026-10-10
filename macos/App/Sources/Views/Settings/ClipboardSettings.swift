@@ -34,6 +34,11 @@ struct ClipboardSettings: View {
                     }
                 } header: {
                     Text("Send To")
+                } footer: {
+                    let phones = model.clipboardTargets.filter { $0.record.kind == .phone }.map(\.record.name)
+                    if !phones.isEmpty {
+                        Footnote(UserMessages.arrivesWhenOpened(on: phones))
+                    }
                 }
 
                 Section {

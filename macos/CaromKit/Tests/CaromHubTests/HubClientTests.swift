@@ -94,11 +94,11 @@ struct HubClientTests {
 
     @Test func infoIsUnauthenticatedAndParsed() async throws {
         StubProtocol.install { _ in
-            .status(200, #"{"name":"carom-hub","protocol":1,"version":"0.1.0","setup_done":true,"vapid_public_key":"BAAA","jurisdiction":null}"#)
+            .status(200, #"{"name":"carom-hub","protocol":1,"version":"0.1.0","setup_done":true,"jurisdiction":null}"#)
         }
         let info = try await client().info()
         #expect(info == HubInfo(name: "carom-hub", protocolVersion: 1, version: "0.1.0", setupDone: true,
-                                vapidPublicKey: "BAAA", jurisdiction: nil))
+                                jurisdiction: nil))
         let req = try #require(StubProtocol.requests.first)
         #expect(req.method == "GET")
         #expect(req.url == "https://hub.example.com/carom/v1/info")
@@ -129,10 +129,10 @@ struct HubClientTests {
     }
 
     @Test func authenticatedRoutesSendTheBearerToken() async throws {
-        StubProtocol.install { _ in .status(200, #"{"devices":[{"id":"dev_x","sign_pub":"a","kx_pub":"b","created_at":1,"last_seen":2,"has_push":true}]}"#) }
+        StubProtocol.install { _ in .status(200, #"{"devices":[{"id":"dev_x","sign_pub":"a","kx_pub":"b","created_at":1,"last_seen":2}]}"#) }
         let devices = try await client(token: "ct1.abc").devices()
         #expect(devices == [DeviceListing(id: "dev_x", signPub: "a", kxPub: "b", createdAt: 1, lastSeen: 2,
-                                          hasPush: true, record: nil)])
+                                          record: nil)])
         #expect(StubProtocol.requests.first?.headers["Authorization"] == "Bearer ct1.abc")
     }
 
@@ -174,8 +174,6 @@ struct HubClientTests {
         try await c.pairReject(pairId: "AAECAwQFBgcICQoLDA0ODw")
         #expect(try await c.pairWelcomeFetch(pairId: "AAECAwQFBgcICQoLDA0ODw") == box.json)
         try await c.putRecord(sealed)
-        try await c.putPush(endpoint: "https://push.example/x", p256dh: "p", auth: "a")
-        try await c.deletePush()
         try await c.revoke(deviceId: "self")
         #expect(try await c.postMessage(env) == PostResult(seq: 7, duplicate: false, superseded: false))
         #expect(try await c.fetchMessages(limit: 500)
@@ -193,8 +191,6 @@ struct HubClientTests {
             "POST /carom/v1/pair/AAECAwQFBgcICQoLDA0ODw/reject",
             "GET /carom/v1/pair/AAECAwQFBgcICQoLDA0ODw/welcome",
             "PUT /carom/v1/devices/self/record",
-            "PUT /carom/v1/devices/self/push",
-            "DELETE /carom/v1/devices/self/push",
             "DELETE /carom/v1/devices/self",
             "POST /carom/v1/messages",
             "GET /carom/v1/messages?limit=200",
@@ -205,10 +201,10 @@ struct HubClientTests {
         #expect(bodies[0] == version.json)
         #expect(bodies[4] == ["box": box.json])
         #expect(bodies[7] == ["record": sealed.json])
-        #expect(bodies[11] == ["envelope": env.json])
-        #expect(bodies[13] == ["up_to": 3])
-        #expect(bodies[14] == ["setup_token": "t", "confirm": "erase everything"])
-        #expect(StubProtocol.requests[14].headers["Authorization"] == nil)
+        #expect(bodies[9] == ["envelope": env.json])
+        #expect(bodies[11] == ["up_to": 3])
+        #expect(bodies[12] == ["setup_token": "t", "confirm": "erase everything"])
+        #expect(StubProtocol.requests[12].headers["Authorization"] == nil)
     }
 
     @Test func conflictCarriesInactiveIds() async throws {
