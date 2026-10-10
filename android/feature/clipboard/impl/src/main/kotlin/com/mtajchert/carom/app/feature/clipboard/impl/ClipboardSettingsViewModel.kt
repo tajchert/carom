@@ -33,6 +33,8 @@ data class ClipboardSettingsState(
     /** Every other trusted device; checked ones may send here when [receiveFromAll] is off. */
     val receiveFrom: List<ClipboardDeviceRow> = emptyList(),
     val arrivalNotification: Boolean = true,
+    /** The optional ongoing "Carom" notification with a Send clipboard action (default off). */
+    val ongoingNotification: Boolean = false,
     /** Publishing the receive rule failed (offline); the UI shows a short message. */
     val receiveUpdateFailed: Boolean = false,
     val loaded: Boolean = false,
@@ -71,6 +73,7 @@ class ClipboardSettingsViewModel @Inject constructor(
             receiveFromAll = rule is ReceiveRule.Everyone,
             receiveFrom = others.map { ClipboardDeviceRow(it.id, it.record!!.name, rule.allows(it.id)) },
             arrivalNotification = prefs.clipboardArrivalNotification,
+            ongoingNotification = prefs.ongoingNotification,
             receiveUpdateFailed = receiveFailed,
             loaded = true,
         )
@@ -98,6 +101,10 @@ class ClipboardSettingsViewModel @Inject constructor(
 
     fun setArrivalNotification(enabled: Boolean) {
         viewModelScope.launch { preferences.setClipboardArrivalNotification(enabled) }
+    }
+
+    fun setOngoingNotification(enabled: Boolean) {
+        viewModelScope.launch { preferences.setOngoingNotification(enabled) }
     }
 
     private fun publish(rule: ReceiveRule) {

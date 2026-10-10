@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.feature.clipboard.impl
 
+import com.mtajchert.carom.app.core.data.runtime.SyncStartHook
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import dagger.Binds
 import dagger.Module
@@ -19,4 +20,11 @@ abstract class ClipboardModule {
 
     @Binds
     internal abstract fun bindsSendTargets(impl: DataStoreClipboardSendTargets): ClipboardSendTargets
+
+    @Binds
+    internal abstract fun bindsOngoingNotifier(impl: AndroidOngoingNotifier): OngoingNotifier
+
+    /** Keeps the optional ongoing notification in step with its setting and the pairing. */
+    @Binds @IntoSet
+    internal abstract fun bindsOngoingNotification(impl: OngoingNotificationController): SyncStartHook
 }

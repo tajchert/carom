@@ -8,6 +8,7 @@
     <string name="feature_clipboard_receive_any">Any device</string>
     <string name="feature_clipboard_update_failed">Could not update. Try again when you are online.</string>
     <string name="feature_clipboard_notification">Show a notification when a clipboard arrives</string>
+    <string name="feature_clipboard_ongoing">Keep a Carom notification with a Send clipboard button</string>
 
     <string name="feature_clipboard_sent">Clipboard sent</string>
     <string name="feature_clipboard_queued">Clipboard will be sent when you are online</string>
@@ -27,4 +28,9 @@
     <string name="feature_clipboard_arrived_sensitive">Sensitive text copied</string>
     <string name="feature_clipboard_copy_again">Copy again</string>
     <string name="feature_clipboard_unknown_device">another device</string>
+
+    <string name="feature_clipboard_ongoing_channel_name">Send clipboard shortcut</string>
+    <string name="feature_clipboard_ongoing_channel_description">An optional silent notification with a Send clipboard button</string>
+    <string name="feature_clipboard_ongoing_title">Carom</string>
+    <string name="feature_clipboard_ongoing_text">Copy something, then tap Send clipboard.</string>
 </resources>

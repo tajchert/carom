@@ -36,6 +36,7 @@ fun ClipboardSettingsScreen(onBack: () -> Unit, viewModel: ClipboardSettingsView
         onReceiveFromAll = viewModel::setReceiveFromAll,
         onReceiveFrom = viewModel::setReceiveFrom,
         onArrivalNotification = viewModel::setArrivalNotification,
+        onOngoingNotification = viewModel::setOngoingNotification,
     )
 }
 
@@ -49,6 +50,7 @@ fun ClipboardSettingsContent(
     onReceiveFrom: (String, Boolean) -> Unit,
     onArrivalNotification: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onOngoingNotification: (Boolean) -> Unit = {},
 ) {
     CaromSimpleScreen(title = stringResource(R.string.feature_clipboard_title), onBack = onBack, modifier = modifier) {
         if (!state.loaded) return@CaromSimpleScreen
@@ -80,6 +82,7 @@ fun ClipboardSettingsContent(
         }
 
         SwitchRow(stringResource(R.string.feature_clipboard_notification), state.arrivalNotification, onArrivalNotification)
+        SwitchRow(stringResource(R.string.feature_clipboard_ongoing), state.ongoingNotification, onOngoingNotification)
     }
 }
 

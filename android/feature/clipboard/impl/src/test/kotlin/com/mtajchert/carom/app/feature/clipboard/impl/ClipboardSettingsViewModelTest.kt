@@ -131,5 +131,8 @@ class ClipboardSettingsViewModelTest {
         vm.setArrivalNotification(false)
 
         assertFalse(prefs.current.clipboardArrivalNotification)
+
+        vm.setOngoingNotification(true)
+        assertTrue(prefs.current.ongoingNotification)
     }
 }
