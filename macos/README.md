@@ -5,7 +5,8 @@ menu-bar app built on it (see [The menu-bar app](#the-menu-bar-app)).
 
 | Path | What |
 |---|---|
-| [`CaromKit/`](CaromKit/) | Swift package: protocol, Hub client, storage, sync engine, tests |
+| [`CaromKit/`](CaromKit/) | Swift package: protocol, Hub client, storage, sync engine, desktop services, tests |
+| [`scripts/`](scripts/) | End-to-end test of the app against a local Hub with a simulated phone |
 | [`App/`](App/) | The Carom menu-bar app: XcodeGen spec, generated Xcode project, sources, unit tests |
 
 The contracts are [`protocol/SPEC.md`](../protocol/SPEC.md) (wire format) and
@@ -94,8 +95,15 @@ Failures from untrusted input are `Result` values whose error `rawValue`s are th
 | Directory | `refreshDirectory()`, `checkKeyring()`, `directory`, `rename(_:)`, `setReceiveRule(_:for:)` |
 | Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `flushOutbox()`, `outbox` |
 | Receive | `fetchMessages()`, `process(_:)`, `handle(_ event: HubSocket.Event)` |
-| Realtime | `startRealtime(connector:configuration:) -> HubSocket?`, `stopRealtime()` |
-| Revoke | `revoke(deviceId:)` (then rekey), `rekey(excluding:)`, `handleRevoked()` |
+| Realtime | `startRealtime(connector:configuration:) -> HubSocket?`, `stopRealtime()`, `realtimeState`, `realtimeStates()` (offline / connecting / connected; a fresh stream per call) |
+| Revoke | `revoke(deviceId:)` (another device: delete, then rekey; this device: rekey without itself, then delete, SPEC §5.4), `rekey(excluding:)`, `handleRevoked()` |
+
+Trust details beyond the basics: a device that joined through a welcome fetches the newest keyring
+version's box list (`GET /v1/keyring?have=<kv − 1>`, verified with a trusted member's key) so
+records still sealed under kv − 1 by boxed devices count (SPEC §5.3). Former members' `sign_pub`s
+are cached with the newest kv they were members under, so a keyring version written by a device
+that was revoked since still verifies (SPEC §5.5 step 1). A `notification.dismiss@1` must name the
+key of the `notification.posted@1` it replies to (SPEC §3.3 rule 7).
 
 The app implements `SyncHandler`: `handle(_ message: IncomingMessage)` for decoded messages with
 their trusted sender, and `handle(_ event: SyncEvent)` for `directoryChanged`,
@@ -135,7 +143,8 @@ Optional checks:
 # Real login Keychain round trip (creates and deletes a temporary item).
 CAROM_KEYCHAIN_TESTS=1 swift test --filter realKeychainRoundTrip
 
-# Setup + pair + messages + WebSocket + revoke/rekey against a real Hub, which it then RESETS.
+# Setup + pair + messages + WebSocket state + revoke/rekey + self-leave + joiner transitional
+# trust + dismiss key check against a real Hub (deployed, or `wrangler dev`), which it then RESETS.
 # The Hub must be fresh, or add CAROM_RESET_FIRST=1 to wipe it first.
 CAROM_HUB_URL=https://carom-hub.<account>.workers.dev CAROM_SETUP_TOKEN=... \
   swift test --filter HubIntegrationTests
@@ -180,8 +189,8 @@ loopback hosts).
 ## The menu-bar app
 
 `App/` holds **Carom**, a SwiftUI `MenuBarExtra` (window style) agent app (`LSUIElement`, no Dock
-icon) for macOS 14 and later. It depends on the `CaromProtocol`, `CaromHub`, `CaromStore` and
-`CaromSync` products of the local CaromKit package.
+icon) for macOS 14 and later. It depends on the `CaromProtocol`, `CaromHub`, `CaromStore`,
+`CaromSync` and `CaromDesktop` products of the local CaromKit package.
 
 ### Build and run
 
@@ -209,25 +218,27 @@ from scratch, quit Carom, delete `~/Library/Application Support/Carom/state.json
 | Setting | Value |
 |---|---|
 | Bundle id | `com.mtajchert.carom.mac` |
-| Team | `LNYRY7V366` (automatic signing), set in `App/Config/Signing.xcconfig` |
-| Debug identity | `-` (Sign to Run Locally) by default, so any Mac builds without a certificate |
-| Hardened runtime | on (`ENABLE_HARDENED_RUNTIME`); Xcode only applies it with a real identity, not ad hoc |
+| Team | `6ZW8LB554N` (automatic signing, Apple Development), set in `App/Config/Signing.xcconfig`. The team id is the certificate's OU, not the id in its name: `security find-certificate -c "Apple Development" -p \| openssl x509 -noout -subject` |
+| Hardened runtime | on (`ENABLE_HARDENED_RUNTIME`) |
 | App Sandbox | off for now (Developer ID distribution later); the code avoids sandbox-hostile APIs |
 
-Override signing locally in `App/Config/Signing.local.xcconfig` (git-ignored), for example:
+Override signing locally in `App/Config/Signing.local.xcconfig` (git-ignored): another team with
+`DEVELOPMENT_TEAM = <id>`, or ad hoc signing on a Mac without a certificate:
 
 ```
-DEVELOPMENT_TEAM = LNYRY7V366
-CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM =
+CODE_SIGN_IDENTITY = -
 ```
 
 or pass `DEVELOPMENT_TEAM=… CODE_SIGN_IDENTITY=…` to `xcodebuild`.
 
 The data protection keychain needs a `keychain-access-groups` entitlement, which on macOS requires
 a provisioning profile. The project does not declare it yet so that command-line builds work
-without an Xcode account. `SecretStoreFactory` probes the data protection keychain and, on
-`errSecMissingEntitlement`, falls back to the login keychain (still `kSecAttrSynchronizable =
-false`). With an ad hoc signature the login keychain may ask for access after each rebuild. For
+without an Xcode account. `SecretStoreFactory` keeps using whichever keychain already holds this
+Mac's keys; otherwise it uses the data protection keychain if a write/read/delete probe works, and
+the login keychain if not (still `kSecAttrSynchronizable = false`). Team-signed Debug builds use the
+login keychain without prompts across rebuilds; with an ad hoc signature macOS may ask for access
+after each rebuild. For
 release builds add `keychain-access-groups: [$(AppIdentifierPrefix)com.mtajchert.carom.mac]` to the
 entitlements in `project.yml` and sign with a profile.
 
@@ -244,10 +255,11 @@ App/
     App/                 CaromApp: MenuBarExtra, Onboarding / Add Device windows, Settings
     Model/               AppModel, Preferences, ReceivePolicy, activity, banners, user copy
     Services/            SyncService seam over SyncEngine, CaromDesktop seams, QR (CoreImage +
-                         Vision), sleep/wake + network monitor, socket state observer, Keychain choice
+                         Vision), sleep/wake + network monitor, Keychain choice
     Views/               menu popover, onboarding, add device, Settings tabs
-    Desktop/             CaromDesktopShim.swift (TEMPORARY, see below)
-  Tests/                 Swift Testing: AppModel against fakes, policies, preferences, QR round trip
+  Tests/                 Swift Testing: AppModel against fakes, policies, preferences, QR round
+                         trip, Keychain choice
+scripts/                 e2e.sh + fake-phone.mjs: the real app against a local Hub (see below)
 ```
 
 ### How it works
@@ -256,40 +268,64 @@ App/
   protocol so tests use a fake) and the realtime socket. It forwards `NSWorkspace` sleep/wake and
   `NetworkPathObserver` changes to `HubSocket`, flushes the outbox every 30 s and on wake, and
   implements the handler side through `SyncBridge` (`SyncHandler` → main actor).
-- **Connection state.** `HubSocket.events` is consumed by the engine, so the app wraps the
-  WebSocket connector (`ObservedConnector`) to learn when a connection is really up (first frame
-  or pong; it sends one ping right away) or down. After 45 s without a connection a "Can't reach
-  your Hub" banner appears.
+- **Connection state** comes from `SyncEngine.realtimeStates()` (connected after the first frame
+  or pong; the engine pings once right away), combined with sleep and no-network from the system
+  monitor. After 45 s without a connection a "Can't reach your Hub" banner appears.
 - **Notifications.** `notification.posted` → `NotificationPresenter.present` unless paused, the
   phone is turned off in our `receive` rules, or the app is muted locally. The phone name is shown
-  only with more than one phone. `removed` withdraws. *Dismiss on phone* sends
+  only with more than one phone. `removed` withdraws it (and drops it from the menu). Redacted
+  notifications with no text read "Content hidden on your phone." *Dismiss on phone* sends
   `notification.dismiss@1` with `reply_to`. Copying a code or text from a notification suppresses
   automatic sending for 2 s, so it is not sent straight back.
 - **Clipboard.** `clipboard.set` is written with `ClipboardWatcher.write` (marker type, so the
-  watcher skips it; the engine also suppresses echoes). Automatic sending defaults to on only when
-  pasteboard access is *Always allow* (`NSPasteboard.accessBehavior`, macOS 15.4+); otherwise it is
-  off and Settings explains how to allow it. The watcher only runs while automatic sending is on
+  watcher skips it; the engine also suppresses echoes). Automatic sending defaults to on when
+  pasteboard access is *Always allow* (`NSPasteboard.accessBehavior`, macOS 15.4+) and on macOS
+  before 15.4 (no access control there); otherwise it is off and Settings explains how to allow
+  it. Onboarding's *Check Access* button reads the clipboard once, so Carom appears in the system's
+  pasteboard access list. The watcher only runs while automatic sending is on
   and Carom is not paused. ⌃⌥⌘C and *Send Clipboard* send the current item at any time.
 - **Settings are persisted** in the sync state through `SyncEngine.setSetting("app.preferences",
-  …)`: pause, muted and seen apps, automatic clipboard, the "Send to" list, known devices and
-  onboarding completion. Per-phone notification on/off and "Receive from" are written as our
-  record's `receive` rules (`setReceiveRule`), so senders stop sending. A rule where everyone is
-  allowed collapses to `"*"`; devices paired later are added to narrowed rules (default: allowed).
+  …)`: pause, muted and seen apps, automatic clipboard, the "Send to" list and onboarding
+  completion. Per-phone notification on/off and "Receive from" are written as our record's
+  `receive` rules (`setReceiveRule`), so senders stop sending. A rule where everyone is allowed
+  collapses to `"*"`, which covers devices paired later. A list of ids (and a "Send to" list) is
+  an explicit choice: devices paired later are not added and show unchecked (docs/CLIENTS.md).
+- **Quit** unregisters the global hotkey and stops the pasteboard watcher. The login item toggle
+  uses `SMAppService.mainApp` and says so when System Settings has to approve it.
 - **Problems** surface as banners in the popover: 401 (`tokenRejected`: syncing stops, *Pair
   Again…* erases the keys after confirmation), revocation (back to onboarding), removal notices
-  ("<by> removed <name>", or "removed without a key change"), Hub unreachable, failed pairing
+  ("<by> removed <name>", "<name> left your devices", or "removed without a key change"), Hub
+  unreachable, failed pairing
   checks and dropped sends.
 - **Privacy.** Recent notifications and clips live in memory only; sensitive clips are never
   shown. Logs carry no content, keys, tokens or URIs.
 
-### CaromDesktop shim (temporary)
+### Scripted runs and the end-to-end test (Debug builds)
 
-The `CaromDesktop` target of CaromKit (`NotificationPresenter`, `ClipboardWatcher`,
-`HotkeyManager`, `LoginItem`, `CodeExtractor`) is developed in parallel. Until it lands,
-`Sources/Desktop/CaromDesktopShim.swift` implements the same API minimally, wrapped in
-`#if !canImport(CaromDesktop)`. App files import `CaromDesktop` behind `#if canImport`. At
-integration: add the `CaromDesktop` product to the `Carom` target in `project.yml` (the commented
-lines), run `xcodegen generate`, delete the shim, and check that the real signatures match the
-seams in `Sources/Services/DesktopPorts.swift` (the shim assumes Carbon `UInt32` key codes and
-modifiers for `HotkeyManager.register`, a `Duration` interval for `ClipboardWatcher`, and static
-`LoginItem.isEnabled` / `setEnabled(_:)`).
+Debug builds accept launch arguments (Release builds ignore them; see
+`Sources/App/DebugLaunch.swift`):
+
+| Argument | Effect |
+|---|---|
+| `-caromProfile <name>` | separate state folder (`Application Support/Carom-<name>`) and Keychain service |
+| `-caromSetupURI <uri>` | set up a Hub without the onboarding UI |
+| `-caromInviteFile <path>` | create a pair invite and write its URI there (mode 0600; it holds the pair secret) |
+| `-caromAutoApprove YES` | approve a verified pairing candidate |
+| `-caromEventLog <path>` | append event names and message types, never content |
+| `-caromShowWindows menu,settings` | open the popover content in a window, and Settings, for screenshots |
+
+`scripts/e2e.sh` uses them to run the real app against a local Hub with a simulated phone
+(`scripts/fake-phone.mjs`, real crypto from `@carom/protocol`): setup, pairing, notification
+posted and removed, clipboard. It checks the event log and the pasteboard:
+
+```sh
+npm install && (cd protocol/ts && npm run build)      # once, at the repository root
+printf 'SETUP_TOKEN=%s\n' "$TOKEN" > hub/.dev.vars      # TOKEN: 40+ random characters
+(cd hub && npx wrangler dev --port 8790) &
+printf '{"setupToken":"%s"}' "$TOKEN" > /tmp/carom-token.json
+macos/scripts/e2e.sh http://localhost:8790 /tmp/carom-token.json \
+  ~/Library/Developer/Xcode/DerivedData/Carom-*/Build/Products/Debug/Carom.app
+```
+
+It resets the Hub, uses the `e2e` profile, and overwrites the clipboard with a test marker.
+Notification banners only appear once Carom is allowed to post notifications.
