@@ -31,8 +31,9 @@ final class InertSyncService: SyncService {
         .noRecipients
     }
     func flushOutbox() async -> [SendOutcome] { [] }
-    func openRealtime(connector: any WebSocketConnector) async -> HubSocket? { nil }
+    func openRealtime() async -> HubSocket? { nil }
     func stopRealtime() async {}
+    func realtimeStates() -> AsyncStream<RealtimeState> { AsyncStream { $0.yield(.offline) } }
     func revoke(deviceId: String) async throws {}
     func wipe() async {}
 }

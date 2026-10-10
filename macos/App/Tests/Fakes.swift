@@ -94,7 +94,9 @@ actor FakeSync: SyncService {
     }
 
     func flushOutbox() async -> [SendOutcome] { [] }
-    func openRealtime(connector: any WebSocketConnector) async -> HubSocket? { nil }
+    func openRealtime() async -> HubSocket? { nil }
+    nonisolated let realtime = AsyncStream.makeStream(of: RealtimeState.self)
+    nonisolated func realtimeStates() -> AsyncStream<RealtimeState> { realtime.stream }
     func stopRealtime() async { stopRealtimeCalls += 1 }
     func revoke(deviceId: String) async throws { revoked.append(deviceId) }
     func wipe() async {
@@ -128,11 +130,15 @@ final class FakeClipboard: ClipboardWatching {
     var running = false
     var written: [ClipboardItem] = []
     var current: ClipboardItem?
+    var reads = 0
 
     func start() { running = true }
     func stop() { running = false }
     func write(text: String, sensitive: Bool) { written.append(ClipboardItem(text: text, sensitive: sensitive)) }
-    func readCurrent() -> ClipboardItem? { current }
+    func readCurrent() -> ClipboardItem? {
+        reads += 1
+        return current
+    }
 }
 
 @MainActor
@@ -156,7 +162,16 @@ final class FakeHotkey: HotkeyRegistering {
 @MainActor
 final class FakeLoginItem: LoginItemControlling {
     var isEnabled = false
-    func setEnabled(_ enabled: Bool) throws { isEnabled = enabled }
+    var requiresApproval = false
+    /// Simulates SMAppService registering but waiting for the user's approval.
+    var needsApproval = false
+    func setEnabled(_ enabled: Bool) throws {
+        if enabled, needsApproval {
+            requiresApproval = true
+            return
+        }
+        isEnabled = enabled
+    }
 }
 
 /// A model wired to fakes, plus handles to inspect them.
@@ -167,6 +182,7 @@ struct Harness {
     let presenter = FakePresenter()
     let clipboard = FakeClipboard()
     let hotkey = FakeHotkey()
+    let loginItem = FakeLoginItem()
     let clock: TestClock
 
     init(directory: [DirectoryEntry] = [entry(record(phoneA, "Pixel", kind: .phone))],
@@ -187,7 +203,7 @@ struct Harness {
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
-                                                  loginItem: FakeLoginItem()),
+                                                  loginItem: loginItem),
                          options: options)
     }
 

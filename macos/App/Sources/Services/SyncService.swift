@@ -50,8 +50,11 @@ protocol SyncService: AnyObject, Sendable {
     func send<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws -> SendOutcome
     @discardableResult func flushOutbox() async -> [SendOutcome]
 
-    func openRealtime(connector: any WebSocketConnector) async -> HubSocket?
+    /// Starts the engine's WebSocket; the app forwards sleep, wake and network changes to it.
+    func openRealtime() async -> HubSocket?
     func stopRealtime() async
+    /// The current realtime state first, then every change.
+    func realtimeStates() -> AsyncStream<RealtimeState>
     func revoke(deviceId: String) async throws
     func wipe() async
 }
@@ -70,7 +73,7 @@ extension SyncEngine: SyncService {
         try await pollPairing(pairId: pairId).map { Candidate(pairId: pairId, deviceId: $0.deviceId) }
     }
 
-    func openRealtime(connector: any WebSocketConnector) async -> HubSocket? {
-        await startRealtime(connector: connector)
+    func openRealtime() async -> HubSocket? {
+        await startRealtime()
     }
 }

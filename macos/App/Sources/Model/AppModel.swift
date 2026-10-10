@@ -91,6 +91,8 @@ final class AppModel {
     private(set) var notificationsAllowed: Bool?
     private(set) var hotkeyAvailable = false
     private(set) var launchAtLogin = false
+    /// Why the login item toggle didn't take, if it didn't.
+    private(set) var loginItemMessage: String?
     /// Battery reports (`device.status@1`) by device id.
     private(set) var deviceStatus: [String: DeviceStatus] = [:]
     var windowRequest: WindowRequest?
@@ -107,12 +109,12 @@ final class AppModel {
 
     @ObservationIgnored private var socket: HubSocket?
     @ObservationIgnored private var monitor: SystemMonitor?
-    @ObservationIgnored private var transportTask: Task<Void, Never>?
+    @ObservationIgnored private var realtimeTask: Task<Void, Never>?
+    @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var outboxTask: Task<Void, Never>?
     @ObservationIgnored private var unreachableTask: Task<Void, Never>?
     @ObservationIgnored private var pairingTask: Task<Void, Never>?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
-    @ObservationIgnored private var latestConnection = 0
     @ObservationIgnored private var suppressCopiesUntil = Date.distantPast
     @ObservationIgnored private var watcherRunning = false
 
@@ -186,6 +188,14 @@ final class AppModel {
             Task { await self.perform(action) }
         }
         clipboard.onCopy = { [weak self] item in self?.clipboardChanged(item) }
+        observeRealtime()
+        if options.systemHooks {
+            terminationObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.shutdown() }
+            }
+        }
         launchAtLogin = loginItem.isEnabled
         pasteboardAccess = clipboard.accessBehavior
         await reloadState(loadPreferences: true)
@@ -212,8 +222,6 @@ final class AppModel {
 
     /// Stops everything that talks to the Hub or the system (on revoke and reset).
     private func stopServices() async {
-        transportTask?.cancel()
-        transportTask = nil
         outboxTask?.cancel()
         outboxTask = nil
         unreachableTask?.cancel()
@@ -241,8 +249,11 @@ final class AppModel {
         applyDirectory(await sync.directory)
     }
 
-    /// Applies a new directory: withdraws notifications of removed phones and gives newly paired
-    /// devices the default (allowed) settings when the user has narrowed a rule.
+    /// Applies a new directory and withdraws notifications of removed phones.
+    ///
+    /// Receive lists and the "Send to" list are left alone: `"*"` (or no list) already includes
+    /// devices paired later, and a list of ids is an explicit choice, so a new device is not
+    /// added to it and shows as unchecked (docs/CLIENTS.md, receive lists and new devices).
     private func applyDirectory(_ newDirectory: [DirectoryEntry]) {
         let newIds = Set(newDirectory.map(\.record.id))
         for gone in phones where !newIds.contains(gone.record.id) {
@@ -251,62 +262,41 @@ final class AppModel {
         }
         directory = newDirectory
         deviceStatus = deviceStatus.filter { newIds.contains($0.key) }
-
-        // Remember who was there, so devices paired later get the defaults (allowed).
-        guard deviceId != nil else { return }
-        let known = preferences.knownDevices.map { Set($0) }
-        guard known != newIds else { return }
-        let added = known.map { newIds.subtracting($0) } ?? []
-        preferences.knownDevices = DeviceID.sorted(newIds)
-        if !added.isEmpty, let sendTo = preferences.clipboardSendTo {
-            preferences.clipboardSendTo = DeviceID.sorted(Set(sendTo).union(added))
-        }
-        savePreferences()
-        guard !added.isEmpty else { return }
-        let devices = Array(newIds)
-        let rules = receiveRules
-        Task { [weak self] in
-            guard let self else { return }
-            for category in ReceiveCategory.allCases {
-                guard let rule = ReceivePolicy.rule(rules[category.primaryType.rawValue], adding: added,
-                                                    devices: devices) else { continue }
-                for type in category.types { try? await self.sync.setReceiveRule(rule, for: type) }
-            }
-            self.receiveRules = await self.sync.receiveRules
-        }
     }
 
     // MARK: Realtime connection
 
     private func startRealtime() async {
-        transportTask?.cancel()
-        let (stream, continuation) = AsyncStream.makeStream(of: TransportEvent.self)
-        transportTask = Task { [weak self] in
-            for await event in stream { self?.transport(event) }
-        }
-        let connector = ObservedConnector(report: { continuation.yield($0) })
-        socket = await sync.openRealtime(connector: connector)
+        socket = await sync.openRealtime()
         connection = socket == nil ? .offline : .connecting
         if socket != nil { armUnreachable() }
     }
 
-    func transport(_ event: TransportEvent) {
-        guard connection != .stopped else { return }
-        switch event {
-        case .opening(let id):
-            latestConnection = id
-            if connection != .connected { connection = .connecting }
-            armUnreachable()
-        case .up(let id):
-            guard id == latestConnection else { return }
+    /// Follows the engine's realtime state for the lifetime of the model.
+    private func observeRealtime() {
+        guard realtimeTask == nil else { return }
+        let states = sync.realtimeStates()
+        realtimeTask = Task { [weak self] in
+            for await state in states { self?.realtimeChanged(state) }
+        }
+    }
+
+    /// The engine's socket state, combined with what the app knows (sleep, no network, 401).
+    func realtimeChanged(_ state: RealtimeState) {
+        guard phase == .ready, connection != .stopped else { return }
+        switch state {
+        case .connected:
             connection = .connected
             unreachableTask?.cancel()
             unreachableTask = nil
             dismissBanner(kind: .hubUnreachable)
-        case .down(let id):
-            guard id == latestConnection, connection == .connected || connection == .connecting else { return }
+        case .connecting:
+            // Asleep and no network are reported by the system monitor; keep them.
+            guard connection == .connected || connection == .connecting || connection == .offline else { return }
             connection = .connecting
             armUnreachable()
+        case .offline:
+            break  // stopRealtime, revoke and reset set the state themselves
         }
     }
 
@@ -385,12 +375,16 @@ final class AppModel {
             guard !preferences.paused, receives(.notifications, from: sender.id), !preferences.isMuted(n.app.id) else {
                 return
             }
+            // Android 15+ may hide the content ("Sensitive notification content hidden"); say so
+            // instead of showing an empty notification. Apps set to Hide content on the phone send
+            // their own placeholder text with `redacted: false` (docs/CLIENTS.md).
+            let text = n.redacted && (n.text ?? "").isEmpty ? UserMessages.contentHiddenOnPhone : n.text
             activity.add(RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
-                                            appName: n.app.name, title: n.title, text: n.text, key: n.key,
-                                            msgId: msgId, code: n.text.flatMap(CodeExtractor.code(in:)),
+                                            appName: n.app.name, title: n.title, text: text, key: n.key,
+                                            msgId: msgId, code: n.redacted ? nil : text.flatMap(CodeExtractor.code(in:)),
                                             date: options.now()))
             let presented = PresentedNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
-                                                  appName: n.app.name, title: n.title, text: n.text, key: n.key,
+                                                  appName: n.app.name, title: n.title, text: text, key: n.key,
                                                   msgId: msgId)
             await presenter.present(presented, showPhoneName: phones.count > 1)
         case .notificationRemoved(let r):
@@ -597,9 +591,27 @@ final class AppModel {
 
     func setLaunchAtLogin(_ on: Bool) {
         do { try loginItem.setEnabled(on) } catch {
-            showStatus("Couldn't change the login item. Check System Settings › General › Login Items.")
+            log.error("login item change failed")
+            loginItemMessage = UserMessages.loginItemFailed
         }
+        refreshLoginItem()
+        if on, loginItem.requiresApproval { loginItemMessage = UserMessages.loginItemNeedsApproval }
+    }
+
+    /// Re-reads the login item (the user may change it in System Settings).
+    func refreshLoginItem() {
         launchAtLogin = loginItem.isEnabled
+        if launchAtLogin { loginItemMessage = nil }
+    }
+
+    /// Called when the app quits: releases the global hotkey and stops the watcher and socket.
+    func shutdown() {
+        hotkey.unregister()
+        hotkeyAvailable = false
+        clipboard.stop()
+        watcherRunning = false
+        if let terminationObserver { NotificationCenter.default.removeObserver(terminationObserver) }
+        terminationObserver = nil
     }
 
     /// After a 401: erase this Mac's keys and start onboarding again.
@@ -658,9 +670,16 @@ final class AppModel {
         notificationsAllowed = await presenter.requestAuthorization()
     }
 
+    /// Onboarding: one user-initiated read of the clipboard. On macOS 15.4+ this makes Carom
+    /// appear in System Settings › Privacy & Security › Paste from Other Apps (and may show the
+    /// system prompt), so the user can choose Always Allow. Nothing is sent or logged.
+    func checkClipboardAccess() {
+        _ = clipboard.readCurrent()
+        refreshPasteboardAccess()
+    }
+
     func finishOnboarding() async {
         preferences.onboardingComplete = true
-        if preferences.knownDevices == nil { preferences.knownDevices = DeviceID.sorted(directory.map(\.record.id)) }
         savePreferences()
         refreshPasteboardAccess()
         dismissBanner(kind: .revoked)

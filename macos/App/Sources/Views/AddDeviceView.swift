@@ -132,7 +132,7 @@ private struct ConfirmCandidate: View {
             .font(.system(size: 44, weight: .light))
             .foregroundStyle(.tint)
             .symbolRenderingMode(.hierarchical)
-        Text("Add This Device?")
+        Text("Add device \(candidate.fingerprint)?")
             .font(.title2.weight(.semibold))
         Text("A device scanned your code. Add it only if it shows the same code:")
             .font(.callout)

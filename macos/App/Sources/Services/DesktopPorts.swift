@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import ServiceManagement
 import CaromDesktop
 
 // Narrow seams over the CaromDesktop services so AppModel can be unit-tested with fakes.
@@ -32,6 +33,8 @@ protocol HotkeyRegistering: AnyObject {
 @MainActor
 protocol LoginItemControlling {
     var isEnabled: Bool { get }
+    /// Registered, but the user has to allow it in System Settings › General › Login Items.
+    var requiresApproval: Bool { get }
     func setEnabled(_ enabled: Bool) throws
 }
 
@@ -41,6 +44,7 @@ extension HotkeyManager: HotkeyRegistering {}
 
 struct SystemLoginItem: LoginItemControlling {
     var isEnabled: Bool { LoginItem.isEnabled }
+    var requiresApproval: Bool { SMAppService.mainApp.status == .requiresApproval }
     func setEnabled(_ enabled: Bool) throws { try LoginItem.setEnabled(enabled) }
 }
 

@@ -35,8 +35,9 @@ enum ReceivePolicy {
     }
 
     /// The rule after allowing or blocking one sender. `devices` is every current member that
-    /// could send; ids that left the directory are dropped. Everyone allowed collapses to `"*"`
-    /// so devices paired later are allowed by default.
+    /// could send; ids that left the directory are dropped. Everyone allowed collapses to `"*"`,
+    /// which also covers devices paired later. A list of ids stays explicit: a device paired later
+    /// is not added to it (docs/CLIENTS.md).
     static func rule(_ current: ReceiveRule?, setting sender: String, allowed: Bool, devices: [String]) -> ReceiveRule {
         let all = Set(devices)
         var ids: Set<String>
@@ -48,15 +49,6 @@ enum ReceivePolicy {
         if allowed { ids.insert(sender) } else { ids.remove(sender) }
         if !all.isEmpty, all.isSubset(of: ids) { return .everyone }
         return .only(DeviceID.sorted(ids))
-    }
-
-    /// A restrictive rule extended with newly paired devices (they get the default: allowed).
-    static func rule(_ current: ReceiveRule?, adding newDevices: Set<String>, devices: [String]) -> ReceiveRule? {
-        guard case .only(let list)? = current, !newDevices.isEmpty else { return nil }
-        let ids = Set(list).union(newDevices).intersection(Set(devices))
-        if Set(devices).isSubset(of: ids) { return .everyone }
-        let updated = ReceiveRule.only(DeviceID.sorted(ids))
-        return updated == current ? nil : updated
     }
 
     /// Devices that accept clipboard items from `selfId` according to their records.
@@ -81,8 +73,9 @@ enum ReceivePolicy {
         return Set(eligible).isSubset(of: chosen) ? nil : DeviceID.sorted(chosen)
     }
 
-    /// Automatic clipboard sending: the user's choice, else on only with *Always allow*.
+    /// Automatic clipboard sending: the user's choice. The default is on with *Always allow*, and
+    /// on macOS before 15.4 (`.unknown`), which has no pasteboard access control and never prompts.
     static func automaticClipboard(_ preference: Bool?, access: PasteboardAccess) -> Bool {
-        preference ?? (access == .alwaysAllow)
+        preference ?? (access == .alwaysAllow || access == .unknown)
     }
 }

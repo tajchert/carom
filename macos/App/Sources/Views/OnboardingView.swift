@@ -332,6 +332,14 @@ private struct PermissionsStep: View {
     @Binding var step: OnboardingView.Step
     @Environment(AppModel.self) private var model
     @State private var asking = false
+    @State private var checkedClipboard = false
+
+    private var clipboardDetail: String {
+        if model.pasteboardAccess == .unknown {
+            return "Carom sends what you copy to your other devices. You can also send it with \(SendHotkey.display)."
+        }
+        return "macOS asks before apps read the clipboard. To send what you copy automatically, choose Always Allow for Carom under Privacy & Security › Paste from Other Apps. You can always send it with \(SendHotkey.display)."
+    }
 
     var body: some View {
         VStack(spacing: 22) {
@@ -360,8 +368,26 @@ private struct PermissionsStep: View {
                     }
                 }
                 PermissionRow(symbol: "doc.on.clipboard", title: "Clipboard",
-                              detail: "macOS asks before apps read the clipboard. To send what you copy automatically, choose Always Allow for Carom when asked, or later in System Settings › Privacy & Security. You can always send it with \(SendHotkey.display).") {
-                    EmptyView()
+                              detail: clipboardDetail) {
+                    switch model.pasteboardAccess {
+                    case .alwaysAllow:
+                        Label("Always Allowed", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    case .unknown:
+                        Label("Allowed", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    case .standard, .ask, .alwaysDeny:
+                        if checkedClipboard {
+                            Link("Open Settings", destination: Links.privacySettings)
+                        } else {
+                            // One user-initiated read so Carom shows up in the system's
+                            // pasteboard access list (and macOS can ask right away).
+                            Button("Check Access") {
+                                checkedClipboard = true
+                                model.checkClipboardAccess()
+                            }
+                        }
+                    }
                 }
             }
             .frame(maxWidth: 440)

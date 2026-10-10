@@ -19,7 +19,6 @@
 		4212C9209DAC00E1095B27DB /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EE5C0B38E4B0DAD9BBEF9 /* Preferences.swift */; };
 		4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764FF7D9B3588A42EB29E9D1 /* ClipboardSettings.swift */; };
 		48302A9E76E5038A917FB6F7 /* Fakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5925FB86143CAF9160A7600B /* Fakes.swift */; };
-		50AF71BAAE5726B883191D73 /* ConnectionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC2B0024E1E98FFADECAD21A /* ConnectionObserver.swift */; };
 		5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */; };
 		72F2107312AE605A0A048D7F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */; };
 		90D3082BD4F9EF70011C69F6 /* CaromHub in Frameworks */ = {isa = PBXBuildFile; productRef = CE8BAFA1AE1113A6718F4CAC /* CaromHub */; };
@@ -40,6 +39,7 @@
 		DF9F21CCE145B11D83CA2EC3 /* PolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */; };
 		F156648ABB732A08006DA18B /* SystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5D313AFB7071023901B4A49 /* SystemMonitor.swift */; };
 		F97360303AE0CA205E2576CA /* CaromApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F1C8311CBD1D199D6081A0 /* CaromApp.swift */; };
+		F9C7EC9CE8277957626D7D80 /* SecretStoreFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0606F3A3A6291B060E6F8431 /* SecretStoreFactoryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +54,7 @@
 
 /* Begin PBXFileReference section */
 		05E857E705339F4800EDCFFF /* UserMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserMessages.swift; sourceTree = "<group>"; };
+		0606F3A3A6291B060E6F8431 /* SecretStoreFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretStoreFactoryTests.swift; sourceTree = "<group>"; };
 		15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InertSyncService.swift; sourceTree = "<group>"; };
 		2850A9A4E3F1764CECEB2AD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2917B35E7F6A61EB49867CD3 /* ReceivePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceivePolicy.swift; sourceTree = "<group>"; };
@@ -77,7 +78,6 @@
 		D67EE5C0B38E4B0DAD9BBEF9 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		D73EBD0F3E832BE4D36BB1D7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D9A4D950118740775CC3C36A /* CaromTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CaromTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC2B0024E1E98FFADECAD21A /* ConnectionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionObserver.swift; sourceTree = "<group>"; };
 		E867D8EAD523ADCAFDD4D3CA /* Banner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Banner.swift; sourceTree = "<group>"; };
 		EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyTests.swift; sourceTree = "<group>"; };
 		F405C283C16A225ED8ADA433 /* AddDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceView.swift; sourceTree = "<group>"; };
@@ -109,6 +109,7 @@
 				43523F8D934E0F28AAC18A3A /* AppModelTests.swift */,
 				5925FB86143CAF9160A7600B /* Fakes.swift */,
 				EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */,
+				0606F3A3A6291B060E6F8431 /* SecretStoreFactoryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -116,7 +117,6 @@
 		17E3BEB4F79BD6B99C613AD9 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				DC2B0024E1E98FFADECAD21A /* ConnectionObserver.swift */,
 				FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */,
 				15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */,
 				3E50DA0F17F21B1530485899 /* QRCode.swift */,
@@ -340,7 +340,6 @@
 				F97360303AE0CA205E2576CA /* CaromApp.swift in Sources */,
 				4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */,
 				D59509899BEEA17C42DB12D6 /* Components.swift in Sources */,
-				50AF71BAAE5726B883191D73 /* ConnectionObserver.swift in Sources */,
 				5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */,
 				C34DA6179ACA172EFCEC2C1B /* DevicesSettings.swift in Sources */,
 				02EA04BDC4CC53860EEBC40C /* GeneralSettings.swift in Sources */,
@@ -366,6 +365,7 @@
 				2DAF3451102E36B44D4EAC7D /* AppModelTests.swift in Sources */,
 				48302A9E76E5038A917FB6F7 /* Fakes.swift in Sources */,
 				DF9F21CCE145B11D83CA2EC3 /* PolicyTests.swift in Sources */,
+				F9C7EC9CE8277957626D7D80 /* SecretStoreFactoryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
