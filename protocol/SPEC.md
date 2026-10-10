@@ -415,8 +415,10 @@ with jittered backoff (1 second doubling to 60 seconds).
 Server → client frames:
 
 - `{"t":"msg","seq":N,"envelope":{…}}`. On connect, the Hub sends the oldest unacknowledged
-  messages, up to 100 messages or 1 MiB per page. After each `ack` frame it sends the next page,
-  until the backlog is empty. Clients ack promptly, and may also page with `GET /v1/messages`.
+  messages, up to 100 messages or 1 MiB per page. Once an ack (a WebSocket frame or `POST /v1/acks`)
+  covers the last `seq` of the page, it sends the next page, until the backlog is empty. While
+  the backlog is paging, live messages are queued behind it. Clients ack the highest `seq`
+  they have handled, and may also page with `GET /v1/messages`.
 - `{"t":"dir"}`: the directory changed, so refetch `GET /v1/devices`.
 - `{"t":"pair","pair_id":…,"candidate":{device_id, sign_pub, kx_pub, mac, pop}}`: sent to the offerer.
 - `{"t":"revoked"}`: this device was revoked. Clients wipe their keys.
