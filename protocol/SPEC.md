@@ -317,7 +317,7 @@ and `rate_limited`.
 
 | Method + path | Auth | Request → Response |
 |---|---|---|
-| `GET /v1/info` | none | → `{name:"carom-hub", protocol:1, version, setup_done, vapid_public_key}` |
+| `GET /v1/info` | none | → `{name:"carom-hub", protocol:1, version, setup_done, vapid_public_key, jurisdiction}`. `vapid_public_key` is b64 of the uncompressed P-256 point. |
 | `POST /v1/setup` | none | `{setup_token, sign_pub, kx_pub}` → `{device_id, token}`. Only works once. |
 | `PUT /v1/keyring` | device | `{kv, by, boxes, sig}` → `{}`, or 409 if `kv` is not current+1 |
 | `GET /v1/keyring?have=N` | device | → `{versions:[{kv, by, sig, boxes:{id:{epk,ct}}}]}` with every box of each newer version |
@@ -335,7 +335,7 @@ and `rate_limited`.
 | `DELETE /v1/devices/:id` | device | → `{}`. Revokes the device. `self` is allowed. |
 | `POST /v1/messages` | device | `{envelope}` → `{seq, duplicate}` |
 | `GET /v1/messages?limit=N` | device | → `{messages:[{seq, envelope}], more}` (unacknowledged, in `seq` order, N ≤ 200) |
-| `POST /v1/acks` | device | `{seqs:[…]}` → `{}` |
+| `POST /v1/acks` | device | `{up_to: seq}` → `{}` (cumulative: everything ≤ `up_to` addressed to this device is acknowledged) |
 | `GET /v1/ws` | device | WebSocket upgrade, see §7 |
 
 A pending device can only call `GET /v1/pair/:pair_id/welcome`. Every other route returns 403.
@@ -352,14 +352,29 @@ Rules the Hub enforces on `POST /v1/messages`:
 
 The Hub never decrypts `ct` and never branches on message type.
 
-Tokens: `ct1_` followed by b64 of 32 random bytes. They are returned once, and the Hub
-stores only `SHA-256(token)`.
+Tokens have the form `ct1.<device_id>.<b64 rand32>.<b64 mac16>`, where:
+
+```
+token_key = HKDF(ikm=UTF8(SETUP_TOKEN), salt="", info="carom/v1/token-key", L=32)
+mac16     = HMAC-SHA256(token_key, lp(device_id) || lp(rand32))[0..16]
+```
+
+The Worker checks the MAC before it touches the Durable Object, so garbage requests never
+reach it. The Hub then checks that `SHA-256(token)` belongs to an active device, which
+covers revocation and pending state. Tokens are returned once. Resetting the Hub with a new
+`SETUP_TOKEN` invalidates every token.
 
 The `SETUP_TOKEN` Worker secret must be at least 32 characters, otherwise setup is refused.
 It is compared in constant time against its SHA-256. Once setup succeeds, `claimed=1` is
 stored permanently. Only `POST /v1/reset`, which also needs `SETUP_TOKEN`, clears it.
 
-Rate limits: `/v1/setup`, `/v1/reset` and `/v1/pair/accept` allow 10 requests per minute per IP.
+Rate limits are enforced inside the Hub, which is single-threaded and so counts exactly:
+
+- `/v1/setup` and `/v1/reset`: after 10 failures in an hour, the route is locked for an hour.
+- `/v1/pair/accept`: one accept per `pair_id`, and at most 5 open offers at a time.
+- Push sends: at most one per recipient per message (see §9).
+
+Push endpoints MUST be `https:` and MUST NOT point at the Hub's own host.
 
 ## 7. WebSocket
 
@@ -376,7 +391,12 @@ Server → client frames:
 
 Client → server frames:
 
-- `{"t":"ack","seqs":[…]}`
+- `{"t":"ack","up_to":N}`: cumulative, same as `POST /v1/acks`.
+
+Keep-alive: clients send WebSocket protocol pings (`URLSessionWebSocketTask.sendPing`,
+OkHttp `pingInterval`) every 30 seconds. The runtime answers these without waking the
+Hub. The text frame `ping` → `pong` is also auto-answered, for clients without
+protocol pings.
 
 ## 8. Pairing
 
@@ -422,8 +442,10 @@ The QR code is the trust channel. It must only be shown on screen and never logg
 For a recipient with a push subscription and no live socket, the Hub sends a Web Push
 (RFC 8030) with:
 
-- VAPID authentication (RFC 8292, ES256, `sub` = `mailto:carom@invalid` unless configured).
-- An RFC 8291 `aes128gcm` encrypted payload `{"t":"wake"}`.
+- VAPID authentication (RFC 8292, ES256, `sub` = the Hub URL; JWT `exp` 12 h, cached per
+  push-service origin).
+- An RFC 8291 `aes128gcm` encrypted payload `{"t":"wake"}`. This is never empty, because some
+  distributors drop empty pushes.
 - `Urgency: high` and `TTL: 86400`.
 
 The Hub creates its VAPID P-256 key pair on first use and stores it in SQLite.
@@ -435,7 +457,8 @@ When woken, a device calls `GET /v1/messages`, handles the messages, then sends 
 
 ## 10. Retention
 
-- A message is deleted when every recipient has acknowledged it, or when `ttl_s` has
-  passed, whichever comes first.
+- Each device has an ack cursor. A message is deleted once every recipient's cursor has
+  passed it, or when `ttl_s` has passed, whichever comes first.
+- `last_seen` is written at most once every 10 minutes per device.
 - Unclaimed pairings expire after 5 minutes. A pending device whose pairing expired is deleted.
 - The Hub uses one alarm, scheduled for the earliest expiry.
