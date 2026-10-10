@@ -6,9 +6,6 @@ import { b64, call, expectError, FAKE_BOX, hubSql, heldRequest, pairDevice, setu
 
 beforeEach(wipeHub);
 
-const P256DH = b64(Uint8Array.from({ length: 65 }, (_, i) => (i === 0 ? 4 : i)));
-const AUTH = b64(new Uint8Array(16).fill(5));
-
 describe("a device revoked while its request body is still arriving", () => {
   it("cannot publish the next keyring version", async () => {
     const a = await setupFirstDevice();
@@ -21,12 +18,11 @@ describe("a device revoked while its request body is still arriving", () => {
     await call("PUT", "/v1/keyring", { token: a.token, body: { kv: 2, by: a.id, boxes: { [a.id]: FAKE_BOX }, sig: b64(new Uint8Array(64)) } });
   });
 
-  it("cannot publish a record, a push subscription or an ack", async () => {
+  it("cannot publish a record or an ack", async () => {
     const a = await setupFirstDevice();
     const b = await pairDevice(a);
     const requests = [
       await heldRequest(b, "PUT", "/v1/devices/self/record", { record: b.record() }),
-      await heldRequest(b, "PUT", "/v1/devices/self/push", { endpoint: "https://push.example.com/x", p256dh: P256DH, auth: AUTH }),
       await heldRequest(b, "POST", "/v1/acks", { up_to: 0 }),
     ];
     await call("DELETE", `/v1/devices/${b.id}`, { token: a.token });

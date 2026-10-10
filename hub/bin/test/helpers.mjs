@@ -50,7 +50,7 @@ export function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
-export const INFO = { name: 'carom-hub', protocol: 1, version: '0.1.0', setup_done: false, vapid_public_key: 'x', jurisdiction: '' };
+export const INFO = { name: 'carom-hub', protocol: 1, version: '0.1.0', setup_done: false, jurisdiction: '' };
 
 /** Fake fetch backed by a route table: "METHOD /path" -> handler or response body. */
 export function fakeFetch(routes) {

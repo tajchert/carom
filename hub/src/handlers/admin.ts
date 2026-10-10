@@ -14,15 +14,13 @@ import { expectB64, expectKeys, expectObject, expectString, readJson } from "../
 
 export const RESET_CONFIRMATION = "erase everything";
 
-export const info: Handler = async ({ hub }) => {
+export const info: Handler = ({ hub }) => {
   const jurisdiction = jurisdictionOf(hub.env);
-  const vapid = await hub.push.vapid();
   return ok({
     name: "carom-hub",
     protocol: 1,
     version: pkg.version,
     setup_done: isClaimed(hub.sql),
-    vapid_public_key: vapid.publicKey,
     jurisdiction: jurisdiction === "" ? null : jurisdiction,
   });
 };

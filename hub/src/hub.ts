@@ -9,7 +9,6 @@ import { HttpError, errorResponse } from "./errors";
 import { HANDLERS } from "./handlers";
 import { applyAck } from "./handlers/messages";
 import { DEVICE_HEADER, TOKEN_HASH_HEADER } from "./headers";
-import { PushSender } from "./push";
 import { matchRoute, type AuthKind } from "./routes";
 import { DATA_TABLES, migrate } from "./schema";
 import { closeRevoked, deviceOf } from "./sockets";
@@ -28,13 +27,12 @@ async function scheduleAlarm(storage: DurableObjectStorage): Promise<void> {
   if (current === null || next < current) await storage.setAlarm(next);
 }
 
-async function wipe(ctx: DurableObjectState, push: PushSender): Promise<void> {
+async function wipe(ctx: DurableObjectState): Promise<void> {
   for (const ws of ctx.getWebSockets()) closeRevoked(ws);
   ctx.storage.transactionSync(() => {
     for (const table of DATA_TABLES) ctx.storage.sql.exec(`DELETE FROM ${table}`);
     deleteMetaExceptSchema(ctx.storage.sql);
   });
-  push.clear();
   await ctx.storage.deleteAlarm();
 }
 
@@ -43,14 +41,12 @@ export class Hub extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    const push = new PushSender(ctx.storage.sql, ctx);
     this.runtime = {
       sql: ctx.storage.sql,
       ctx,
       env,
-      push,
       scheduleAlarm: () => scheduleAlarm(ctx.storage),
-      wipe: () => wipe(ctx, push),
+      wipe: () => wipe(ctx),
     };
     // Answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));

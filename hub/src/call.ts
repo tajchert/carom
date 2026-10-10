@@ -1,14 +1,12 @@
 // What a route handler inside the Hub receives.
 
 import { HttpError } from "./errors";
-import type { PushSender } from "./push";
 import { getDevice, type DeviceRow } from "./store/devices";
 
 export interface HubRuntime {
   readonly sql: SqlStorage;
   readonly ctx: DurableObjectState;
   readonly env: Env;
-  readonly push: PushSender;
   /** Makes sure the single alarm fires no later than the earliest pending expiry. */
   scheduleAlarm(): Promise<void>;
   /** Erases all state except the schema (POST /v1/reset). */

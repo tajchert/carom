@@ -20,8 +20,6 @@ export const HANDLERS: Record<RouteName, Handler> = {
   "pair.reject": pairing.reject,
   "devices.list": devices.list,
   "devices.record": devices.putRecord,
-  "devices.push.put": devices.putPush,
-  "devices.push.delete": devices.deletePush,
   "devices.delete": devices.revoke,
   "messages.post": messages.post,
   "messages.get": messages.fetchMessages,

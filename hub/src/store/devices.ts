@@ -1,4 +1,4 @@
-// Device rows: identity keys, token hash, pending/active state, ack cursor, record, push subscription.
+// Device rows: identity keys, token hash, pending/active state, ack cursor, record.
 
 export type DeviceStatus = "pending" | "active";
 
@@ -12,10 +12,6 @@ export type DeviceRow = {
   last_seen: number;
   cursor: number;
   record: string | null;
-  push_endpoint: string | null;
-  push_p256dh: string | null;
-  push_auth: string | null;
-  push_sent_at: number | null;
 };
 
 export const LAST_SEEN_INTERVAL_MS = 10 * 60 * 1000;
@@ -74,41 +70,6 @@ export function touchLastSeen(sql: SqlStorage, device: DeviceRow, now: number): 
 
 export function setRecord(sql: SqlStorage, id: string, record: string): void {
   sql.exec("UPDATE devices SET record = ? WHERE id = ?", record, id);
-}
-
-export function setPushSubscription(sql: SqlStorage, id: string, endpoint: string, p256dh: string, auth: string): void {
-  sql.exec(
-    "UPDATE devices SET push_endpoint = ?, push_p256dh = ?, push_auth = ?, push_sent_at = NULL WHERE id = ?",
-    endpoint,
-    p256dh,
-    auth,
-    id,
-  );
-}
-
-export function clearPushSubscription(sql: SqlStorage, id: string): void {
-  sql.exec(
-    "UPDATE devices SET push_endpoint = NULL, push_p256dh = NULL, push_auth = NULL, push_sent_at = NULL WHERE id = ?",
-    id,
-  );
-}
-
-/** Drops a subscription only if it is still the one that failed (it may have been replaced meanwhile). */
-export function clearPushSubscriptionIf(sql: SqlStorage, id: string, endpoint: string): void {
-  sql.exec(
-    "UPDATE devices SET push_endpoint = NULL, push_p256dh = NULL, push_auth = NULL, push_sent_at = NULL WHERE id = ? AND push_endpoint = ?",
-    id,
-    endpoint,
-  );
-}
-
-export function markPushSent(sql: SqlStorage, id: string, now: number): void {
-  sql.exec("UPDATE devices SET push_sent_at = ? WHERE id = ?", now, id);
-}
-
-/** Called when the device fetches, re-arming its wake-up push. Writes only if needed. */
-export function rearmPush(sql: SqlStorage, device: DeviceRow): void {
-  if (device.push_sent_at !== null) sql.exec("UPDATE devices SET push_sent_at = NULL WHERE id = ?", device.id);
 }
 
 export function setCursor(sql: SqlStorage, id: string, cursor: number): void {

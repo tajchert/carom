@@ -12,6 +12,8 @@ describe("schema migrations", () => {
       // Put the database back into its v1 shape, with one queued message.
       sql.exec("DROP TABLE messages");
       sql.exec("DROP INDEX pairings_expires");
+      for (const column of ["push_endpoint", "push_p256dh", "push_auth"]) sql.exec(`ALTER TABLE devices ADD COLUMN ${column} TEXT`);
+      sql.exec("ALTER TABLE devices ADD COLUMN push_sent_at INTEGER");
       sql.exec(`CREATE TABLE messages (
         seq INTEGER PRIMARY KEY, sender TEXT NOT NULL, msg_id TEXT NOT NULL, collapse TEXT,
         recipients TEXT NOT NULL, envelope TEXT NOT NULL, expires_at INTEGER NOT NULL, UNIQUE (sender, msg_id))`);
@@ -28,10 +30,39 @@ describe("schema migrations", () => {
       };
     });
     expect(result).toEqual({
-      version: "2",
+      version: "3",
       rows: [{ seq: 7, sender: "dev_a", msg_id: "m1", collapse: "c1", recipients: '["dev_b"]', envelope: '{"x":1}', expires_at: 123 }],
       indexes: ["messages_collapse", "messages_expires", "messages_live", "pairings_expires"],
       nullable: 0,
+    });
+  });
+
+  it("v3 drops the push columns and the stored VAPID key, keeping devices", async () => {
+    const stub = env.HUB.get(env.HUB.idFromName("migration-test-v3"));
+    const result = await runInDurableObject(stub, (_hub: Hub, state) => {
+      const sql = state.storage.sql;
+      // Put the devices table back into its v2 shape, with a push subscription and a VAPID key.
+      sql.exec("DROP TABLE devices");
+      sql.exec(`CREATE TABLE devices (
+        id TEXT PRIMARY KEY, status TEXT NOT NULL CHECK (status IN ('pending', 'active')), sign_pub TEXT NOT NULL,
+        kx_pub TEXT NOT NULL, token_hash TEXT NOT NULL, created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL,
+        cursor INTEGER NOT NULL DEFAULT 0, record TEXT, push_endpoint TEXT, push_p256dh TEXT, push_auth TEXT,
+        push_sent_at INTEGER) WITHOUT ROWID`);
+      sql.exec(`INSERT INTO devices VALUES ('dev_a', 'active', 'sp', 'kp', 'th', 1, 2, 5, '{"r":1}', 'https://p.example/x', 'k', 'a', 9)`);
+      sql.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('vapid', '{}'), ('claimed', '1')");
+      sql.exec("UPDATE meta SET value = '2' WHERE key = 'schema_version'");
+
+      migrate(state.storage);
+      return {
+        version: sql.exec("SELECT value FROM meta WHERE key = 'schema_version'").one().value,
+        devices: sql.exec("SELECT * FROM devices").toArray(),
+        meta: sql.exec("SELECT key FROM meta ORDER BY key").toArray().map((r) => r.key),
+      };
+    });
+    expect(result).toEqual({
+      version: "3",
+      devices: [{ id: "dev_a", status: "active", sign_pub: "sp", kx_pub: "kp", token_hash: "th", created_at: 1, last_seen: 2, cursor: 5, record: '{"r":1}' }],
+      meta: ["claimed", "schema_version"],
     });
   });
 });

@@ -24,8 +24,6 @@ export type RouteName =
   | "pair.reject"
   | "devices.list"
   | "devices.record"
-  | "devices.push.put"
-  | "devices.push.delete"
   | "devices.delete"
   | "messages.post"
   | "messages.get"
@@ -61,8 +59,6 @@ export const ROUTES: readonly Route[] = [
   { name: "pair.reject", method: "POST", path: "/v1/pair/:pair_id/reject", auth: "device", maxBody: SMALL },
   { name: "devices.list", method: "GET", path: "/v1/devices", auth: "device", maxBody: 0 },
   { name: "devices.record", method: "PUT", path: "/v1/devices/self/record", auth: "device", maxBody: MEDIUM },
-  { name: "devices.push.put", method: "PUT", path: "/v1/devices/self/push", auth: "device", maxBody: SMALL },
-  { name: "devices.push.delete", method: "DELETE", path: "/v1/devices/self/push", auth: "device", maxBody: 0 },
   { name: "devices.delete", method: "DELETE", path: "/v1/devices/:id", auth: "device", maxBody: 0 },
   { name: "messages.post", method: "POST", path: "/v1/messages", auth: "device", maxBody: MESSAGE_BODY_LIMIT },
   { name: "messages.get", method: "GET", path: "/v1/messages", auth: "device", maxBody: 0 },

@@ -3,7 +3,8 @@
 The Carom Hub: a Cloudflare Worker plus one SQLite-backed Durable Object that relays
 end-to-end encrypted envelopes between your devices. It implements protocol v1 from
 [`protocol/SPEC.md`](../protocol/SPEC.md) §6–§10. The Hub only ever sees ciphertext: it
-routes, queues, wakes devices and enforces the rules, but it never holds the group key.
+routes, queues and enforces the rules, but it never holds the group key. It sends no push
+notifications of any kind; devices fetch when they are already awake (SPEC §9).
 
 ## Architecture
 
@@ -13,7 +14,7 @@ client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ H
                      • token MAC check (no DO contact       pairings, keyring, lockouts, meta
                        for garbage tokens)                • WebSocket hibernation
                      • strips client x-carom-* headers,   • one alarm for all expiries
-                       sets x-carom-device/-token-hash    • Web Push wake-ups (waitUntil)
+                       sets x-carom-device/-token-hash
 ```
 
 - **One Hub per deployment**, reached via `idFromName("hub")`. With `HUB_JURISDICTION=eu`
@@ -30,15 +31,11 @@ client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ H
   Messages are deleted once every recipient's cursor has passed them, or at `ttl_s`.
   `last_seen` is written at most every 10 minutes. Seqs never repeat, even when collapse
   deletes the newest message, so an ack can never cover a message the device has not seen.
-- **Hibernation.** Sockets are tagged with their device id and nothing is kept in memory
-  except caches (VAPID key, VAPID JWTs per push origin). The text frame `ping` is answered
-  with `pong` by the runtime without waking the Hub.
-- **Web Push** (`src/webpush.ts`) is hand-rolled on WebCrypto: RFC 8291 `aes128gcm` payload
-  `{"t":"wake"}` and RFC 8292 VAPID (ES256, `aud` = push service origin, `sub` = Hub URL,
-  12 h expiry). The VAPID key is created on first use and stored in SQLite. A device without
-  a live socket gets at most one push until it next fetches (`GET /v1/messages` or a
-  WebSocket connect); a re-push is allowed after 5 minutes. `404`/`410` from the push
-  service delete the subscription.
+- **Hibernation.** Sockets are tagged with their device id and nothing is kept in memory.
+  The text frame `ping` is answered with `pong` by the runtime without waking the Hub.
+- **No push.** A message reaches a recipient only over its live WebSocket or when it fetches
+  (`GET /v1/messages`); an offline recipient's messages wait in the queue until `ttl_s`.
+  Schema v3 dropped the old push subscription columns and the stored VAPID key.
 
 ### Source map
 
@@ -52,7 +49,6 @@ client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ H
 | `src/schema.ts` | Schema and `schema_version` migration runner |
 | `src/envelope.ts`, `src/record.ts`, `src/seal.ts` | Shape checks and Ed25519 signature inputs (SPEC §2.3, §3, §5.1) |
 | `src/token.ts` | Token minting and MAC verification, setup-token comparison |
-| `src/push.ts`, `src/webpush.ts` | Push policy, and RFC 8291/8292 crypto |
 | `src/sockets.ts` | WebSocket frames |
 
 ## Routes
@@ -92,15 +88,15 @@ npm run types       # regenerate src/worker-configuration.d.ts after editing wra
 
 Tests drive the real Worker and Durable Object. Test clients seal envelopes and records with
 `@noble/*`, independently of `src/`, so signature checks are verified against a second
-implementation. Web Push encryption is checked against RFC 8291 Appendix A.
+implementation.
 
 ## Smoke test
 
 `scripts/smoke.mjs` is an end-to-end check of a deployed Hub. It drives two simulated devices
 (a Mac and a phone) with real crypto from `@carom/protocol`: setup, pairing over the
 `carom://pair` URI and the WebSocket `pair` frame, live WebSocket delivery with latency,
-collapse in the backlog, duplicate and superseded posts, fetch and ack over HTTP, push
-subscription, revocation, rekey through the keyring, and negative auth/signature checks. It
+collapse in the backlog, duplicate and superseded posts, fetch and ack over HTTP,
+revocation, rekey through the keyring, and negative auth/signature checks. It
 prints one PASS/FAIL line per step with timings and exits non-zero on any failure.
 
 ```sh
@@ -129,8 +125,8 @@ this package. The Deploy to Cloudflare button reads `.dev.vars.example` to ask f
 Everything fits the Workers Free plan: one Worker, one SQLite Durable Object, no KV, D1,
 Queues or paid features. Rough cost per message: one request to the Worker, one to the Hub,
 a handful of row writes for the send (the message row, its two indexes and the seq counter)
-and one for each recipient's ack (shared across all messages it acks at once), plus one push
-request for each offline recipient at most once per fetch cycle.
+and one for each recipient's ack (shared across all messages it acks at once).
+The Hub never makes outbound requests.
 Hibernated WebSockets cost nothing while idle; protocol pings and the `ping` text frame are
 answered without waking the Hub.
 

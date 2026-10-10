@@ -4,9 +4,8 @@ import { callerOf, ok, stillActiveCaller, type Handler, type HubRuntime } from "
 import { b64decode } from "../encoding";
 import { HttpError, badRequest } from "../errors";
 import { parseEnvelope, verifyEnvelope } from "../envelope";
-import { vapidSubject } from "../push";
 import { backlogOf, hasLiveSocket, messageFrame, safeSend, sendMessageFrame, setBacklog } from "../sockets";
-import { activeDeviceIds, getDevice, rearmPush, setCursor, type DeviceRow } from "../store/devices";
+import { activeDeviceIds, setCursor, type DeviceRow } from "../store/devices";
 import {
   deleteMessage,
   findByCollapse,
@@ -64,14 +63,8 @@ export const post: Handler = async (call) => {
     expiresAt: now + env.ttl_s * 1000,
   });
 
-  const subject = vapidSubject(call.url);
   for (const id of env.to) {
-    if (hasLiveSocket(hub.ctx, id)) {
-      sendMessageFrame(hub.ctx, id, seq, parsed.serialized);
-    } else {
-      const recipient = getDevice(hub.sql, id);
-      if (recipient) hub.push.wake(recipient, subject, now);
-    }
+    if (hasLiveSocket(hub.ctx, id)) sendMessageFrame(hub.ctx, id, seq, parsed.serialized);
   }
   await hub.scheduleAlarm();
   return ok({ seq, duplicate: false });
@@ -82,7 +75,6 @@ export const fetchMessages: Handler = (call) => {
   const caller = callerOf(call);
   const limit = parseIntParam(call.url.searchParams.get("limit"), "limit", DEFAULT_FETCH_LIMIT, 1, MAX_FETCH_LIMIT);
   const rows = unackedFor(hub.sql, caller.id, caller.cursor, now, limit + 1).toArray();
-  rearmPush(hub.sql, caller);
   // Envelopes are stored as JSON text; splice them in instead of re-parsing.
   const items = rows.slice(0, limit).map((r) => `{"seq":${r.seq},"envelope":${r.envelope}}`);
   return new Response(`{"messages":[${items.join(",")}],"more":${rows.length > limit}}`, {
@@ -151,6 +143,5 @@ export const websocket: Handler = (call) => {
   const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket];
   hub.ctx.acceptWebSocket(server, [caller.id]);
   sendPage(hub.sql, server, caller.id, caller.cursor, now);
-  rearmPush(hub.sql, caller);
   return new Response(null, { status: 101, webSocket: client });
 };
