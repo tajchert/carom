@@ -84,6 +84,13 @@ error codes it uses. Conventions:
 
 Implementation notes that the vectors pin down:
 
+- Candidates (`GET /v1/pair/:id` and the `pair` frame) must carry `pop` (64 bytes). A missing
+  or malformed `pop` is `bad_shape`; a wrong signature is `bad_pop`.
+- QR parsers require `pair_id` (`c`) to be exactly 22 characters of `[A-Za-z0-9_-]` (b64 of
+  16 bytes). In values they reject every raw character outside `A-Za-z0-9-._~!$'()*,;:@/?=`
+  and `%XX` escapes. So a raw `+` (never a space), space, `#`, `%` without two hex digits,
+  `"`, `<`, `>`, `\`, `^`, `` ` ``, `{`, `|`, `}` and any non-ASCII or control character are
+  rejected, while a raw `=` inside a value is accepted. A raw `&` always ends the value.
 - base64url decoding is strict: no padding, no `+` or `/`, no whitespace, canonical
   trailing bits.
 - Ed25519 verification follows RFC 8032 (cofactorless, canonical encodings), not ZIP-215.

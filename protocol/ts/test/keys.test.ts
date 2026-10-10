@@ -105,6 +105,13 @@ describe('pairing', () => {
     expect(pairRequestMac(pairKey(secret), pairId, B.signPub, B.kxPub)).toHaveLength(32);
   });
 
+  it('rejects a candidate with a missing or malformed pop as bad_shape', () => {
+    const body = buildPairAccept(pairId, secret, B);
+    const { pop: _pop, ...noPop } = body;
+    expect(verifyPairCandidate(pairId, secret, { device_id: B.deviceId, ...noPop })).toEqual({ ok: false, error: 'bad_shape' });
+    expect(verifyPairCandidate(pairId, secret, { device_id: B.deviceId, ...body, pop: 'AAAA' })).toEqual({ ok: false, error: 'bad_shape' });
+  });
+
   it.each([null, 'x', { device_id: 1 }])('rejects malformed candidates: %j', (c) => {
     expect(verifyPairCandidate(pairId, secret, c)).toEqual({ ok: false, error: 'bad_shape' });
   });
