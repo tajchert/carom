@@ -1,0 +1,32 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Node / Cloudflare
+node_modules/
+dist/
+coverage/
+.wrangler/
+.dev.vars
+.dev.vars.*
+*.tsbuildinfo
+
+# Android
+android/**/build/
+android/.gradle/
+android/.kotlin/
+android/local.properties
+*.apk
+*.aab
+
+# macOS / Xcode
+macos/**/build/
+macos/**/DerivedData/
+macos/**/.build/
+macos/**/xcuserdata/
+*.xcuserstate
+
+# Local
+.worktrees/

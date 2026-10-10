@@ -1,0 +1,11 @@
+{
+  "name": "carom",
+  "private": true,
+  "workspaces": [
+    "protocol/ts",
+    "hub"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}
