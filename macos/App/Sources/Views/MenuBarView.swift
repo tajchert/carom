@@ -1,4 +1,5 @@
 import AppKit
+import CaromDesktop
 import SwiftUI
 
 /// The menu-bar popover: status, notices, recent activity and the main actions.
@@ -228,7 +229,7 @@ private struct NotificationRow: View {
                             .foregroundStyle(.tertiary)
                     }
                     Spacer()
-                    Text(item.date, style: .time)
+                    Text(item.date.formatted(date: .omitted, time: .shortened))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

@@ -32,6 +32,21 @@ public struct IncomingMessage: Sendable, Equatable {
 
     public var message: Message { received.message }
     public var msgId: String { received.envelope.msgId }
+
+    public init(received: ReceivedMessage, sender: DeviceRecord) {
+        self.received = received
+        self.sender = sender
+    }
+}
+
+/// State of the engine's realtime WebSocket (`SyncEngine.realtimeState`, `realtimeStates()`).
+public enum RealtimeState: Sendable, Equatable {
+    /// Not started, stopped, or this device was revoked.
+    case offline
+    /// A connection is being opened, or the last one dropped and a reconnect is scheduled.
+    case connecting
+    /// The Hub answered on the current connection (a frame or a pong arrived).
+    case connected
 }
 
 public enum SyncEvent: Sendable, Equatable {
@@ -43,7 +58,7 @@ public enum SyncEvent: Sendable, Equatable {
     /// A new group key is in use.
     case keyRotated(kv: Int)
     /// A pairing candidate passed mac, pop and device_id checks: ask the user
-    /// "Add <kind> device <fingerprint>?", then `approvePairing` or `rejectPairing`.
+    /// "Add device <fingerprint>?" (docs/CLIENTS.md), then `approvePairing` or `rejectPairing`.
     case pairingCandidate(pairId: String, candidate: VerifiedCandidate)
     /// A candidate failed verification and was rejected; warn the user.
     case pairingRejected(pairId: String, reason: CandidateError)
@@ -105,6 +120,12 @@ public struct PairingInvite: Sendable, Equatable {
     /// The `carom://pair` URI to show as a QR code (never log it).
     public let uri: String
     public let expiresAt: Int
+
+    public init(pairId: String, uri: String, expiresAt: Int) {
+        self.pairId = pairId
+        self.uri = uri
+        self.expiresAt = expiresAt
+    }
 }
 
 public struct JoinTicket: Sendable, Equatable {
@@ -112,6 +133,11 @@ public struct JoinTicket: Sendable, Equatable {
     public let deviceId: String
     /// Shown on both screens while the inviter confirms.
     public var fingerprint: String { DeviceID.fingerprint(deviceId) }
+
+    public init(pairId: String, deviceId: String) {
+        self.pairId = pairId
+        self.deviceId = deviceId
+    }
 }
 
 /// Remembers SHA-256 of the last received clipboard text for 10 seconds so it is not sent

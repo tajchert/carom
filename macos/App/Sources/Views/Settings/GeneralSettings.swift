@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 struct GeneralSettings: View {
@@ -28,6 +29,13 @@ struct GeneralSettings: View {
                 Toggle("Open Carom at login", isOn: Binding(
                     get: { model.launchAtLogin },
                     set: { model.setLaunchAtLogin($0) }))
+                if let message = model.loginItemMessage {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Footnote(message)
+                        Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
+                            .controlSize(.small)
+                    }
+                }
                 Toggle("Pause syncing", isOn: Binding(
                     get: { model.preferences.paused },
                     set: { model.setPaused($0) }))
@@ -50,7 +58,10 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { name = model.deviceName }
+        .onAppear {
+            name = model.deviceName
+            model.refreshLoginItem()
+        }
         .onChange(of: model.deviceName) { _, new in name = new }
     }
 

@@ -18,12 +18,12 @@ struct Preferences: Codable, Equatable, Sendable {
     var mutedApps: [String] = []
     /// Apps seen posting notifications, newest name wins.
     var seenApps: [SeenApp] = []
-    /// Automatic clipboard sending. `nil` follows the default: on only with *Always allow*.
+    /// Automatic clipboard sending. `nil` follows the default: on with *Always allow*, or on
+    /// macOS before 15.4.
     var automaticClipboard: Bool?
-    /// "Send clipboard to": `nil` means every device that accepts it.
+    /// "Send clipboard to": `nil` means every device that accepts it, including devices paired
+    /// later. A list is explicit: devices paired later are not added.
     var clipboardSendTo: [String]?
-    /// Device ids already known, so devices paired later get the default (allowed) settings.
-    var knownDevices: [String]?
     /// The user finished onboarding (name and permissions steps).
     var onboardingComplete = false
 

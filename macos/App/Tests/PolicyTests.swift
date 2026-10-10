@@ -22,12 +22,6 @@ struct ReceivePolicyTests {
             == .only([phoneA]))
     }
 
-    @Test func newDevicesAreAddedToNarrowRules() {
-        #expect(ReceivePolicy.rule(.only([phoneA]), adding: [laptopC], devices: all) == .only([phoneA, laptopC]))
-        #expect(ReceivePolicy.rule(.only([phoneA, phoneB]), adding: [laptopC], devices: all) == .everyone)
-        #expect(ReceivePolicy.rule(.everyone, adding: [laptopC], devices: all) == nil)
-    }
-
     @Test func clipboardTargetsFollowTheirRecords() {
         let wants = entry(record(phoneA, "A", kind: .phone))
         let blocks = entry(record(phoneB, "B", kind: .phone, receive: [MessageType.clipboardSet.rawValue: .only([laptopC])]))
@@ -47,7 +41,8 @@ struct ReceivePolicyTests {
     @Test func automaticClipboardDefault() {
         #expect(ReceivePolicy.automaticClipboard(nil, access: .alwaysAllow))
         #expect(!ReceivePolicy.automaticClipboard(nil, access: .ask))
-        #expect(!ReceivePolicy.automaticClipboard(nil, access: .unknown))
+        #expect(ReceivePolicy.automaticClipboard(nil, access: .unknown))  // macOS < 15.4
+        #expect(!ReceivePolicy.automaticClipboard(nil, access: .standard))
         #expect(ReceivePolicy.automaticClipboard(true, access: .alwaysDeny))
         #expect(!ReceivePolicy.automaticClipboard(false, access: .alwaysAllow))
     }
@@ -63,7 +58,6 @@ struct PreferencesTests {
         p.noteApp(id: "com.a", name: "Ant")
         p.automaticClipboard = false
         p.clipboardSendTo = [phoneA]
-        p.knownDevices = [phoneA, phoneB]
         p.onboardingComplete = true
         #expect(Preferences(json: p.json) == p)
         #expect(p.seenApps.map(\.name) == ["Ant", "Bee"])

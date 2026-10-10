@@ -44,8 +44,8 @@ targets:
         product: CaromStore
       - package: CaromKit
         product: CaromSync
-      # - package: CaromKit
-      #   product: CaromDesktop   # enable at integration, then delete Sources/Desktop/CaromDesktopShim.swift
+      - package: CaromKit
+        product: CaromDesktop
     info:
       path: Info.plist
       properties:

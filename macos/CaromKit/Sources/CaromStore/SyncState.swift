@@ -27,12 +27,17 @@ public struct OutboxItem: Sendable, Equatable, Codable {
     public var createdAt: Int
     public var attempts: Int
     public var nextAttemptAt: Int
+    /// The notification key of a `notification.posted@1`, kept for the dismiss key check
+    /// (SPEC §3.3 rule 7). Not content: the phone's notification key.
+    public var notificationKey: String?
 
-    public init(envelope: Envelope, createdAt: Int, attempts: Int = 0, nextAttemptAt: Int) {
+    public init(envelope: Envelope, createdAt: Int, attempts: Int = 0, nextAttemptAt: Int,
+                notificationKey: String? = nil) {
         self.envelope = envelope
         self.createdAt = createdAt
         self.attempts = attempts
         self.nextAttemptAt = nextAttemptAt
+        self.notificationKey = notificationKey
     }
 
     public var expiresAt: Int { createdAt + envelope.ttlS * 1000 }
@@ -42,10 +47,24 @@ public struct OutboxItem: Sendable, Equatable, Codable {
 public struct MessageRef: Sendable, Equatable, Codable {
     public var peers: [String]
     public var expiresAt: Int
+    /// For a `notification.posted@1` we sent: its key (SPEC §3.3 rule 7, dismiss key check).
+    public var key: String?
 
-    public init(peers: [String], expiresAt: Int) {
+    public init(peers: [String], expiresAt: Int, key: String? = nil) {
         self.peers = peers
         self.expiresAt = expiresAt
+        self.key = key
+    }
+}
+
+/// A device's `sign_pub` as last trusted, and the newest key version it was a member under.
+public struct CachedSigner: Sendable, Equatable, Codable {
+    public var signPub: String
+    public var kv: Int
+
+    public init(signPub: String, kv: Int) {
+        self.signPub = signPub
+        self.kv = kv
     }
 }
 
@@ -92,8 +111,42 @@ public struct SyncState: Sendable, Equatable, Codable {
     public var pendingRemovals: [String: PendingRemoval] = [:]
     /// App settings the kit does not interpret (filters, toggles).
     public var settings: [String: JSON] = [:]
+    /// b64 `sign_pub` of every device that was ever a trusted member, kept after it leaves the
+    /// directory. SPEC §5.5 step 1: a device that missed keyring versions may use its cached
+    /// directory to verify a version written by a device that has since been revoked.
+    public var signPubCache: [String: CachedSigner] = [:]
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case hubURL, deviceId, deviceName, receive, recordUpdated, directory, listedIds, lastUpdated, rekeyMembers,
+             rekeyBy, seen, sent, received, outbox, lastClipboardTs, lastMsgId, pendingRemovals, settings,
+             signPubCache
+    }
+
+    /// Every field is optional on disk, so state written by an older build still loads.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        hubURL = try c.decodeIfPresent(String.self, forKey: .hubURL)
+        deviceId = try c.decodeIfPresent(String.self, forKey: .deviceId)
+        deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName) ?? ""
+        receive = try c.decodeIfPresent([String: ReceiveRule].self, forKey: .receive)
+        recordUpdated = try c.decodeIfPresent(Int.self, forKey: .recordUpdated) ?? 0
+        directory = try c.decodeIfPresent([String: DirectoryEntry].self, forKey: .directory) ?? [:]
+        listedIds = try c.decodeIfPresent([String].self, forKey: .listedIds) ?? []
+        lastUpdated = try c.decodeIfPresent([String: Int].self, forKey: .lastUpdated) ?? [:]
+        rekeyMembers = try c.decodeIfPresent([Int: [String]].self, forKey: .rekeyMembers) ?? [:]
+        rekeyBy = try c.decodeIfPresent([Int: String].self, forKey: .rekeyBy) ?? [:]
+        seen = try c.decodeIfPresent([String: Int].self, forKey: .seen) ?? [:]
+        sent = try c.decodeIfPresent([String: MessageRef].self, forKey: .sent) ?? [:]
+        received = try c.decodeIfPresent([String: MessageRef].self, forKey: .received) ?? [:]
+        outbox = try c.decodeIfPresent([OutboxItem].self, forKey: .outbox) ?? []
+        lastClipboardTs = try c.decodeIfPresent(Int.self, forKey: .lastClipboardTs)
+        lastMsgId = try c.decodeIfPresent(String.self, forKey: .lastMsgId)
+        pendingRemovals = try c.decodeIfPresent([String: PendingRemoval].self, forKey: .pendingRemovals) ?? [:]
+        settings = try c.decodeIfPresent([String: JSON].self, forKey: .settings) ?? [:]
+        signPubCache = try c.decodeIfPresent([String: CachedSigner].self, forKey: .signPubCache) ?? [:]
+    }
 
     /// Drops expired seen ids and message references.
     public mutating func prune(now: Int) {

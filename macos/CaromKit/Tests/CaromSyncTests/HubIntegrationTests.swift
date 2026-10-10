@@ -79,7 +79,12 @@ struct HubIntegrationTests {
 
             // WebSocket path: Mac connected, phone sends, the frame arrives live.
             let socket = try #require(await mac.startRealtime())
-            try await Task.sleep(for: .seconds(1))
+            var up = false
+            for _ in 0..<50 where !up {
+                up = mac.realtimeState == .connected
+                if !up { try await Task.sleep(for: .milliseconds(100)) }
+            }
+            #expect(up, "the engine reports the socket as connected")
             _ = try await phone.send(ClipboardSet(text: "integration: live"))
             var live = false
             for _ in 0..<50 where !live {
@@ -117,6 +122,44 @@ struct HubIntegrationTests {
             #expect(try await phone.fetchMessages() == 1)
             #expect(await phoneLog.messages.last?.received.envelope.kv == 2)
             await #expect(throws: HubError.self) { try await laptop.fetchMessages() }
+
+            // SPEC §5.4 self-leave: the leaver rekeys without itself (kv 3), then deletes itself.
+            let (leaver, _) = await device("Integration Leaver", kind: .desktop)
+            try await pair(leaver, via: mac)
+            let leaverId = try #require(await leaver.deviceId)
+            try await leaver.refreshDirectory()
+            try await phone.refreshDirectory()
+            try await leaver.revoke(deviceId: leaverId)
+            #expect(await !leaver.isConfigured)
+            try await mac.refreshDirectory()
+            #expect(await mac.currentKv == 3)
+            #expect(await macLog.events.contains(.deviceRemoved(name: "Integration Leaver", by: "Integration Leaver")))
+            try await phone.refreshDirectory()
+            #expect(await phone.currentKv == 3)
+            try await mac.refreshDirectory()
+
+            // SPEC §5.3 joiner transitional trust: the Mac rekeys (kv 4) while the phone is
+            // offline; a new device joining through the Mac still trusts the phone's kv 3 record.
+            try await mac.rekey()
+            #expect(await mac.currentKv == 4)
+            let (joiner, _) = await device("Integration Joiner", kind: .desktop)
+            try await pair(joiner, via: mac)
+            let phoneId = try #require(await phone.deviceId)
+            #expect(await joiner.directory.first { $0.record.id == phoneId }?.kv == 3)
+
+            // SPEC §3.3 rule 7: a dismiss with a different key than the original is dropped.
+            let posted = NotificationPosted(key: "0|com.example|1|null|1", app: .init(id: "com.example", name: "Example"),
+                                            title: "t", text: "x", postedAt: Int(Date().timeIntervalSince1970 * 1000))
+            try await phone.refreshDirectory()
+            _ = try await phone.send(posted)
+            #expect(try await mac.fetchMessages() >= 1)
+            let original = try #require(await macLog.messages.last { $0.message == .notificationPosted(posted) })
+            _ = try await mac.send(NotificationDismiss(key: "0|com.other|1|null|2"), replyTo: original.msgId)
+            _ = try await phone.fetchMessages()
+            #expect(await phoneLog.events.contains(.messageDropped(.replyNotAllowed)))
+            _ = try await mac.send(NotificationDismiss(key: posted.key), replyTo: original.msgId)
+            _ = try await phone.fetchMessages()
+            #expect(await phoneLog.messages.last?.message == .notificationDismiss(NotificationDismiss(key: posted.key)))
         } catch {
             try? await admin.reset(setupToken: setupToken)
             throw error

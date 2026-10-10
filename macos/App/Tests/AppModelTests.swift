@@ -4,9 +4,7 @@ import CaromSync
 import Foundation
 import Testing
 @testable import Carom
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 private let pixel = record(phoneA, "Pixel", kind: .phone)
 private let galaxy = record(phoneB, "Galaxy", kind: .phone)
@@ -115,7 +113,10 @@ struct AppModelTests {
     @Test func removedWithdraws() async {
         let h = Harness()
         await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.count == 1)
         await h.model.dispatch(.notificationRemoved(NotificationRemoved(key: "k1")), msgId: "m2", sender: pixel)
+        #expect(h.model.activity.notifications.isEmpty, "a removed notification leaves the menu too")
         #expect(h.presenter.withdrawn.count == 1)
         #expect(h.presenter.withdrawn.first?.0 == phoneA && h.presenter.withdrawn.first?.1 == "k1")
     }
@@ -170,13 +171,19 @@ struct AppModelTests {
         #expect(h.clipboard.written.map(\.text) == ["y"])
     }
 
-    @Test func automaticModeDefaultsOnOnlyWithAlwaysAllow() async {
+    @Test func automaticModeDefaultsOnWithAlwaysAllowOrBefore15_4() async {
         let allowed = Harness(access: .alwaysAllow)
         await allowed.start()
         #expect(allowed.model.automaticClipboard)
         #expect(allowed.clipboard.running)
 
-        for access: PasteboardAccess in [.ask, .standard, .alwaysDeny, .unknown] {
+        // Before macOS 15.4 there is no pasteboard access control, so it is on by default too.
+        let older = Harness(access: .unknown)
+        await older.start()
+        #expect(older.model.automaticClipboard)
+        #expect(older.clipboard.running)
+
+        for access: PasteboardAccess in [.ask, .standard, .alwaysDeny] {
             let h = Harness(access: access)
             await h.start()
             #expect(!h.model.automaticClipboard)
@@ -311,21 +318,76 @@ struct AppModelTests {
     @Test func hubUnreachableAfterTimeout() async throws {
         let h = Harness()
         await h.start()
-        h.model.transport(.opening(id: 1))
+        h.model.realtimeChanged(.connecting)
         #expect(h.model.connection == .connecting)
         try await Task.sleep(for: .milliseconds(150))
         #expect(h.model.banners.map(\.kind) == [.hubUnreachable])
-        h.model.transport(.up(id: 1))
+        h.model.realtimeChanged(.connected)
         #expect(h.model.connection == .connected)
         #expect(h.model.banners.isEmpty)
-        // A late failure of an older connection is ignored.
-        h.model.transport(.opening(id: 2))
-        h.model.transport(.up(id: 2))
-        h.model.transport(.down(id: 1))
+        // A dropped connection goes back to connecting; asleep and no network win over it.
+        h.model.realtimeChanged(.connecting)
+        #expect(h.model.connection == .connecting)
+        h.model.networkChanged(false)
+        h.model.realtimeChanged(.connecting)
+        #expect(h.model.connection == .noNetwork)
+    }
+
+    @Test func selfLeaveNoticeAndRedactedNotification() async {
+        let h = Harness()
+        await h.start()
+        await h.model.handle(event: .deviceRemoved(name: "Laptop", by: "Laptop"))
+        #expect(h.model.banners.last?.message == "Laptop left your devices.")
+        let hidden = NotificationPosted(key: "k1", app: .init(id: "com.bank", name: "Bank"), postedAt: 1, redacted: true)
+        await h.model.dispatch(.notificationPosted(hidden), msgId: "m1", sender: pixel)
+        #expect(h.presenter.presented.last?.0.text == UserMessages.contentHiddenOnPhone)
+    }
+
+    @Test func connectionFollowsTheEngineStream() async throws {
+        let h = Harness()
+        await h.start()
+        h.sync.realtime.continuation.yield(.connecting)
+        h.sync.realtime.continuation.yield(.connected)
+        for _ in 0..<50 where h.model.connection != .connected { await settle() }
         #expect(h.model.connection == .connected)
     }
 
-    @Test func newDeviceJoinsNarrowedRules() async throws {
+    @Test func quittingReleasesTheHotkey() async {
+        let h = Harness()
+        await h.start()
+        #expect(h.hotkey.handler != nil)
+        h.model.shutdown()
+        #expect(h.hotkey.handler == nil)
+        #expect(h.hotkey.unregisterCalls >= 1)
+        #expect(!h.clipboard.running)
+    }
+
+    @Test func loginItemToggle() async {
+        let h = Harness()
+        await h.start()
+        h.model.setLaunchAtLogin(true)
+        #expect(h.model.launchAtLogin)
+        #expect(h.model.loginItemMessage == nil)
+        h.model.setLaunchAtLogin(false)
+        #expect(!h.model.launchAtLogin)
+        // Registered but waiting for approval in System Settings: the toggle stays off and says why.
+        h.loginItem.needsApproval = true
+        h.model.setLaunchAtLogin(true)
+        #expect(!h.model.launchAtLogin)
+        #expect(h.model.loginItemMessage == UserMessages.loginItemNeedsApproval)
+    }
+
+    @Test func onboardingClipboardCheckReadsOnce() async {
+        let h = Harness(access: .standard, onboarded: false)
+        await h.start()
+        #expect(h.clipboard.reads == 0)
+        h.model.checkClipboardAccess()
+        #expect(h.clipboard.reads == 1)
+        #expect(h.clipboard.written.isEmpty)
+        #expect(await h.sync.sent.isEmpty)
+    }
+
+    @Test func newDeviceIsNotAddedToNarrowedRules() async throws {
         let h = Harness(directory: [entry(pixel), entry(galaxy)])
         await h.start()
         try await h.model.setReceive(.clipboard, from: phoneB, false)
@@ -335,8 +397,13 @@ struct AppModelTests {
         await h.sync.set(directory: [entry(pixel), entry(galaxy), entry(laptop)])
         await h.model.handle(event: .directoryChanged)
         await settle()
-        #expect(await h.sync.receiveRules[MessageType.clipboardSet.rawValue] == .only([phoneA, laptopC]))
-        #expect(h.model.preferences.clipboardSendTo == [phoneA, laptopC])
+        // A list of ids is an explicit choice: the new device is not added and shows unchecked.
+        #expect(await h.sync.receiveRules[MessageType.clipboardSet.rawValue] == .only([phoneA]))
+        #expect(h.model.preferences.clipboardSendTo == [phoneA])
+        #expect(!h.model.receives(.clipboard, from: laptopC))
+        #expect(!h.model.isSendingClipboard(to: laptopC))
+        // "*" includes devices paired later.
+        #expect(h.model.receives(.notifications, from: laptopC))
     }
 
     // MARK: Pairing

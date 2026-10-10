@@ -4,9 +4,7 @@ import CaromStore
 import CaromSync
 import Foundation
 @testable import Carom
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 func devId(_ c: Character) -> String { "dev_" + String(repeating: c, count: 22) }
 
@@ -96,7 +94,9 @@ actor FakeSync: SyncService {
     }
 
     func flushOutbox() async -> [SendOutcome] { [] }
-    func openRealtime(connector: any WebSocketConnector) async -> HubSocket? { nil }
+    func openRealtime() async -> HubSocket? { nil }
+    nonisolated let realtime = AsyncStream.makeStream(of: RealtimeState.self)
+    nonisolated func realtimeStates() -> AsyncStream<RealtimeState> { realtime.stream }
     func stopRealtime() async { stopRealtimeCalls += 1 }
     func revoke(deviceId: String) async throws { revoked.append(deviceId) }
     func wipe() async {
@@ -115,7 +115,12 @@ final class FakePresenter: NotificationPresenting {
     var withdrawnAll: [String] = []
     var authorization = true
 
-    func requestAuthorization() async -> Bool { authorization }
+    var state: Bool?
+    func requestAuthorization() async -> Bool {
+        state = authorization
+        return authorization
+    }
+    func authorizationState() async -> Bool? { state }
     func present(_ notification: PresentedNotification, showPhoneName: Bool) async {
         presented.append((notification, showPhoneName))
     }
@@ -130,31 +135,48 @@ final class FakeClipboard: ClipboardWatching {
     var running = false
     var written: [ClipboardItem] = []
     var current: ClipboardItem?
+    var reads = 0
 
     func start() { running = true }
     func stop() { running = false }
     func write(text: String, sensitive: Bool) { written.append(ClipboardItem(text: text, sensitive: sensitive)) }
-    func readCurrent() -> ClipboardItem? { current }
+    func readCurrent() -> ClipboardItem? {
+        reads += 1
+        return current
+    }
 }
 
 @MainActor
 final class FakeHotkey: HotkeyRegistering {
-    var handler: (() -> Void)?
+    var handler: (@MainActor () -> Void)?
+    var unregisterCalls = 0
     var fail = false
 
     struct Taken: Error {}
 
-    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) throws {
+    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping @MainActor () -> Void) throws {
         if fail { throw Taken() }
         self.handler = handler
     }
-    func unregister() { handler = nil }
+    func unregister() {
+        unregisterCalls += 1
+        handler = nil
+    }
 }
 
 @MainActor
 final class FakeLoginItem: LoginItemControlling {
     var isEnabled = false
-    func setEnabled(_ enabled: Bool) throws { isEnabled = enabled }
+    var requiresApproval = false
+    /// Simulates SMAppService registering but waiting for the user's approval.
+    var needsApproval = false
+    func setEnabled(_ enabled: Bool) throws {
+        if enabled, needsApproval {
+            requiresApproval = true
+            return
+        }
+        isEnabled = enabled
+    }
 }
 
 /// A model wired to fakes, plus handles to inspect them.
@@ -165,6 +187,7 @@ struct Harness {
     let presenter = FakePresenter()
     let clipboard = FakeClipboard()
     let hotkey = FakeHotkey()
+    let loginItem = FakeLoginItem()
     let clock: TestClock
 
     init(directory: [DirectoryEntry] = [entry(record(phoneA, "Pixel", kind: .phone))],
@@ -185,7 +208,7 @@ struct Harness {
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
-                                                  loginItem: FakeLoginItem()),
+                                                  loginItem: loginItem),
                          options: options)
     }
 

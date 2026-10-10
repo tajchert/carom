@@ -34,10 +34,14 @@ public struct ReceiveContext: Sendable {
     public var lastClipboardTs: Int?
     /// `to` of messages this device sent, by msg_id.
     public var originalRecipients: [String: [String]]
+    /// Notification `key` of the `notification.posted@1` messages this device sent, by msg_id
+    /// (rule 7: a dismiss must name the key of the message it replies to). `nil` means the caller
+    /// does not track keys (the shared vectors), and the key check is skipped.
+    public var originalKeys: [String: String]?
 
     public init(selfId: String, directory: [String: Data], keys: [Int: Data], now: Int, seen: Set<String> = [],
                 knownTypes: Set<String> = Set(MessageType.allCases.map(\.rawValue)), lastClipboardTs: Int? = nil,
-                originalRecipients: [String: [String]] = [:]) {
+                originalRecipients: [String: [String]] = [:], originalKeys: [String: String]? = nil) {
         self.selfId = selfId
         self.directory = directory
         self.keys = keys
@@ -46,6 +50,7 @@ public struct ReceiveContext: Sendable {
         self.knownTypes = knownTypes
         self.lastClipboardTs = lastClipboardTs
         self.originalRecipients = originalRecipients
+        self.originalKeys = originalKeys
     }
 }
 
@@ -54,6 +59,12 @@ public struct ReceivedMessage: Sendable, Equatable {
     public let payload: Payload
     /// The decoded body (every type that passes the receiver checks is a known v1 type).
     public let message: Message
+
+    public init(envelope: Envelope, payload: Payload, message: Message) {
+        self.envelope = envelope
+        self.payload = payload
+        self.message = message
+    }
 }
 
 public enum Receiver {
@@ -79,6 +90,13 @@ public enum Receiver {
     /// Rule 7: a reply is accepted only from a recipient of the original message.
     public static func isReplyAllowed(from: String, originalTo: [String]?) -> Bool {
         originalTo?.contains(from) ?? false
+    }
+
+    /// Rule 7, second half: a `notification.dismiss@1` must name the key of the message it
+    /// replies to. `originalKeys == nil` means keys are not tracked by the caller.
+    public static func isDismissKeyAllowed(_ key: String, replyTo: String, originalKeys: [String: String]?) -> Bool {
+        guard let originalKeys else { return true }
+        return originalKeys[replyTo] == key
     }
 
     /// Applies SPEC §3.3 rules 1–7 in order and returns the first failure, or the message.
@@ -110,9 +128,14 @@ public enum Receiver {
         if type == .clipboardSet, isStaleClipboard(ts: payload.ts, last: ctx.lastClipboardTs) {
             return .failure(.staleClipboard)
         }
-        if let replyTo = payload.replyTo,
-           !isReplyAllowed(from: env.from, originalTo: ctx.originalRecipients[replyTo]) {
-            return .failure(.replyNotAllowed)
+        if let replyTo = payload.replyTo {
+            guard isReplyAllowed(from: env.from, originalTo: ctx.originalRecipients[replyTo]) else {
+                return .failure(.replyNotAllowed)
+            }
+            if case .notificationDismiss(let dismiss) = message,
+               !isDismissKeyAllowed(dismiss.key, replyTo: replyTo, originalKeys: ctx.originalKeys) {
+                return .failure(.replyNotAllowed)
+            }
         }
         return .success(ReceivedMessage(envelope: env, payload: payload, message: message))
     }

@@ -16,9 +16,12 @@ enum UserMessages {
     static let noQRInImage = "No Carom QR code was found in that image."
     static let setupURIExpected = "That's a pairing code. Choose Join instead."
     static let pairURIExpected = "That's a setup code. Choose Set up a new hub instead."
+    static let contentHiddenOnPhone = "Content hidden on your phone."
+    static let loginItemFailed = "Couldn't change the login item. Check System Settings › General › Login Items."
+    static let loginItemNeedsApproval = "Allow Carom in System Settings › General › Login Items to open it at login."
 
     static func removed(name: String, by: String?) -> String {
-        if let by { return "\(by) removed \(name)." }
+        if let by { return by == name ? "\(name) left your devices." : "\(by) removed \(name)." }
         return "\(name) was removed without a key change (no rekey)."
     }
 

@@ -82,6 +82,12 @@ public struct VerifiedCandidate: Sendable, Equatable {
     public let kxPub: Data
     /// First 8 characters of the id after `dev_`, shown on both screens.
     public var fingerprint: String { DeviceID.fingerprint(deviceId) }
+
+    public init(deviceId: String, signPub: Data, kxPub: Data) {
+        self.deviceId = deviceId
+        self.signPub = signPub
+        self.kxPub = kxPub
+    }
 }
 
 /// One group key in the welcome plaintext.
