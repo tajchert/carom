@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.core.data.repository
 
 import com.mtajchert.carom.app.core.data.sync.DirectoryStore
+import com.mtajchert.carom.app.core.data.sync.RemovalSummary
 import com.mtajchert.carom.app.core.datastore.UserPreferencesDataSource
 import com.mtajchert.carom.app.core.database.dao.RecentItemDao
 import com.mtajchert.carom.app.core.model.DeviceKind
@@ -87,7 +88,12 @@ class DefaultRecentItemsRepository @Inject constructor(
     override fun latest(limit: Int): Flow<List<RecentItem>> = dao.observeLatest(limit).map { rows ->
         rows.mapNotNull { row ->
             val kind = RecentItemKind.entries.firstOrNull { it.name == row.kind } ?: return@mapNotNull null
-            RecentItem(row.id, kind, row.summary, row.deviceId, row.at)
+            if (kind == RecentItemKind.DEVICE_REMOVED) {
+                val (device, revoker) = RemovalSummary.decode(row.summary)
+                RecentItem(row.id, kind, device, row.deviceId, row.at, actor = revoker)
+            } else {
+                RecentItem(row.id, kind, row.summary, row.deviceId, row.at)
+            }
         }
     }
 }

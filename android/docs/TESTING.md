@@ -27,7 +27,9 @@ CI runs on GitHub Actions from the repository root: [`.github/workflows/android.
 # Screenshot validation (also runs in CI)
 ./gradlew :core:designsystem:validateDebugScreenshotTest \
   :core:ui:validateDebugScreenshotTest \
-  :feature:home:impl:validateDebugScreenshotTest
+  :feature:home:impl:validateDebugScreenshotTest \
+  :feature:devices:impl:validateDebugScreenshotTest \
+  :feature:settings:impl:validateDebugScreenshotTest
 
 # Aggregated coverage across every module
 ./gradlew koverHtmlReport   # or koverXmlReport, or koverLog for a one-line summary
@@ -77,6 +79,10 @@ behaviour, real lifecycle and process death, system UI interaction.
 - **Sync engine** (`core:data`): `DefaultCaromSync` and `Enrollment` running on several
   simulated devices against `FakeHub` (an in-memory Hub in `core:testing`): setup, pairing,
   routing, outbox retry, 409 re-seal, revoke + rekey, replay, stale clipboard, replies, notices.
+  `TrustAndRevocationTest` covers refresh-before-drop, transitional trust, chained rekeys,
+  republishing, removal notices (with and without a rekey), the `401` latch and wipe hooks.
+- **Runtime and push**: `ForegroundSocketSession` against a scripted socket (acks, `dir`, `pair`,
+  `revoked`, reconnect backoff); `PushManager` (`core:push`) against `FakeHub` and a fake connector.
 - **Storage**: Room DAOs on Robolectric; the secret vault with a software cipher (JVM) and the
   real Android Keystore cipher (instrumented).
 - **UI**: Home ViewModel, Compose behaviour of every feature screen, app navigation with the

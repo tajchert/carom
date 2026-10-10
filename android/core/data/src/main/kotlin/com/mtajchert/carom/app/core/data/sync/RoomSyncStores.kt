@@ -8,7 +8,6 @@ import com.mtajchert.carom.app.core.database.entity.DirectoryDeviceEntity
 import com.mtajchert.carom.app.core.database.entity.OutboxEntity
 import com.mtajchert.carom.app.core.database.entity.RecentItemEntity
 import com.mtajchert.carom.app.core.database.entity.SeenMessageEntity
-import com.mtajchert.carom.app.core.datastore.UserPreferencesDataSource
 import com.mtajchert.carom.app.core.model.RecentItemKind
 import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import com.mtajchert.carom.app.core.protocol.parseJsonOrNull
@@ -99,31 +98,38 @@ class RoomDirectoryStore @Inject constructor(private val dao: DirectoryDao) : Di
     )
 }
 
-class DataStoreSyncStateStore @Inject constructor(
-    private val preferences: UserPreferencesDataSource,
-) : SyncStateStore, EnrollmentStore {
-    override suspend fun lastClipboardTs(): Long? = preferences.lastClipboardTs()
-    override suspend fun setLastClipboardTs(ts: Long) = preferences.setLastClipboardTs(ts)
-
-    override suspend fun saveEnrollment(hubUrl: String, deviceId: String, deviceName: String) {
-        preferences.setEnrollment(hubUrl, deviceId)
-        preferences.setDeviceName(deviceName)
-    }
-}
-
-/** Stores notices as recent items (Home shows them). */
+/**
+ * Stores notices as recent items (Home shows them as banners and in its list).
+ *
+ * `recent_items` has one text column, so a "<revoker> removed <device>" notice stores both names
+ * as a JSON array in [RecentItemEntity.summary]; [RemovalSummary] reads it back.
+ */
 class RecentItemNoticeSink @Inject constructor(
     private val dao: RecentItemDao,
 ) : NoticeSink {
     override suspend fun notice(text: NoticeText) {
-        val (summary, deviceId) = when (text) {
-            is NoticeText.DeviceRemoved -> text.deviceName to text.deviceId
+        val (kind, summary, deviceId) = when (text) {
+            is NoticeText.DeviceRemoved ->
+                Triple(RecentItemKind.DEVICE_REMOVED, RemovalSummary.encode(text.deviceName, text.revokerName), text.deviceId)
+            is NoticeText.DeviceRemovedNoRekey -> Triple(RecentItemKind.DEVICE_REMOVED_NO_REKEY, text.deviceName, text.deviceId)
         }
-        dao.insert(RecentItemEntity(kind = RecentItemKind.DEVICE_REMOVED.name, summary = summary, deviceId = deviceId, at = System.currentTimeMillis()))
+        dao.insert(RecentItemEntity(kind = kind.name, summary = summary, deviceId = deviceId, at = System.currentTimeMillis()))
         dao.trim(keep = RECENT_ITEMS_KEPT)
     }
 
     companion object {
         const val RECENT_ITEMS_KEPT = 50
+    }
+}
+
+/** `[device, revoker]` for [RecentItemKind.DEVICE_REMOVED]; older rows hold just the device name. */
+internal object RemovalSummary {
+    fun encode(deviceName: String, revokerName: String): String =
+        Json.encodeToString(listOfStrings, listOf(deviceName, revokerName))
+
+    /** The device name and, when recorded, the revoker's name. */
+    fun decode(summary: String): Pair<String, String?> {
+        val parts = runCatching { Json.decodeFromString(listOfStrings, summary) }.getOrNull()
+        return if (parts != null && parts.size == 2) parts[0] to parts[1] else summary to null
     }
 }

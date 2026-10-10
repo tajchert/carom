@@ -71,12 +71,35 @@ data class RecentItem(
     val summary: String,
     val deviceId: String?,
     val at: Long,
+    /** For [RecentItemKind.DEVICE_REMOVED]: the name of the device that removed it, when known. */
+    val actor: String? = null,
 )
 
 enum class RecentItemKind {
     CLIPBOARD_SENT,
     CLIPBOARD_RECEIVED,
 
-    /** "<name> was removed" (SPEC §5.4); shown until newer items push it out. */
+    /** "<revoker> removed <name>" (SPEC §5.4); [RecentItem.actor] is the revoker. */
     DEVICE_REMOVED,
+
+    /** "<name> was removed (no rekey)": it left the directory and no rekey followed within 2 minutes. */
+    DEVICE_REMOVED_NO_REKEY,
+}
+
+/** Web Push wake-up state (docs/CLIENTS.md "Push (phone)"). */
+enum class PushState {
+    /** Not paired, or not checked yet. */
+    UNKNOWN,
+
+    /** Asking the distributor for an endpoint, or telling the Hub about it. */
+    REGISTERING,
+
+    /** The Hub has our endpoint; no periodic polling is needed. */
+    REGISTERED,
+
+    /** No UnifiedPush distributor (and no Google Play services for the embedded one). */
+    NO_DISTRIBUTOR,
+
+    /** Registration failed; Carom falls back to checking every 15 minutes. */
+    FAILED,
 }

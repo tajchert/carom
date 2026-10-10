@@ -10,8 +10,12 @@
 // an in-memory Hub (core:testing). Room/DataStore/Keystore implementations
 // are bound in di/DataModule.kt.
 //
-// WorkManager: OutboxWorker is the background fallback for sending; the
+// WorkManager: OutboxWorker is the background fallback for sending, FetchWorker
+// handles push wake-ups, piggyback fetches and the 15-minute fallback poll; the
 // HiltWorkerFactory is installed by :app (CaromApplication).
+//
+// runtime/: the foreground-only WebSocket (ProcessLifecycleOwner) and SyncRuntime,
+// which :app starts from Application.onCreate.
 // =============================================================================
 
 plugins {
@@ -48,6 +52,10 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.core.ktx)
+
+    // Foreground-only WebSocket (ProcessLifecycleOwner)
+    implementation(libs.androidx.lifecycle.process)
 
     // WorkManager with Hilt-injected workers
     api(libs.androidx.work.runtime)

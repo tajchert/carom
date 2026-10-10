@@ -8,13 +8,49 @@
     <string name="feature_home_set_up">Set up Carom</string>
     <string name="feature_home_this_device">This phone</string>
     <string name="feature_home_hub">Hub: %1$s</string>
+    <string name="feature_home_push_on">Instant delivery is on.</string>
+    <string name="feature_home_push_setting_up">Setting up instant delivery.</string>
+    <string name="feature_home_push_off">Instant delivery is off. Carom checks every 15 minutes.</string>
+    <string name="feature_home_last_sync">Last sync: %1$s</string>
+    <string name="feature_home_last_sync_never">Not synced yet.</string>
     <plurals name="feature_home_pending">
         <item quantity="one">%1$d message waiting to be sent</item>
         <item quantity="other">%1$d messages waiting to be sent</item>
     </plurals>
+    <string name="feature_home_send_clipboard">Send clipboard</string>
+    <string name="feature_home_send_clipboard_unavailable">Sending the clipboard is not available in this version.</string>
     <string name="feature_home_add_device">Add a device</string>
     <string name="feature_home_recent">Recent</string>
     <string name="feature_home_recent_clipboard_sent">Sent clipboard: %1$s</string>
     <string name="feature_home_recent_clipboard_received">Received clipboard: %1$s</string>
-    <string name="feature_home_recent_device_removed">%1$s was removed</string>
+    <string name="feature_home_recent_device_removed">%1$s was removed.</string>
+    <string name="feature_home_removed_by">%1$s removed %2$s.</string>
+    <string name="feature_home_removed_no_rekey">%1$s was removed, and no device changed the key. Remove it again from Devices to be safe.</string>
+
+    <string name="feature_home_banner_pair_again">Your Hub refused this phone. It was removed, or the Hub was reset. Pair again to continue.</string>
+    <string name="feature_home_banner_pair_again_action">Pair again</string>
+    <string name="feature_home_banner_notification_access">Carom cannot read notifications, so it forwards nothing. Turn on notification access to fix this.</string>
+    <string name="feature_home_banner_notification_access_action">Open settings</string>
+    <string name="feature_home_banner_no_distributor">No push service is available, so new items arrive within 15 minutes or when you open Carom.</string>
+    <string name="feature_home_banner_push_failed">Instant delivery could not be set up. New items arrive within 15 minutes or when you open Carom.</string>
+    <string name="feature_home_banner_dismiss">Dismiss</string>
+
+    <string name="feature_home_pair_again_title">Pair this phone again?</string>
+    <string name="feature_home_pair_again_body">This deletes this phone\'s keys and settings for this Hub. Then scan a pairing code from one of your devices.</string>
+    <string name="feature_home_pair_again_confirm">Delete and pair again</string>
+    <string name="feature_home_cancel">Cancel</string>
+
+    <string name="feature_home_just_now">just now</string>
+    <plurals name="feature_home_minutes_ago">
+        <item quantity="one">%1$d minute ago</item>
+        <item quantity="other">%1$d minutes ago</item>
+    </plurals>
+    <plurals name="feature_home_hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="feature_home_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
 </resources>
