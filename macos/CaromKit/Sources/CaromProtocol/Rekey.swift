@@ -74,12 +74,17 @@ public enum Rekey {
     }
 
     /// Builds the keyring version for `kv` (= previous kv + 1) and the new key, boxed for every
-    /// member (including `by` itself).
+    /// member (including `by` itself, unless `by` is leaving: SPEC §5.4 self-leave rekeys
+    /// without itself before deleting itself).
     public static func build(by: DeviceIdentity, kv: Int, groupKey: Data, members: [RekeyMember],
-                             ephSks: [String: Data] = [:], random: RandomSource = systemRandom) -> KeyringVersion {
+                             leaving: Bool = false, ephSks: [String: Data] = [:],
+                             random: RandomSource = systemRandom) -> KeyringVersion {
         precondition(Seal.isValidKv(kv) && kv >= 2, "rekey kv must be >= 2")
         precondition(groupKey.count == 32, "group key must be 32 bytes")
-        precondition(members.contains { $0.id == by.deviceId }, "members must include the rekeying device")
+        precondition(!members.isEmpty, "a rekey needs at least one member")
+        precondition(members.contains { $0.id == by.deviceId } != leaving,
+                     leaving ? "a leaving device must not box the new key for itself"
+                             : "members must include the rekeying device")
         var boxes: [String: Box] = [:]
         for m in members {
             precondition(DeviceID.isValid(m.id) && boxes[m.id] == nil, "invalid or duplicate member \(m.id)")
@@ -104,6 +109,13 @@ public enum Rekey {
         public let by: String
         /// Ids that received a box: the members that remain after this rekey.
         public let members: Set<String>
+
+        public init(kv: Int, groupKey: Data, by: String, members: Set<String>) {
+            self.kv = kv
+            self.groupKey = groupKey
+            self.by = by
+            self.members = members
+        }
     }
 
     /// Device-side processing of one keyring version (SPEC §5.5 steps 1–3). `directory` holds

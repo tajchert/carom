@@ -83,6 +83,35 @@ struct ProtocolUnitTests {
         #expect(Receiver.receive(forged.json, context: ctx) == .failure(.badSignature))
     }
 
+    @Test("rule 7: a dismiss must name the key of the message it replies to")
+    func dismissKeyMustMatchTheOriginal() throws {
+        let phone = DeviceIdentity.generate()
+        let mac = DeviceIdentity.generate()
+        let k = Wire.randomBytes(32)
+        var gen = UUIDv7Generator()
+        let original = gen.next()
+        func dismiss(_ key: String) throws -> JSON {
+            let payload = Payload(type: MessageType.notificationDismiss.rawValue, ts: 1_000, replyTo: original,
+                                  body: NotificationDismiss(key: key))
+            return EnvelopeCodec.seal(msgId: gen.next(), from: mac.deviceId, to: [phone.deviceId], collapse: nil,
+                                      ttlS: 86_400, plaintext: try payload.encode(), groupKey: k, kv: 1,
+                                      signSk: mac.signSk).json
+        }
+        var ctx = ReceiveContext(selfId: phone.deviceId, directory: [mac.deviceId: mac.signPub], keys: [1: k],
+                                 now: 2_000, originalRecipients: [original: [mac.deviceId]],
+                                 originalKeys: [original: "0|com.whatsapp|1|null|10123"])
+        #expect((try? Receiver.receive(try dismiss("0|com.whatsapp|1|null|10123"), context: ctx).get()) != nil)
+        #expect(Receiver.receive(try dismiss("0|com.bank|1|null|1"), context: ctx) == .failure(.replyNotAllowed))
+        // A reply to a message that was not a notification has no key to match.
+        ctx.originalKeys = [:]
+        #expect(Receiver.receive(try dismiss("0|com.whatsapp|1|null|10123"), context: ctx) == .failure(.replyNotAllowed))
+        // Callers that do not track keys (the shared vectors) skip the key check.
+        ctx.originalKeys = nil
+        #expect((try? Receiver.receive(try dismiss("anything"), context: ctx).get()) != nil)
+        #expect(Receiver.isDismissKeyAllowed("a", replyTo: original, originalKeys: [original: "a"]))
+        #expect(!Receiver.isDismissKeyAllowed("b", replyTo: original, originalKeys: [original: "a"]))
+    }
+
     @Test func uuidGeneratorIsMonotonicAndResumes() {
         let clock = FrozenClock(1_791_648_000_000)
         var gen = UUIDv7Generator(now: { clock.value })

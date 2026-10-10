@@ -37,6 +37,7 @@ public actor SyncEngine {
     private var refreshTask: Task<Void, any Error>?
     private var socket: HubSocket?
     private var socketTask: Task<Void, Never>?
+    private let realtime = RealtimeStateBroadcaster()
 
     private struct Offer {
         let secret: Data
@@ -102,6 +103,13 @@ public actor SyncEngine {
         state.directory.values.sorted { ($0.record.name, $0.record.id) < ($1.record.name, $1.record.id) }
     }
     public var outbox: [OutboxItem] { state.outbox }
+
+    /// State of the realtime WebSocket started by `startRealtime`.
+    public nonisolated var realtimeState: RealtimeState { realtime.current }
+
+    /// Yields the current realtime state, then every change. Each call returns an independent
+    /// stream; cancel the consuming task to stop observing.
+    public nonisolated func realtimeStates() -> AsyncStream<RealtimeState> { realtime.stream() }
     /// App settings persisted with the sync state (the kit does not interpret them).
     public var settings: [String: JSON] { state.settings }
 
@@ -312,7 +320,44 @@ public actor SyncEngine {
             throw error
         }
         let applied = try await applyKeyring()
+        await learnCurrentKeyringMembers(listing: listing)
         await rebuildDirectory(listing: listing, applied: applied)
+    }
+
+    /// SPEC §5.3 transitional trust for a device that got the newest key through a welcome
+    /// rather than the keyring: it calls `GET /v1/keyring?have=<newest kv − 1>` so it also holds
+    /// the newest version's box list, and verifies that version's signature with the `sign_pub`
+    /// of a trusted member. Records still sealed under kv − 1 by devices boxed in it then count.
+    private func learnCurrentKeyringMembers(listing: [DeviceListing]) async {
+        guard let s = secrets, let current = s.current, current.kv > 1, state.rekeyMembers[current.kv] == nil,
+              let selfId = state.deviceId
+        else { return }
+        let versions: [JSON]
+        do { versions = try await requireHub().keyring(have: current.kv - 1) } catch {
+            log.info("keyring fetch for transitional trust failed")
+            return
+        }
+        guard let json = versions.first(where: { $0["kv"]?.safeInt == current.kv }),
+              let version = KeyringVersion(json: json)
+        else { return }
+        // Members under the current key: records that open with it (plus this device).
+        var trusted: [String: Data] = [selfId: s.identity.signPub]
+        for l in listing where l.id != selfId {
+            guard let recordJSON = l.record,
+                  case .success(let record) = RecordCodec.open(recordJSON, groupKey: current.key, kv: current.kv),
+                  record.signPub == l.signPub, let pub = record.signPubBytes
+            else { continue }
+            trusted[l.id] = pub
+        }
+        guard let signer = Receiver.trustedSenderKey(trusted, version.by),
+              Rekey.verifySignature(version, bySignPub: signer)
+        else {
+            log.error("keyring version for transitional trust rejected")
+            return
+        }
+        state.rekeyMembers[current.kv] = DeviceID.sorted(version.boxes.keys)
+        state.rekeyBy[current.kv] = version.by
+        persist()
     }
 
     /// `GET /v1/keyring?have=kv` and install every newer version we can verify (SPEC §5.5).
@@ -327,7 +372,12 @@ public actor SyncEngine {
         let versions = try await requireHub().keyring(have: have)
         guard var s = secrets, let selfId = state.deviceId else { throw SyncError.notConfigured }
         let sorted = versions.sorted { ($0["kv"]?.safeInt ?? 0) < ($1["kv"]?.safeInt ?? 0) }
+        // The writer of version current + 1 must be a member under the current key: a trusted
+        // directory member, or a device boxed in the current version. The cached sign_pubs cover
+        // writers that have since been revoked (SPEC §5.5 step 1).
         var signers = trustedSignPubs(includingSelf: true)
+            .merging(knownSignPubs(state.rekeyMembers[have] ?? [])) { current, _ in current }
+            .merging(formerMembers(trustedUnder: have)) { current, _ in current }
         var applied: [Rekey.Opened] = []
         for v in sorted {
             guard let kv = v["kv"]?.safeInt, let current = s.current?.kv, kv == current + 1 else { continue }
@@ -337,7 +387,7 @@ public actor SyncEngine {
                 state.rekeyMembers[opened.kv] = DeviceID.sorted(opened.members)
                 state.rekeyBy[opened.kv] = opened.by
                 // The signer of the next version must be a member under this one.
-                signers = signers.filter { opened.members.contains($0.key) }
+                signers = knownSignPubs(opened.members)
                 applied.append(opened)
             case .failure(let e):
                 log.error("keyring version rejected: \(e.rawValue, privacy: .public)")
@@ -380,6 +430,9 @@ public actor SyncEngine {
             case .success(let record):
                 guard record.signPub == l.signPub, record.kxPub == l.kxPub else { continue }
                 state.lastUpdated[l.id] = max(state.lastUpdated[l.id] ?? 0, record.updated)
+                // Trusted now means a member under the current key (transitional records belong to
+                // devices boxed in the current version).
+                state.signPubCache[l.id] = CachedSigner(signPub: record.signPub, kv: current.kv)
                 newDirectory[l.id] = DirectoryEntry(record: record, kv: sealed.kv, createdAt: l.createdAt,
                                                     lastSeen: l.lastSeen, hasPush: l.hasPush)
             case .failure(.rollback):
@@ -407,6 +460,13 @@ public actor SyncEngine {
                 state.pendingRemovals[id] = nil
             }
         }
+        // A device that left on its own rekeyed without itself before deleting itself (SPEC §5.4),
+        // so the version that dropped it may already be installed when it leaves the listing.
+        if let writer = state.rekeyBy[current.kv], let members = state.rekeyMembers[current.kv],
+           !members.contains(writer), let p = state.pendingRemovals[writer] {
+            notices.append(.deviceRemoved(name: p.name, by: p.name))
+            state.pendingRemovals[writer] = nil
+        }
         for (id, p) in state.pendingRemovals where now - p.since > config.removalGraceMs {
             notices.append(.deviceRemoved(name: p.name, by: nil))
             state.pendingRemovals[id] = nil
@@ -424,6 +484,29 @@ public actor SyncEngine {
         var out: [String: Data] = [:]
         for (id, e) in state.directory { out[id] = e.record.signPubBytes }
         if includingSelf, let s = secrets { out[s.identity.deviceId] = s.identity.signPub }
+        return out
+    }
+
+    /// sign_pubs of `ids` from this device, the directory, or the cache of former members.
+    private func knownSignPubs(_ ids: some Sequence<String>) -> [String: Data] {
+        var out: [String: Data] = [:]
+        for id in ids {
+            if id == secrets?.identity.deviceId {
+                out[id] = secrets?.identity.signPub
+            } else if let pub = state.directory[id]?.record.signPubBytes {
+                out[id] = pub
+            } else if let cached = state.signPubCache[id] {
+                out[id] = B64.decode(cached.signPub, length: 32)
+            }
+        }
+        return out
+    }
+
+    /// Cached devices whose record was trusted under key version `kv` or later: they were
+    /// members under that key even if they have been revoked since.
+    private func formerMembers(trustedUnder kv: Int) -> [String: Data] {
+        var out: [String: Data] = [:]
+        for (id, c) in state.signPubCache where c.kv >= kv { out[id] = B64.decode(c.signPub, length: 32) }
         return out
     }
 
@@ -502,7 +585,8 @@ public actor SyncEngine {
         let envelope = EnvelopeCodec.seal(msgId: msgId, from: selfId, to: to, collapse: collapse,
                                           ttlS: B.type.defaultTtlS, plaintext: plaintext, groupKey: key.key,
                                           kv: key.kv, signSk: s.signSk, random: random)
-        state.outbox.append(OutboxItem(envelope: envelope, createdAt: now, nextAttemptAt: now))
+        state.outbox.append(OutboxItem(envelope: envelope, createdAt: now, nextAttemptAt: now,
+                                       notificationKey: (body as? NotificationPosted)?.key))
         persist()
         return await deliver(msgId: msgId)
     }
@@ -533,7 +617,8 @@ public actor SyncEngine {
                 let result = try await hub.postMessage(item.envelope)
                 removeFromOutbox(msgId)
                 state.sent[msgId] = MessageRef(peers: item.envelope.to,
-                                               expiresAt: item.expiresAt + Carom.Limits.clockSkewMs)
+                                               expiresAt: item.expiresAt + Carom.Limits.clockSkewMs,
+                                               key: item.notificationKey)
                 persist()
                 if result.superseded { return .superseded }
                 return .sent(seq: result.seq ?? 0, duplicate: result.duplicate)
@@ -645,7 +730,7 @@ public actor SyncEngine {
         let context = ReceiveContext(
             selfId: selfId, directory: trustedSignPubs(), keys: s.keysByVersion, now: now, seen: Set(state.seen.keys),
             knownTypes: Set(config.caps), lastClipboardTs: state.lastClipboardTs,
-            originalRecipients: state.sent.mapValues(\.peers))
+            originalRecipients: state.sent.mapValues(\.peers), originalKeys: state.sent.compactMapValues(\.key))
         switch Receiver.receive(envelope, context: context) {
         case .success(let r):
             state.seen[r.envelope.msgId] = now + Carom.Limits.seenRetentionMs
@@ -672,9 +757,12 @@ public actor SyncEngine {
                               configuration: HubSocket.Configuration = HubSocket.Configuration()) async -> HubSocket? {
         guard let token = secrets?.token, let hubURL = state.hubURL, let url = URL(string: hubURL) else { return nil }
         await stopRealtime()
-        let ws = HubSocket(url: HubClient(baseURL: url).webSocketURL, token: token, connector: connector,
+        let realtime = self.realtime
+        let observed = LivenessConnector(inner: connector, report: { realtime.report($0) })
+        let ws = HubSocket(url: HubClient(baseURL: url).webSocketURL, token: token, connector: observed,
                            configuration: configuration)
         socket = ws
+        realtime.started()
         socketTask = Task { [weak self] in
             for await event in ws.events { await self?.handle(event) }
         }
@@ -683,6 +771,7 @@ public actor SyncEngine {
     }
 
     public func stopRealtime() async {
+        realtime.stopped()
         socketTask?.cancel()
         socketTask = nil
         if let socket { await socket.stop() }
@@ -718,6 +807,9 @@ public actor SyncEngine {
     public func revoke(deviceId id: String) async throws {
         guard let selfId = state.deviceId else { throw SyncError.notConfigured }
         if id == selfId || id == "self" {
+            // SPEC §5.4: a device leaving on its own first rekeys without itself, so it cannot
+            // read what the others send next, and only then deletes itself.
+            try await rekey(excluding: [selfId])
             try await requireHub().revoke(deviceId: "self")
             await handleRevoked()
             return
@@ -741,14 +833,18 @@ public actor SyncEngine {
             guard let s = secrets, let current = s.current, let selfId = state.deviceId else {
                 throw SyncError.notConfigured
             }
-            var members = [RekeyMember(id: selfId, kxPub: s.identity.kxPub)]
+            let leaving = excluding.contains(selfId)
+            var members = leaving ? [] : [RekeyMember(id: selfId, kxPub: s.identity.kxPub)]
             for (id, e) in state.directory where listed.contains(id) && !excluding.contains(id) {
                 guard let kx = e.record.kxPubBytes else { continue }
                 members.append(RekeyMember(id: id, kxPub: kx))
             }
+            // The last device leaving: nobody is left to protect.
+            if members.isEmpty { return }
             let newKv = current.kv + 1
             let newKey = random(Carom.keyLength)
-            let version = Rekey.build(by: s.identity, kv: newKv, groupKey: newKey, members: members, random: random)
+            let version = Rekey.build(by: s.identity, kv: newKv, groupKey: newKey, members: members, leaving: leaving,
+                                      random: random)
             do {
                 try await hub.putKeyring(version)
             } catch {
@@ -758,6 +854,8 @@ public actor SyncEngine {
                 }
                 throw error
             }
+            // A leaving device does not keep K'; it deletes itself next.
+            if leaving { return }
             guard var updated = secrets else { throw SyncError.notConfigured }
             updated.install(kv: newKv, key: newKey, now: clock())
             do { try vault.save(updated) } catch { throw SyncError.store("\(error)") }
@@ -782,6 +880,7 @@ public actor SyncEngine {
 
     /// Erases keys and local state (used on revoke and for "reset this Mac").
     public func wipe() async {
+        realtime.stopped()
         let ws = socket
         socket = nil
         socketTask?.cancel()
