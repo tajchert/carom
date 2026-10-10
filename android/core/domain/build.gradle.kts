@@ -1,22 +1,9 @@
 // =============================================================================
 // CORE:DOMAIN MODULE
 // =============================================================================
-// Business logic use cases.
-//
-// ## When to Use Domain Layer
-//
-// Use cases are OPTIONAL but recommended when:
-// 1. Combining data from multiple repositories
-// 2. Complex business logic needs isolation
-// 3. Same logic is used by multiple ViewModels
-//
-// For simple CRUD operations, ViewModels can call repositories directly.
-//
-// ## Key Patterns
-//
-// - Use cases are classes with a single `invoke()` operator function
-// - They can be called like functions: `getSortedTasks()`
-// - They return Flow for reactive data or suspend for one-shot operations
+// Use cases that features share, built on core:data (repositories, CaromSync).
+// Keep them small; add one only for logic used by more than one caller or that
+// combines several sources.
 // =============================================================================
 
 plugins {
@@ -42,9 +29,8 @@ android {
 }
 
 dependencies {
-    // Project modules
-    implementation(projects.core.model)
-    implementation(projects.core.data)
+    api(projects.core.model)
+    api(projects.core.data)
 
     // Hilt
     implementation(libs.hilt.android)
@@ -54,6 +40,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     // Testing
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }

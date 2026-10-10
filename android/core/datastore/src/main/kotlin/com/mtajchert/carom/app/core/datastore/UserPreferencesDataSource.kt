@@ -5,135 +5,100 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.mtajchert.carom.app.core.model.DarkThemeConfig
-import com.mtajchert.carom.app.core.model.TaskSortOrder
 import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 import javax.inject.Inject
 
 /**
- * DataSource for user preferences backed by Jetpack DataStore.
+ * Non-secret settings and small sync state in Preferences DataStore.
  *
- * ## Architecture Role
- *
- * This class is the single access point for user preferences.
- * It sits in the data layer and:
- * - Exposes preferences as a Flow for reactive updates
- * - Provides suspend functions for modifying preferences
- * - Handles serialization/deserialization of enum values
- *
- * ## Why DataStore?
- *
- * Compared to SharedPreferences:
- * 1. **Async by default**: All reads are non-blocking
- * 2. **Flow-based**: UI automatically updates when preferences change
- * 3. **Transactional**: Uses `edit {}` for atomic updates
- * 4. **Type-safe**: Typed keys prevent wrong-type access
- *
- * ## Usage
- *
- * ```kotlin
- * // In Repository
- * class UserPreferencesRepository @Inject constructor(
- *     private val dataSource: UserPreferencesDataSource,
- * ) {
- *     val userPreferences: Flow<UserPreferences> = dataSource.userPreferences
- *
- *     suspend fun setDarkTheme(config: DarkThemeConfig) {
- *         dataSource.setDarkThemeConfig(config)
- *     }
- * }
- * ```
+ * The file lives in the app's files dir, which `backup_rules.xml` and
+ * `data_extraction_rules.xml` exclude together with everything else.
  */
 class UserPreferencesDataSource @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) {
-    /**
-     * Flow of current user preferences.
-     *
-     * This Flow:
-     * - Emits immediately with current preferences
-     * - Re-emits whenever any preference changes
-     * - Remains active while collected
-     */
-    val userPreferences: Flow<UserPreferences> = dataStore.data
-        .catch { throwable ->
-            // A transient file read failure should not brick app startup. Other
-            // failures remain visible because they normally indicate a bug.
-            if (throwable is IOException) emit(emptyPreferences()) else throw throwable
-        }
-        .map { preferences ->
+    private val data: Flow<Preferences> = dataStore.data.catch { throwable ->
+        // A transient read failure must not brick startup; other failures are bugs.
+        if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+    }
+
+    val userPreferences: Flow<UserPreferences> = data.map { p ->
         UserPreferences(
-            themeBrand = preferences[THEME_BRAND]
-                ?.let { storedValue -> enumValueOrNull<ThemeBrand>(storedValue) }
-                ?: ThemeBrand.DEFAULT,
-            darkThemeConfig = preferences[DARK_THEME_CONFIG]
-                ?.let { storedValue -> enumValueOrNull<DarkThemeConfig>(storedValue) }
+            themeBrand = p[THEME_BRAND]?.let { enumValueOrNull<ThemeBrand>(it) } ?: ThemeBrand.DEFAULT,
+            darkThemeConfig = p[DARK_THEME_CONFIG]?.let { enumValueOrNull<DarkThemeConfig>(it) }
                 ?: DarkThemeConfig.FOLLOW_SYSTEM,
-            sortOrder = preferences[SORT_ORDER]
-                ?.let { storedValue -> enumValueOrNull<TaskSortOrder>(storedValue) }
-                ?: TaskSortOrder.CREATED_DATE,
+            hubUrl = p[HUB_URL],
+            deviceId = p[DEVICE_ID],
+            deviceName = p[DEVICE_NAME],
+            forwardingPaused = p[FORWARDING_PAUSED] ?: false,
+            forwardOnlyWhenLocked = p[FORWARD_ONLY_WHEN_LOCKED] ?: false,
+            clipboardArrivalNotification = p[CLIPBOARD_ARRIVAL_NOTIFICATION] ?: true,
+            ongoingNotification = p[ONGOING_NOTIFICATION] ?: false,
         )
-        }
-
-    /**
-     * Set the theme brand preference.
-     *
-     * ## Transaction Safety
-     *
-     * The `edit {}` block is transactional:
-     * - All changes within the block are atomic
-     * - If an exception occurs, no changes are applied
-     * - Concurrent edits are serialized
-     */
-    suspend fun setThemeBrand(themeBrand: ThemeBrand) {
-        dataStore.edit { preferences ->
-            preferences[THEME_BRAND] = themeBrand.name
-        }
     }
 
-    /**
-     * Set the dark theme configuration.
-     */
-    suspend fun setDarkThemeConfig(darkThemeConfig: DarkThemeConfig) {
-        dataStore.edit { preferences ->
-            preferences[DARK_THEME_CONFIG] = darkThemeConfig.name
-        }
+    suspend fun setThemeBrand(themeBrand: ThemeBrand) = edit { it[THEME_BRAND] = themeBrand.name }
+
+    suspend fun setDarkThemeConfig(config: DarkThemeConfig) = edit { it[DARK_THEME_CONFIG] = config.name }
+
+    /** Stores where this device is enrolled. Pass nulls to forget (after a wipe). */
+    suspend fun setEnrollment(hubUrl: String?, deviceId: String?) = edit {
+        if (hubUrl == null) it.remove(HUB_URL) else it[HUB_URL] = hubUrl
+        if (deviceId == null) it.remove(DEVICE_ID) else it[DEVICE_ID] = deviceId
     }
 
-    /**
-     * Set the task sort order.
-     */
-    suspend fun setSortOrder(sortOrder: TaskSortOrder) {
-        dataStore.edit { preferences ->
-            preferences[SORT_ORDER] = sortOrder.name
-        }
+    suspend fun setDeviceName(name: String) = edit { it[DEVICE_NAME] = name }
+
+    suspend fun setForwardingPaused(value: Boolean) = edit { it[FORWARDING_PAUSED] = value }
+
+    suspend fun setForwardOnlyWhenLocked(value: Boolean) = edit { it[FORWARD_ONLY_WHEN_LOCKED] = value }
+
+    suspend fun setClipboardArrivalNotification(value: Boolean) = edit { it[CLIPBOARD_ARRIVAL_NOTIFICATION] = value }
+
+    suspend fun setOngoingNotification(value: Boolean) = edit { it[ONGOING_NOTIFICATION] = value }
+
+    /** `ts` of the last clipboard item applied locally (SPEC §3.3 rule 6). */
+    suspend fun lastClipboardTs(): Long? = data.first()[LAST_CLIPBOARD_TS]
+
+    suspend fun setLastClipboardTs(ts: Long) = edit { it[LAST_CLIPBOARD_TS] = ts }
+
+    /** Forgets everything tied to the group (wipe/revocation). Theme choices survive. */
+    suspend fun clearEnrollment() = edit {
+        it.remove(HUB_URL)
+        it.remove(DEVICE_ID)
+        it.remove(LAST_CLIPBOARD_TS)
+    }
+
+    private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
+        dataStore.edit { block(it) }
     }
 
     companion object {
-        /**
-         * Preference keys.
-         *
-         * ## Naming Convention
-         *
-         * We use descriptive string keys that match the property names.
-         * This makes debugging easier when inspecting DataStore files.
-         */
         private val THEME_BRAND = stringPreferencesKey("theme_brand")
         private val DARK_THEME_CONFIG = stringPreferencesKey("dark_theme_config")
-        private val SORT_ORDER = stringPreferencesKey("sort_order")
+        private val HUB_URL = stringPreferencesKey("hub_url")
+        private val DEVICE_ID = stringPreferencesKey("device_id")
+        private val DEVICE_NAME = stringPreferencesKey("device_name")
+        private val FORWARDING_PAUSED = booleanPreferencesKey("forwarding_paused")
+        private val FORWARD_ONLY_WHEN_LOCKED = booleanPreferencesKey("forward_only_when_locked")
+        private val CLIPBOARD_ARRIVAL_NOTIFICATION = booleanPreferencesKey("clipboard_arrival_notification")
+        private val ONGOING_NOTIFICATION = booleanPreferencesKey("ongoing_notification")
+        private val LAST_CLIPBOARD_TS = longPreferencesKey("last_clipboard_ts")
     }
 }
 
 /**
- * Reads persisted enum names defensively. Preferences can outlive enum renames,
- * app downgrades, and interrupted migrations, so unknown values must not make
- * the complete preferences stream fail.
+ * Reads persisted enum names defensively. Preferences can outlive enum renames and downgrades,
+ * so unknown values must not make the whole stream fail.
  */
 private inline fun <reified T : Enum<T>> enumValueOrNull(value: String): T? =
     enumValues<T>().firstOrNull { it.name == value }

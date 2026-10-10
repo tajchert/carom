@@ -1,19 +1,17 @@
 // =============================================================================
 // CORE:DATABASE MODULE
 // =============================================================================
-// Room database implementation for local data persistence.
+// Room 3 database for Carom's local, non-secret state:
 //
-// ## Why a Separate Database Module?
+// - outbox: sealed envelopes waiting to be posted, and recently sent ones
+//   (their `to` answers SPEC §3.3 rule 7 for replies)
+// - seen_messages: msg_ids seen in the last 7 days plus skew (rule 4)
+// - directory: the cached device list, with the opened record when trusted
+// - notification_apps: per-app forwarding settings
+// - recent_items: short activity lines and notices for Home
 //
-// 1. **Isolation**: Database schema changes are contained here
-// 2. **Testability**: Easy to test DAOs in isolation
-// 3. **Clear Boundaries**: Only this module knows about Room internals
-//
-// ## Key Patterns
-//
-// - **Entities**: Database table representations (NOT domain models)
-// - **DAOs**: Data Access Objects with Flow-based queries
-// - **Mappers**: Extension functions to convert entities to domain models
+// The database file is excluded from backup and device transfer (app xml rules).
+// Schema history is exported to schemas/ and every change needs a migration.
 // =============================================================================
 
 plugins {
@@ -38,15 +36,26 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests {
+            // DAO tests run on Robolectric's SQLite, no emulator needed.
+            isIncludeAndroidResources = true
+            all {
+                it.jvmArgs(
+                    "--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                    "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
+                )
+            }
+        }
+    }
 }
 
-// Room schema location for migration testing
 room3 {
     schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
-    // Project modules
     implementation(projects.core.model)
 
     // Hilt
@@ -64,6 +73,9 @@ dependencies {
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.turbine)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.room.testing)

@@ -1,54 +1,149 @@
 package com.mtajchert.carom.app.core.data.di
 
-import com.mtajchert.carom.app.core.data.repository.DefaultTaskRepository
+import android.content.Context
+import androidx.work.WorkManager
+import com.mtajchert.carom.app.core.data.repository.DefaultDeviceRepository
+import com.mtajchert.carom.app.core.data.repository.DefaultRecentItemsRepository
+import com.mtajchert.carom.app.core.data.repository.DefaultSessionRepository
 import com.mtajchert.carom.app.core.data.repository.DefaultUserPreferencesRepository
-import com.mtajchert.carom.app.core.data.repository.TaskRepository
+import com.mtajchert.carom.app.core.data.repository.DeviceRepository
+import com.mtajchert.carom.app.core.data.repository.RecentItemsRepository
+import com.mtajchert.carom.app.core.data.repository.SessionRepository
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.data.sync.AndroidDeviceProfileProvider
+import com.mtajchert.carom.app.core.data.sync.CaromSync
+import com.mtajchert.carom.app.core.data.sync.DataStoreSyncStateStore
+import com.mtajchert.carom.app.core.data.sync.DefaultCaromSync
+import com.mtajchert.carom.app.core.data.sync.DirectoryStore
+import com.mtajchert.carom.app.core.data.sync.EnrolledHubProvider
+import com.mtajchert.carom.app.core.data.sync.Enrollment
+import com.mtajchert.carom.app.core.data.sync.EnrollmentStore
+import com.mtajchert.carom.app.core.data.sync.HubProvider
+import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
+import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
+import com.mtajchert.carom.app.core.data.sync.LocalStateWiper
+import com.mtajchert.carom.app.core.data.sync.LogcatSyncLog
+import com.mtajchert.carom.app.core.data.sync.NoticeSink
+import com.mtajchert.carom.app.core.data.sync.OutboxStore
+import com.mtajchert.carom.app.core.data.sync.PreferencesStateWiper
+import com.mtajchert.carom.app.core.data.sync.RecentItemNoticeSink
+import com.mtajchert.carom.app.core.data.sync.RoomDirectoryStore
+import com.mtajchert.carom.app.core.data.sync.RoomOutboxStore
+import com.mtajchert.carom.app.core.data.sync.RoomSeenMessageStore
+import com.mtajchert.carom.app.core.data.sync.SeenMessageStore
+import com.mtajchert.carom.app.core.data.sync.SyncLog
+import com.mtajchert.carom.app.core.data.sync.SyncStateStore
+import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
+import com.mtajchert.carom.app.core.data.work.WorkManagerSyncScheduler
+import com.mtajchert.carom.app.core.hub.HubClientFactory
+import com.mtajchert.carom.app.core.security.SecretVault
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.Multibinds
 import javax.inject.Singleton
 
 /**
- * Hilt module for data layer bindings.
- *
- * ## Why @Binds?
- *
- * We use @Binds instead of @Provides for interface bindings because:
- * 1. More efficient - Dagger generates less code
- * 2. Clearer intent - shows we're binding an impl to an interface
- * 3. Compile-time verification that impl implements the interface
- *
- * ## Scope
- *
- * Repository is @Singleton because:
- * - It holds no state (stateless operations)
- * - Creating multiple instances wastes memory
- * - All callers should see the same data
+ * Data layer bindings. Feature agents contribute message handlers with
+ * `@Binds @IntoSet fun bind(h: ClipboardHandler): IncomingMessageHandler`.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DataModule {
 
-    /**
-     * Binds the default implementation of TaskRepository.
-     *
-     * Consumers inject TaskRepository interface, not DefaultTaskRepository.
-     * This enables swapping implementations for testing.
-     */
-    @Binds
-    @Singleton
-    internal abstract fun bindsTaskRepository(
-        impl: DefaultTaskRepository,
-    ): TaskRepository
+    @Binds @Singleton
+    internal abstract fun bindsUserPreferencesRepository(impl: DefaultUserPreferencesRepository): UserPreferencesRepository
 
-    /**
-     * Binds the default implementation of UserPreferencesRepository.
-     */
+    @Binds @Singleton
+    internal abstract fun bindsSessionRepository(impl: DefaultSessionRepository): SessionRepository
+
+    @Binds @Singleton
+    internal abstract fun bindsDeviceRepository(impl: DefaultDeviceRepository): DeviceRepository
+
+    @Binds @Singleton
+    internal abstract fun bindsRecentItemsRepository(impl: DefaultRecentItemsRepository): RecentItemsRepository
+
     @Binds
-    @Singleton
-    internal abstract fun bindsUserPreferencesRepository(
-        impl: DefaultUserPreferencesRepository,
-    ): UserPreferencesRepository
+    internal abstract fun bindsOutboxStore(impl: RoomOutboxStore): OutboxStore
+
+    @Binds
+    internal abstract fun bindsSeenMessageStore(impl: RoomSeenMessageStore): SeenMessageStore
+
+    @Binds
+    internal abstract fun bindsDirectoryStore(impl: RoomDirectoryStore): DirectoryStore
+
+    @Binds
+    internal abstract fun bindsSyncStateStore(impl: DataStoreSyncStateStore): SyncStateStore
+
+    @Binds
+    internal abstract fun bindsEnrollmentStore(impl: DataStoreSyncStateStore): EnrollmentStore
+
+    @Binds
+    internal abstract fun bindsNoticeSink(impl: RecentItemNoticeSink): NoticeSink
+
+    @Binds
+    internal abstract fun bindsHubProvider(impl: EnrolledHubProvider): HubProvider
+
+    @Binds
+    internal abstract fun bindsProfileProvider(impl: AndroidDeviceProfileProvider): LocalDeviceProfileProvider
+
+    @Binds
+    internal abstract fun bindsLocalStateWiper(impl: PreferencesStateWiper): LocalStateWiper
+
+    @Binds
+    internal abstract fun bindsSyncLog(impl: LogcatSyncLog): SyncLog
+
+    @Binds @Singleton
+    internal abstract fun bindsSyncWorkScheduler(impl: WorkManagerSyncScheduler): SyncWorkScheduler
+
+    /** Empty until feature agents add handlers; an unhandled type is acknowledged and ignored. */
+    @Multibinds
+    internal abstract fun incomingMessageHandlers(): Set<IncomingMessageHandler>
+
+    companion object {
+        @Provides
+        @Singleton
+        fun providesCaromSync(
+            vault: SecretVault,
+            hubProvider: HubProvider,
+            outbox: OutboxStore,
+            seen: SeenMessageStore,
+            directory: DirectoryStore,
+            syncState: SyncStateStore,
+            handlers: Set<@JvmSuppressWildcards IncomingMessageHandler>,
+            profileProvider: LocalDeviceProfileProvider,
+            notices: NoticeSink,
+            wiper: LocalStateWiper,
+            log: SyncLog,
+        ): CaromSync = DefaultCaromSync(
+            vault = vault,
+            hubProvider = hubProvider,
+            outbox = outbox,
+            seen = seen,
+            directory = directory,
+            syncState = syncState,
+            handlers = handlers,
+            profileProvider = profileProvider,
+            notices = notices,
+            localStateWiper = wiper,
+            log = log,
+        )
+
+        @Provides
+        @Singleton
+        fun providesEnrollment(
+            vault: SecretVault,
+            hubFactory: HubClientFactory,
+            hubProvider: HubProvider,
+            store: EnrollmentStore,
+            sync: CaromSync,
+        ): Enrollment = Enrollment(vault, hubFactory, hubProvider, store, sync)
+
+        @Provides
+        @Singleton
+        fun providesWorkManager(@ApplicationContext context: Context): WorkManager = WorkManager.getInstance(context)
+    }
 }
