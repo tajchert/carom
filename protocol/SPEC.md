@@ -187,6 +187,8 @@ Apply these in order. The first failure drops the message silently (log it local
 2. The signature verifies, `kv` is known, and decryption succeeds.
 3. `now - ts <= ttl_s*1000 + 300000` and `ts - now <= 300000` (5 minutes of clock skew).
 4. `msg_id` has not been seen before. Receivers remember seen ids for 7 days plus the skew.
+   Before dropping a message for `unknown_kv` or an untrusted sender, the receiver refreshes
+   the directory and the keyring once and re-checks. Only after that is the message dropped.
 5. The type is known (`caps`). Unknown types are acknowledged and ignored. A known type
    whose body fails its schema is dropped (`bad_payload`).
 6. For `clipboard.set`: ignore it if `ts` is older than the last clipboard item applied locally.
@@ -264,7 +266,8 @@ the sender's id, `D` is not revoked, and `T` is in `D.caps`. Replies, meaning me
 `reply_to`, go only to the original sender.
 
 If the Hub answers `409 conflict` with `{"inactive": [ids]}`, the sender refetches the
-directory, drops those ids, and re-seals the message under the **same** `msg_id`.
+directory, drops those ids, and re-seals the message under the **same** `msg_id`. A re-seal
+always uses the newest key, and the collapse value is recomputed with that key.
 
 Local filters, such as ignored apps on the phone or muted apps on the Mac, are applied on
 top of this and never leave the device.
@@ -278,7 +281,11 @@ A device is a member when all three of these hold:
 - `device_id(sign_pub) == id`.
 
 The Hub never holds `K`, so it cannot add members. Records sealed under an older `kv` are
-ignored, so a revoked device cannot be brought back with an old record. Receivers keep the
+ignored, so a revoked device cannot be brought back with an old record.
+
+One exception covers the window after a rekey (*transitional trust*). A record sealed under
+`kv − 1` is still trusted when the newest verified keyring version contains a box for that
+device id. Such a device was deliberately kept and simply hasn't republished yet. Receivers keep the
 highest `updated` per id and ignore rollbacks. Records the device cannot open are ignored.
 
 Identity keys are bound to the device. They MUST be excluded from backups and device
@@ -293,8 +300,13 @@ drops pending deliveries, sends `{"t":"revoked"}` to the device, and sends `dir`
 else. The revoking device MUST then rekey (§5.5), so the revoked device cannot read future
 messages.
 
-Every other device shows a visible notice of the form "<revoker> removed <device>". A
-device that disappears from the directory without a rekey is also flagged.
+Every other device shows a visible notice of the form "<revoker> removed <device>". The
+revoker is the `by` of the keyring version that dropped the device. A device that disappears
+from the directory with no rekey within 2 minutes is flagged as "removed (no rekey)".
+
+A device that gets `401 unauthorized` from an authenticated route has either been revoked
+or seen its Hub reset. It stops syncing and tells the user to pair again. It wipes its keys
+when the user confirms, or immediately when it receives the `revoked` frame.
 
 ### 5.5 Rekey
 
@@ -318,7 +330,9 @@ serializes concurrent rekeys. The Hub then sends `dir` to every device.
 Each device calls `GET /v1/keyring?have=kv`. The response contains every version newer
 than `kv`, with all boxes included so the signature can be checked. The device then:
 
-1. Checks that `by` was a member under the previous key.
+1. Checks that `by` was a member under the previous key. For kv 2 that means a trusted
+   directory member. For kv n+1 it means a device boxed in version n. A device that missed
+   several versions verifies them in order.
 2. Verifies `sig` over all boxes.
 3. Opens its own box.
 4. Republishes its record under `K'`.
@@ -338,9 +352,9 @@ Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with 
 
 | Method + path | Auth | Request → Response |
 |---|---|---|
-| `GET /v1/info` | none | → `{name:"carom-hub", protocol:1, version, setup_done, vapid_public_key, jurisdiction}`. `vapid_public_key` is b64 of the uncompressed P-256 point. |
+| `GET /v1/info` | none | → `{name:"carom-hub", protocol:1, version, setup_done, vapid_public_key, jurisdiction}`. `jurisdiction` is `"eu"` or `null`. `vapid_public_key` is b64 of the uncompressed P-256 point. |
 | `POST /v1/setup` | none | `{setup_token, sign_pub, kx_pub}` → `{device_id, token}`. Only works once. |
-| `PUT /v1/keyring` | device | `{kv, by, boxes, sig}` → `{}`, or 409 if `kv` is not current+1 |
+| `PUT /v1/keyring` | device | `{kv, by, boxes, sig}` → `{}`, or 409 with `{kv: newest}` if `kv` is not newest+1 |
 | `GET /v1/keyring?have=N` | device | → `{versions:[{kv, by, sig, boxes:{id:{epk,ct}}}]}` with every box of each newer version |
 | `POST /v1/reset` | none | `{setup_token, confirm:"erase everything"}` → `{}`. Wipes all state, and setup is possible again. |
 | `POST /v1/pair/offer` | device | `{}` → `{pair_id, expires_at}` (5 minutes) |
@@ -480,7 +494,8 @@ carom://pair?v=1&h=<urlenc hub url>&c=<pair_id>&s=<b64 pair_secret>
    ```
    Only a holder of `pair_secret` can produce this box, so B knows it came from A.
 5. B polls `GET /v1/pair/:id/welcome` every 2 seconds, opens the box, stores the keys,
-   publishes its record, and fetches the directory. Pairing is done.
+   publishes its record, and fetches the directory. The `inviter` named in the welcome must
+   be a trusted member of that directory. Pairing is done.
 
 The QR code is the trust channel. It must only be shown on screen and never logged.
 

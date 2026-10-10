@@ -9,9 +9,9 @@ yourself. Everything is end-to-end encrypted: the Hub only ever sees ciphertext.
 |---|---|
 | [`protocol/`](protocol/) | Protocol spec, JSON Schemas, test vectors, TypeScript reference implementation |
 | [`hub/`](hub/) | Cloudflare Worker + Durable Object, and the `carom-hub` deploy CLI |
-| `android/` | Kotlin Android app (planned) |
-| `macos/` | Swift menu-bar app (planned) |
-| `docs/` | Setup guide and threat model (planned) |
+| [`android/`](android/) | Kotlin Android app (in development) |
+| [`macos/`](macos/) | Swift menu-bar app; `CaromKit` core package (in development) |
+| [`docs/`](docs/) | Client behaviour contract; setup guide and threat model (planned) |
 
 Status: early development. Read [`protocol/SPEC.md`](protocol/SPEC.md) for the contract.
 

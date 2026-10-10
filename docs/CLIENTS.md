@@ -19,6 +19,9 @@ the apps do with it, so both platforms behave the same way. When the two disagre
 | `sign_sk`, `kx_sk`, group keys, device token | Encrypted with an Android Keystore AES-GCM key; stored in a no-backup file | Keychain, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, not synchronizable |
 | Hub URL, device id, directory cache, seen `msg_id`s, outbox, settings | Room + DataStore. `allowBackup=false`, everything excluded from backup and device transfer | SQLite or JSON files in Application Support |
 
+For local development on the Android emulator, use `adb reverse tcp:8787 tcp:8787` and a Hub URL
+of `http://localhost:8787`. QR URIs allow plain http only for loopback hosts.
+
 When the app finds it has no usable keys (reinstall or restore), it starts onboarding again.
 
 ## Onboarding
@@ -180,7 +183,8 @@ and finishes.
   `receive` rule allows it.
 - **Receive clipboard from:** writes the device's `receive["clipboard.set@1"]`, either `"*"`
   or a list of ids.
-- Text larger than 64 KB is refused with a message.
+- Text whose padded payload would exceed 65 536 bytes (roughly 60 KB of text) is refused with
+  a message.
 
 ## Device settings screen
 
