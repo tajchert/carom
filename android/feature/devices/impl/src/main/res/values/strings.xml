@@ -9,4 +9,54 @@
     <string name="feature_devices_kind_cli">Command line</string>
     <string name="feature_devices_kind_unverified">Not verified</string>
     <string name="feature_devices_details">%1$s · %2$s</string>
+    <string name="feature_devices_last_seen">Last seen %1$s</string>
+    <string name="feature_devices_last_seen_never">Not seen yet</string>
+    <string name="feature_devices_push_yes">Instant delivery: on</string>
+    <string name="feature_devices_push_no">Instant delivery: off</string>
+    <string name="feature_devices_rename">Rename</string>
+    <string name="feature_devices_remove">Remove</string>
+    <string name="feature_devices_ok">OK</string>
+    <string name="feature_devices_save">Save</string>
+    <string name="feature_devices_cancel">Cancel</string>
+
+    <string name="feature_devices_rename_title">Rename this device</string>
+    <string name="feature_devices_rename_label">Name</string>
+    <string name="feature_devices_remove_title">Remove %1$s?</string>
+    <string name="feature_devices_remove_body">It will no longer receive anything from your devices. Your other devices get a new key, so it cannot read new items. To use it again, pair it again.</string>
+    <string name="feature_devices_remove_self_title">Remove this phone?</string>
+    <string name="feature_devices_remove_self_body">This phone leaves your Hub and deletes its keys. To use Carom again, pair it again.</string>
+
+    <string name="feature_devices_removed">Removed. Your other devices got a new key.</string>
+    <string name="feature_devices_removed_rekey_pending">Removed. The new key is sent when your Hub can be reached.</string>
+    <string name="feature_devices_remove_failed">Could not reach your Hub. Check your connection and try again.</string>
+    <string name="feature_devices_renamed">Renamed.</string>
+    <string name="feature_devices_renamed_offline">Renamed on this phone. Your other devices see the new name when your Hub can be reached.</string>
+    <string name="feature_devices_name_empty">Enter a name.</string>
+    <string name="feature_devices_name_too_long">Use a shorter name.</string>
+    <string name="feature_devices_rule_offline">Saved on this phone. Your other devices follow it when your Hub can be reached.</string>
+
+    <string name="feature_devices_receive_title">Receive on this device</string>
+    <string name="feature_devices_receive_body">Choose which devices may send each kind of item here.</string>
+    <string name="feature_devices_receive_empty">Pair another device to choose what it may send here.</string>
+    <string name="feature_devices_receive_from">From %1$s</string>
+    <string name="feature_devices_type_notifications">Notifications</string>
+    <string name="feature_devices_type_notification_removals">Removed notifications</string>
+    <string name="feature_devices_type_dismiss">Dismiss requests</string>
+    <string name="feature_devices_type_clipboard">Clipboard</string>
+    <string name="feature_devices_type_status">Battery status</string>
+    <string name="feature_devices_type_other">Other items</string>
+
+    <string name="feature_devices_just_now">just now</string>
+    <plurals name="feature_devices_minutes_ago">
+        <item quantity="one">%1$d minute ago</item>
+        <item quantity="other">%1$d minutes ago</item>
+    </plurals>
+    <plurals name="feature_devices_hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="feature_devices_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
 </resources>

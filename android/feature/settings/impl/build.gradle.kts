@@ -9,6 +9,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.screenshot)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kover)
@@ -17,6 +18,7 @@ plugins {
 android {
     namespace = "com.mtajchert.carom.app.feature.settings.impl"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
@@ -81,4 +83,6 @@ dependencies {
     testImplementation(composeBom)
     testImplementation(libs.bundles.testing.robolectric)
     testImplementation(libs.androidx.compose.ui.test.manifest)
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
 }

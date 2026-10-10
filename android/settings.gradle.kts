@@ -74,6 +74,9 @@ include(":core:data")
 // Use cases shared by features
 include(":core:domain")
 
+// UnifiedPush wake-ups (connector + embedded FCM distributor), SPEC §9
+include(":core:push")
+
 // Test utilities, fakes, rules for unit testing
 include(":core:testing")
 

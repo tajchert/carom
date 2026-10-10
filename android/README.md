@@ -19,15 +19,38 @@ Done (foundation):
 - `core:security`: Android Keystore-wrapped storage for identity keys, group keys and the token.
 - `core:database`, `core:datastore`: Room schema v1 and preferences.
 - `core:data`: the `CaromSync` engine (directory, outbox send pipeline, SPEC §3.3 receive
-  pipeline, keyring/rekey, revocation) and `Enrollment` (setup, join, invite), tested against an
-  in-memory Hub; WorkManager + Hilt worker factory; `OutboxWorker`.
-- App shell: Home (start destination, connection status) and wired placeholder screens for
-  onboarding, pairing, devices and settings.
+  pipeline with refresh-before-drop, §5.3 transitional trust, §5.5 chained keyring verification,
+  rekey/revocation, §5.4 removal notices and the `401` "pair again" latch) and `Enrollment`
+  (setup, join, invite), tested against an in-memory Hub; WorkManager + Hilt worker factory;
+  `OutboxWorker`, `FetchWorker`; the sync runtime (`runtime/`).
+- `core:push`: UnifiedPush connector 3.x with the embedded FCM distributor (see "Fetching").
+- Home (status, push state, last sync, quick actions, problem banners, recent items), Devices
+  (list, rename, remove with rekey, receive-from matrix) and Settings (device name, pause,
+  delivery state, about, leave hub).
 
-Not done yet: onboarding and pairing UI (camera/QR), the notification listener, clipboard
-share target/tile, UnifiedPush, foreground WebSocket, message handlers. The libraries they
-need are already in `gradle/libs.versions.toml` and every module is already registered in
-`settings.gradle.kts`, so feature work does not touch those files.
+Not done yet in this branch: onboarding and pairing UI (camera/QR), the notification listener,
+clipboard share target/tile, message handlers.
+
+### Fetching (docs/CLIENTS.md "Connection policy (phone)")
+
+| Trigger | What runs |
+|---|---|
+| App visible (`ProcessLifecycleOwner` start) | `ForegroundSync`: flush outbox, refresh directory, then a WebSocket (`ForegroundSocketSession`) that processes and acks frames, refreshes on `dir`, wipes on `revoked`, reconnects with jittered backoff. Closed when the app goes to the background. |
+| Push (`CaromPushService.onMessage`) | Expedited one-time `FetchWorker` (`GET /v1/messages`, process, ack). The payload is never read. |
+| After a successful send | `PiggybackFetch` schedules a `FetchWorker`, unless the socket is live. |
+| Push unavailable (no distributor, or registration failed) | 15-minute periodic `FetchWorker` with a network constraint; cancelled once the Hub has a working push endpoint. |
+
+`LiveHubConnection.pairCandidates` exposes `pair` frames from the live socket for the pairing screen.
+Push registration (`PushManager`) uses the VAPID key from `GET /v1/info`, sends the endpoint with
+`PUT /v1/devices/self/push`, re-sends it when it changes and deletes it on wipe (a `WipeHook`
+that runs before the keys are deleted). `PushStatusRepository.state` reports `NO_DISTRIBUTOR`.
+
+Exported components merged from the push libraries (a reviewed decision): the connector's
+`MessagingReceiverImpl` and `RaiseToForegroundService` (distributors are other apps), and the
+embedded distributor's `FirebaseReceiver` (guarded by `com.google.android.c2dm.permission.SEND`).
+Our own `CaromPushService` is not exported. With the embedded distributor, wake-ups go through
+the UnifiedPush FCM gateway (`fcm.distributor.unifiedpush.org`); the payload is the encrypted
+`{"t":"wake"}` only.
 
 ## Baseline
 
@@ -65,8 +88,9 @@ app ── feature/*/impl ── feature/*/api
 | `:core:security` | `SecretVault` / `FileSecretVault` / `AndroidKeystoreCipher` |
 | `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items) |
 | `:core:datastore` | `UserPreferencesDataSource` (Hub URL, device id/name, toggles, theme, last clipboard ts) |
-| `:core:data` | `CaromSync`/`DefaultCaromSync`, `Enrollment`, stores, repositories, `OutboxWorker`, `IncomingMessageHandler` multibinding |
-| `:core:domain` | `ObserveHomeStatusUseCase`, `SendClipboardUseCase` |
+| `:core:data` | `CaromSync`/`DefaultCaromSync`, `Enrollment`, stores, repositories, `OutboxWorker`, `FetchWorker`, `IncomingMessageHandler`/`WipeHook`/`SyncStartHook` multibindings, `runtime/` (foreground socket, `SyncRuntime`) |
+| `:core:push` | `PushManager`, `CaromPushService`, `UnifiedPushConnector` (UnifiedPush connector + embedded FCM distributor) |
+| `:core:domain` | `ObserveHomeStatusUseCase`, `SendClipboardUseCase`, rename/remove, receive matrix |
 | `:core:model` | App models (`SessionState`, `ConnectionStatus`, `DeviceSummary`, `UserPreferences`, …) |
 | `:core:ui`, `:core:designsystem` | Shared composables and the Carom theme |
 | `:core:common` | Dispatcher qualifiers, `Result` |
@@ -85,9 +109,11 @@ wired in `CaromNavHost`; core modules never depend on features; `core:protocol` 
 - **Sending**: `CaromSync.send(type, body, …)` routes, seals, stores in the outbox and posts;
   on `SendResult.Queued` call `SyncWorkScheduler.scheduleOutboxFlush()` (as
   `SendClipboardUseCase` does).
-- **Fetching**: `CaromSync.fetchMessages()` (push wake-up, foreground, after a send). For a
-  WebSocket, feed `HubSocketEvent.Message`s to `CaromSync.process()` and `ack` the returned seq;
-  on `DirectoryChanged` call `refreshDirectory()`; on `Revoked` call `onRevoked()`.
+- **Fetching**: `SyncWorkScheduler.scheduleFetch()` after tile/share actions; the push, foreground
+  and piggyback triggers are already wired (see "Fetching" above).
+- **Receive rules**: `SetReceiveRuleUseCase` changes one `receive` cell and republishes the record
+  (rules persist in `ReceiveRulesStore`); the clipboard "Receive from" setting should reuse it.
+- **Leaving / wiping**: anything that must happen before the keys go away implements `WipeHook`.
 - **Onboarding/pairing UI**: `Enrollment.setUpNewHub`, `join`, `createInvite`,
   `checkCandidate`/`verify`, `approve`, `reject`; parse scanned/pasted text with `QrUri.parse`.
 

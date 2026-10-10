@@ -18,6 +18,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -61,10 +62,16 @@ interface SyncWorkScheduler {
     fun cancelAll()
 }
 
+/**
+ * [SyncWorkScheduler] on WorkManager. WorkManager is resolved on first use, so building the sync
+ * graph (e.g. for Home) never initialises it before the app's `Configuration.Provider` is ready.
+ */
 @Singleton
 class WorkManagerSyncScheduler @Inject constructor(
-    private val workManager: WorkManager,
+    private val workManagerProvider: Provider<WorkManager>,
 ) : SyncWorkScheduler {
+    private val workManager: WorkManager get() = workManagerProvider.get()
+
     private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
     override fun scheduleOutboxFlush(delayMs: Long) {

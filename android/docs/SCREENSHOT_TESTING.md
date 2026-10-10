@@ -66,7 +66,9 @@ Update all configured modules:
 ./gradlew \
   :core:designsystem:updateDebugScreenshotTest \
   :core:ui:updateDebugScreenshotTest \
-  :feature:home:impl:updateDebugScreenshotTest
+  :feature:home:impl:updateDebugScreenshotTest \
+  :feature:devices:impl:updateDebugScreenshotTest \
+  :feature:settings:impl:updateDebugScreenshotTest
 ```
 
 References are written below each module:
@@ -91,7 +93,9 @@ Validate the complete local suite:
 ./gradlew \
   :core:designsystem:validateDebugScreenshotTest \
   :core:ui:validateDebugScreenshotTest \
-  :feature:home:impl:validateDebugScreenshotTest
+  :feature:home:impl:validateDebugScreenshotTest \
+  :feature:devices:impl:validateDebugScreenshotTest \
+  :feature:settings:impl:validateDebugScreenshotTest
 ```
 
 A mismatch fails the task and creates an HTML report at:
