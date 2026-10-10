@@ -8,17 +8,12 @@ describe("GET /v1/info", () => {
   it("describes the hub without auth", async () => {
     const info = await call("GET", "/v1/info");
     expect(info).toMatchObject({ name: "carom-hub", protocol: 1, version: pkg.version, setup_done: false, jurisdiction: null });
-    const point = Uint8Array.from(atob(info.vapid_public_key.replace(/-/g, "+").replace(/_/g, "/") + "="), (c) => c.charCodeAt(0));
-    expect(point.length).toBe(65);
-    expect(point[0]).toBe(4);
+    expect(Object.keys(info).sort()).toEqual(["jurisdiction", "name", "protocol", "setup_done", "version"]);
   });
 
-  it("keeps the VAPID key stable and reports setup_done", async () => {
-    const before = await call("GET", "/v1/info");
+  it("reports setup_done once the first device registered", async () => {
     await setupFirstDevice();
-    const after = await call("GET", "/v1/info");
-    expect(after.setup_done).toBe(true);
-    expect(after.vapid_public_key).toBe(before.vapid_public_key);
+    expect((await call("GET", "/v1/info")).setup_done).toBe(true);
   });
 });
 

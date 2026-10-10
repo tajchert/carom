@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  BASE,
   api,
-  b64,
   call,
   connect,
   expectError,
@@ -17,9 +15,6 @@ import {
 
 beforeEach(wipeHub);
 
-const P256DH = b64(Uint8Array.from({ length: 65 }, (_, i) => (i === 0 ? 4 : i)));
-const AUTH = b64(new Uint8Array(16).fill(5));
-
 describe("GET /v1/devices", () => {
   it("lists active devices with their public keys", async () => {
     const a = await setupFirstDevice();
@@ -33,7 +28,6 @@ describe("GET /v1/devices", () => {
       kx_pub: a.keys.kx_pub,
       created_at: expect.any(Number),
       last_seen: expect.any(Number),
-      has_push: false,
     });
   });
 });
@@ -62,50 +56,11 @@ describe("PUT /v1/devices/self/record", () => {
   });
 });
 
-describe("push subscription", () => {
-  it("sets and clears has_push", async () => {
+describe("removed push routes", () => {
+  it("answer 404 not_found like any unknown route", async () => {
     const a = await setupFirstDevice();
-    await call("PUT", "/v1/devices/self/push", { token: a.token, body: { endpoint: "https://push.example.com/abc", p256dh: P256DH, auth: AUTH } });
-    expect((await call("GET", "/v1/devices", { token: a.token })).devices[0].has_push).toBe(true);
-    await call("DELETE", "/v1/devices/self/push", { token: a.token });
-    expect((await call("GET", "/v1/devices", { token: a.token })).devices[0].has_push).toBe(false);
-  });
-
-  it("requires https, a foreign host and valid keys", async () => {
-    const a = await setupFirstDevice();
-    const host = new URL(BASE).host;
-    for (const body of [
-      { endpoint: "http://push.example.com/abc", p256dh: P256DH, auth: AUTH },
-      { endpoint: `https://${host}/v1/info`, p256dh: P256DH, auth: AUTH },
-      { endpoint: "not a url", p256dh: P256DH, auth: AUTH },
-      { endpoint: "https://push.example.com/abc", p256dh: b64(new Uint8Array(65)), auth: AUTH },
-      { endpoint: "https://push.example.com/abc", p256dh: P256DH, auth: b64(new Uint8Array(8)) },
-    ]) {
-      await expectError(api("PUT", "/v1/devices/self/push", { token: a.token, body }), 400, "bad_request");
-    }
-  });
-
-  it("requires the default port and a DNS name that is not the Hub, an IP literal or localhost", async () => {
-    const a = await setupFirstDevice();
-    const host = new URL(BASE).hostname;
-    for (const endpoint of [
-      `https://${host}./v1/info`,
-      `https://${host.toUpperCase()}../v1/info`,
-      `https://${host}:443/v1/info`,
-      "https://push.example.com:8443/abc",
-      "https://127.0.0.1/abc",
-      "https://0x7f.1/abc",
-      "https://10.0.0.1./abc",
-      "https://[::1]/abc",
-      "https://localhost/abc",
-      "https://LocalHost./abc",
-      "https://hub.localhost/abc",
-    ]) {
-      const res = await api("PUT", "/v1/devices/self/push", { token: a.token, body: { endpoint, p256dh: P256DH, auth: AUTH } });
-      expect({ endpoint, status: res.status }).toEqual({ endpoint, status: 400 });
-    }
-    for (const endpoint of ["https://push.example.com:443/abc", "https://Push.Example.com./abc", `https://sub.${host}/abc`]) {
-      await call("PUT", "/v1/devices/self/push", { token: a.token, body: { endpoint, p256dh: P256DH, auth: AUTH } });
+    for (const method of ["PUT", "DELETE"]) {
+      await expectError(api(method, "/v1/devices/self/push", { token: a.token, body: method === "PUT" ? {} : undefined }), 404, "not_found");
     }
   });
 });

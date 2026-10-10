@@ -16,7 +16,7 @@ const MIGRATIONS: readonly string[] = [
     push_endpoint TEXT,
     push_p256dh   TEXT,
     push_auth     TEXT,
-    push_sent_at  INTEGER                      -- last wake-up push since the device last fetched
+    push_sent_at  INTEGER                      -- dropped again in v3
   ) WITHOUT ROWID;
 
   -- seq comes from meta.last_seq (see insertMessage), never from AUTOINCREMENT or MAX(seq)+1.
@@ -78,6 +78,14 @@ const MIGRATIONS: readonly string[] = [
   CREATE INDEX messages_expires ON messages (expires_at);
   CREATE INDEX messages_live ON messages (seq) WHERE envelope IS NOT NULL;
   CREATE INDEX pairings_expires ON pairings (expires_at);
+  `,
+  // v3: Carom has no push wake-ups; drop the subscription columns and the stored VAPID key.
+  `
+  ALTER TABLE devices DROP COLUMN push_endpoint;
+  ALTER TABLE devices DROP COLUMN push_p256dh;
+  ALTER TABLE devices DROP COLUMN push_auth;
+  ALTER TABLE devices DROP COLUMN push_sent_at;
+  DELETE FROM meta WHERE key = 'vapid';
   `,
 ];
 

@@ -5,7 +5,7 @@
 //
 // Drives two simulated devices (a Mac "desktop" and an Android "phone") with real crypto from
 // @carom/protocol: setup, pairing, live and backlog delivery, collapse, idempotency, fetch/ack,
-// push subscription, revocation, rekey and negative checks. It ends with POST /v1/reset, so the
+// revocation, rekey and negative checks. It ends with POST /v1/reset, so the
 // Hub is left unclaimed. Prints one PASS/FAIL line per step and exits non-zero on any failure.
 //
 // The setup token is read from --setup-token-file (JSON with a `setupToken` field, or a raw
@@ -16,7 +16,6 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { webcrypto } from 'node:crypto';
 import WebSocket from 'ws';
 import {
   b64decode,
@@ -362,7 +361,7 @@ async function run() {
         note = 'reset first; ';
       }
       check(info.setup_done === false, 'setup_done is still true');
-      check(typeof info.vapid_public_key === 'string' && b64decode(info.vapid_public_key).length === 65, 'bad vapid_public_key');
+      check(!('vapid_public_key' in info), 'info still has vapid_public_key');
       return `${note}version=${info.version} setup_done=false`;
     }))
   )
@@ -583,24 +582,7 @@ async function run() {
   });
 
   // 8
-  await step('8. Push subscription PUT + DELETE', async () => {
-    const kp = await webcrypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
-    const p256dh = b64encode(new Uint8Array(await webcrypto.subtle.exportKey('raw', kp.publicKey)));
-    const auth = b64encode(defaultRng(16));
-    const sub = { endpoint: 'https://push.example.invalid/x', p256dh, auth };
-    expectStatus(await api('PUT', '/v1/devices/self/push', { token: phone.token, body: sub }), 200, 'PUT push');
-    let list = await refreshDirectory(mac);
-    check(list.find((d) => d.id === phone.deviceId)?.has_push === true, 'has_push not true');
-    const bad = await api('PUT', '/v1/devices/self/push', { token: phone.token, body: { ...sub, endpoint: 'http://push.example.invalid/x' } });
-    expectStatus(bad, 400, 'PUT push with http endpoint');
-    expectStatus(await api('DELETE', '/v1/devices/self/push', { token: phone.token }), 200, 'DELETE push');
-    list = await refreshDirectory(mac);
-    check(list.find((d) => d.id === phone.deviceId)?.has_push === false, 'has_push not false');
-    return 'has_push true -> false; http endpoint -> 400';
-  });
-
-  // 9
-  await step('9. Revoke phone, rekey kv=2, verify keyring', async () => {
+  await step('8. Revoke phone, rekey kv=2, verify keyring', async () => {
     phoneWs = new Socket(phone.token, 'phone');
     await phoneWs.opened;
     macWs.drain();
@@ -637,8 +619,8 @@ async function run() {
     return 'revoked frame + close code ' + phoneWs.closed.code + ', 401 after revoke, kv=2 verified';
   });
 
-  // 10
-  await step('10. Negative checks: bad token 401, tampered sig 400, from mismatch 403', async () => {
+  // 9
+  await step('9. Negative checks: bad token 401, tampered sig 400, from mismatch 403', async () => {
     const fake = `ct1.${mac.deviceId}.${b64encode(new Uint8Array(32))}.${b64encode(new Uint8Array(16))}`;
     expectStatus(await api('GET', '/v1/devices', { token: fake }), 401, 'bad token');
     expectStatus(await api('GET', '/v1/devices'), 401, 'no token');
@@ -676,7 +658,7 @@ async function run() {
 
 async function cleanup() {
   for (const s of [macWs, phoneWs]) if (s) await s.close().catch(() => {});
-  await step('11. POST /v1/reset and confirm setup_done=false', async () => {
+  await step('10. POST /v1/reset and confirm setup_done=false', async () => {
     const r = await api('POST', '/v1/reset', { body: { setup_token: SETUP_TOKEN, confirm: 'erase everything' } });
     expectStatus(r, 200, 'POST /v1/reset');
     const info = expectStatus(await api('GET', '/v1/info'), 200, 'GET /v1/info');
