@@ -9,4 +9,8 @@ export default defineConfig({
       miniflare: { bindings: { SETUP_TOKEN: TEST_SETUP_TOKEN } },
     }),
   ],
+  test: {
+    // bin/test holds the CLI's node:test suite, run separately with `npm run test:cli`.
+    include: ["test/**/*.test.ts"],
+  },
 });

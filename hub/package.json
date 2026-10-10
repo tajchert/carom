@@ -4,7 +4,10 @@
   "description": "Carom Hub: Cloudflare Worker + Durable Object that relays end-to-end encrypted notifications and clipboard between your devices",
   "type": "module",
   "files": [
+    "bin",
+    "!bin/test",
     "src",
+    "!src/**/*.test.ts",
     "wrangler.jsonc",
     "tsconfig.json",
     ".dev.vars.example",
@@ -15,13 +18,16 @@
     "deploy": "wrangler deploy",
     "types": "wrangler types src/worker-configuration.d.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run && node --test bin/test/",
+    "test:worker": "vitest run",
+    "test:cli": "node --test bin/test/"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
-    "wrangler": "^4.149.0"
+    "wrangler": "^4.149.0",
+    "qrcode-terminal": "^0.12.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.0",
@@ -30,5 +36,13 @@
     "@noble/hashes": "^2.4.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
+  },
+  "bin": {
+    "carom-hub": "bin/carom-hub.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mtajchert/carom",
+    "directory": "hub"
   }
 }
