@@ -1,6 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="feature_pairing_title">Add a device</string>
-    <string name="feature_pairing_body">Show a QR code that another device scans to join. It works for 5 minutes.</string>
-    <string name="feature_pairing_next">Next: the QR code, the countdown and the confirmation of the new device\'s fingerprint.</string>
+
+    <!-- Creating -->
+    <string name="feature_pairing_creating">Creating a code…</string>
+
+    <!-- Showing the code -->
+    <string name="feature_pairing_code_title">Scan this code on the new device</string>
+    <string name="feature_pairing_code_body">Open Carom on the other device and choose Join with a code.</string>
+    <string name="feature_pairing_code_description">QR code for pairing a new device</string>
+    <string name="feature_pairing_expires_in">Expires in %1$s</string>
+    <string name="feature_pairing_waiting">Waiting for the other device…</string>
+    <string name="feature_pairing_copy">Copy code instead</string>
+    <string name="feature_pairing_copied">Copied. Paste it on the other device.</string>
+    <string name="feature_pairing_clip_label">Carom pairing code</string>
+
+    <!-- Confirm -->
+    <string name="feature_pairing_confirm_title">Add new device?</string>
+    <string name="feature_pairing_confirm_title_kind">Add %1$s device?</string>
+    <string name="feature_pairing_kind_phone">phone</string>
+    <string name="feature_pairing_kind_desktop">desktop</string>
+    <string name="feature_pairing_kind_cli">command-line</string>
+    <string name="feature_pairing_confirm_body">Check that the other device shows the same code. Only add devices you own.</string>
+    <string name="feature_pairing_fingerprint_label">Device code</string>
+    <string name="feature_pairing_approve">Add device</string>
+    <string name="feature_pairing_reject">Don\'t add</string>
+
+    <!-- Results -->
+    <string name="feature_pairing_added_title">Device added</string>
+    <string name="feature_pairing_added_body">Device %1$s is now part of your group. It finishes setting up on its own.</string>
+    <string name="feature_pairing_declined_title">Device not added</string>
+    <string name="feature_pairing_declined_body">The other device was turned away. Show a new code to try again.</string>
+    <string name="feature_pairing_done">Done</string>
+    <string name="feature_pairing_new_code">Show a new code</string>
+    <string name="feature_pairing_close">Close</string>
+
+    <!-- Errors: cause and fix -->
+    <string name="feature_pairing_error_expired_title">The code expired</string>
+    <string name="feature_pairing_error_expired_body">Codes work for 5 minutes and for one device. Show a new code and scan it again.</string>
+    <string name="feature_pairing_error_unreachable_title">Can\'t reach your Hub</string>
+    <string name="feature_pairing_error_unreachable_body">Check your internet connection, then show a new code.</string>
+    <string name="feature_pairing_error_refused_title">Your Hub said no</string>
+    <string name="feature_pairing_error_refused_body">Your Hub refused the request. If this device was removed, set it up again. Otherwise wait a minute and try again.</string>
+    <string name="feature_pairing_error_suspicious_title">This device failed the check</string>
+    <string name="feature_pairing_error_suspicious_body">The device that answered did not prove it scanned your code, so Carom turned it away. Show a new code and scan it only on your own device.</string>
+    <string name="feature_pairing_error_hub_title">Something went wrong</string>
+    <string name="feature_pairing_error_hub_body">Your Hub returned an error. Try again in a moment.</string>
 </resources>

@@ -27,9 +27,17 @@ Done (foundation):
 - Home (status, push state, last sync, quick actions, problem banners, recent items), Devices
   (list, rename, remove with rekey, receive-from matrix) and Settings (device name, pause,
   delivery state, about, leave hub).
+- Onboarding (`feature:onboarding`): shown at start when there are no keys or Hub (and again after
+  a revocation). Welcome, set up a new Hub or join, CameraX + zxing QR scanner (camera permission
+  asked on that step only) or paste, progress and cause-and-fix errors, the joining device's
+  fingerprint while it waits for approval, "Name this device", permissions (notification access
+  deep link with the Android 13+ restricted-settings hint, `POST_NOTIFICATIONS`, optional battery
+  exemption), done.
+- Pairing (`feature:pairing`, `PairingRoute`): "Add device" shows the QR code and a copyable URI
+  with a 5-minute countdown, polls `GET /v1/pair/:id` every 2 s while visible, and asks
+  "Add device <fingerprint>?". A foreground WebSocket can push candidates by binding
+  `PairCandidateFeed` (pairing api); without one the screen only polls.
 
-Not done yet in this branch: onboarding and pairing UI (camera/QR), the notification listener,
-clipboard share target/tile, message handlers.
 
 ### Fetching (docs/CLIENTS.md "Connection policy (phone)")
 

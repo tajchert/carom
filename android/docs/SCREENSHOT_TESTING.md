@@ -125,6 +125,6 @@ Run the relevant local validation whenever UI changes. Intentional updates still
 
 `core:designsystem` components and `core:ui` (`ConnectionStatusIndicator`, `DeviceFingerprint`)
 in light and dark; Home not paired at phone size, paired across `@FormFactorPreviews`, and
-paired/offline at font scale 1.5. References were regenerated on macOS after the Carom
+paired/offline at font scale 1.5. Onboarding (`feature/onboarding/impl`) and pairing (`feature/pairing/impl`) render every step, main states in light and dark, one state across `@FormFactorPreviews` and one at font scale 1.5; the camera is replaced by a stand-in. References were regenerated on macOS after the Carom
 adoption and inspected. Add a screenshot suite to a feature module (apply the `screenshot`
 plugin as `feature/home/impl` does) when its screen stops being a placeholder.

@@ -2,14 +2,16 @@ package com.mtajchert.carom.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mtajchert.carom.app.core.data.repository.SessionRepository
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
 import com.mtajchert.carom.app.core.model.DarkThemeConfig
+import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -21,6 +23,7 @@ import javax.inject.Inject
 //
 // - Theme configuration (dark/light/system)
 // - Whether to show splash screen (while loading preferences)
+// - Whether to start in onboarding (no keys or Hub on this device)
 //
 // ## Why a Separate ViewModel?
 //
@@ -43,12 +46,15 @@ sealed interface MainActivityUiState {
      */
     data class Success(
         val preferences: UserPreferences,
+        /** No usable keys or Hub (first launch, reinstall, revocation): start in onboarding. */
+        val needsOnboarding: Boolean = false,
     ) : MainActivityUiState
 }
 
 @HiltViewModel
 class MainActivityViewModel @Inject constructor(
     userPreferencesRepository: UserPreferencesRepository,
+    sessionRepository: SessionRepository,
 ) : ViewModel() {
 
     /**
@@ -56,9 +62,16 @@ class MainActivityViewModel @Inject constructor(
      *
      * Starts as Loading, then emits Success once preferences are available.
      */
-    val uiState: StateFlow<MainActivityUiState> = userPreferencesRepository
-        .userPreferences
-        .map { MainActivityUiState.Success(it) }
+    val uiState: StateFlow<MainActivityUiState> = combine(
+        userPreferencesRepository.userPreferences,
+        sessionRepository.session,
+    ) { preferences, session ->
+        when (session) {
+            SessionState.Loading -> MainActivityUiState.Loading
+            SessionState.NotPaired -> MainActivityUiState.Success(preferences, needsOnboarding = true)
+            is SessionState.Paired -> MainActivityUiState.Success(preferences)
+        }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),

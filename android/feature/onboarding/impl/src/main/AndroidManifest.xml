@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Merged into the app. CAMERA is requested just-in-time on the scan step only; the app
+        still installs and onboards (by pasting the code) on devices without a camera.
+        POST_NOTIFICATIONS is requested on the permissions step (Android 13+).
+        No components are declared, so nothing new is exported.
+    -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+</manifest>

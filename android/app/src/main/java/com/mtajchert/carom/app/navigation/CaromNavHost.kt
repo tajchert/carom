@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
@@ -21,16 +22,25 @@ import com.mtajchert.carom.app.feature.settings.api.SettingsRoute
 import com.mtajchert.carom.app.feature.settings.impl.navigation.settingsEntries
 
 /**
- * The app-owned Navigation 3 back stack. Home is the start destination; each feature adds its
+ * The app-owned Navigation 3 back stack. Home is the start destination (onboarding when
+ * [needsOnboarding]); each feature adds its
  * entries through an `xxxEntries(...)` extension and navigates through callbacks, so features
  * never depend on each other's implementation.
  */
 @Composable
 fun CaromNavHost(
     modifier: Modifier = Modifier,
-    backStack: NavBackStack<NavKey> = rememberNavBackStack(HomeRoute),
+    needsOnboarding: Boolean = false,
+    backStack: NavBackStack<NavKey> = rememberNavBackStack(if (needsOnboarding) OnboardingRoute else HomeRoute),
 ) {
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeLastOrNull() }
+    // Keys gone while running (revoked, wiped): return to onboarding (docs/CLIENTS.md).
+    LaunchedEffect(needsOnboarding) {
+        if (needsOnboarding && OnboardingRoute !in backStack) {
+            backStack.clear()
+            backStack.add(OnboardingRoute)
+        }
+    }
     NavDisplay(
         backStack = backStack,
         modifier = modifier,
@@ -47,7 +57,13 @@ fun CaromNavHost(
                 onOpenDevices = { backStack.add(DevicesRoute) },
                 onOpenSettings = { backStack.add(SettingsRoute) },
             )
-            onboardingEntries(onBack = back)
+            onboardingEntries(
+                onBack = back,
+                onFinished = {
+                    backStack.clear()
+                    backStack.add(HomeRoute)
+                },
+            )
             pairingEntries(onBack = back)
             devicesEntries(onBack = back)
             settingsEntries(onBack = back)

@@ -27,7 +27,9 @@ android {
 }
 
 dependencies {
-    implementation(libs.kotlinx.serialization.json)
+    // PairCandidateFeed exposes a Flow of raw JSON candidates.
+    api(libs.kotlinx.serialization.json)
+    api(libs.kotlinx.coroutines.core)
 
     // Navigation 3 NavKey interface for route definitions
     api(libs.androidx.navigation3.runtime)
