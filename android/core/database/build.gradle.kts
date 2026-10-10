@@ -36,6 +36,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // The migration test (Robolectric) reads the exported schemas as test assets.
+    sourceSets {
+        getByName("test").assets.srcDir("$projectDir/schemas")
+    }
+
     testOptions {
         unitTests {
             // DAO tests run on Robolectric's SQLite, no emulator needed.
@@ -76,6 +81,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.turbine)
+    testImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.room.testing)

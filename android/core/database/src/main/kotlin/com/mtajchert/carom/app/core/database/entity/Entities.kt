@@ -106,3 +106,16 @@ data class RecentItemEntity(
     val deviceId: String?,
     val at: Long,
 )
+
+/**
+ * A notification key this phone forwarded (`notification.posted@1`), so `notification.removed@1`
+ * is still sent after the listener reconnects or the process restarts. Holds only the system
+ * notification key, never content. Added in schema version 2.
+ */
+@Entity(tableName = "forwarded_notifications", indices = [Index(value = ["forwarded_at"])])
+data class ForwardedNotificationEntity(
+    @PrimaryKey
+    val key: String,
+    @ColumnInfo(name = "forwarded_at")
+    val forwardedAt: Long,
+)

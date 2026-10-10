@@ -204,6 +204,37 @@ class DefaultCaromSyncTest {
     }
 
     @Test
+    fun `a dismiss naming another key than the original notification is dropped`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val original = phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k1")) as SendResult.Sent
+        phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k2"))
+        mac.sync.fetchMessages()
+
+        // SPEC §3.3 rule 7: the reply goes to k1's message but tries to dismiss k2.
+        val dismiss = MessageBodies.toJson(MessageBodies.NotificationDismiss.serializer(), MessageBodies.NotificationDismiss("k2"))
+        assertTrue(mac.sync.send(MessageTypes.NOTIFICATION_DISMISS, dismiss, replyTo = original.msgId, replyToSender = phone.id) is SendResult.Sent)
+        assertEquals(FetchResult.Fetched(handled = 0, dropped = 1), phone.sync.fetchMessages())
+        assertTrue(phone.received(MessageTypes.NOTIFICATION_DISMISS).isEmpty())
+        assertEquals(0, h.hub.pendingFor(phone.id))
+    }
+
+    @Test
+    fun `a dismiss replying to a message that was not a posted notification is dropped`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val clip = phone.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("x")) as SendResult.Sent
+        mac.sync.fetchMessages()
+
+        val dismiss = MessageBodies.toJson(MessageBodies.NotificationDismiss.serializer(), MessageBodies.NotificationDismiss("k1"))
+        mac.sync.send(MessageTypes.NOTIFICATION_DISMISS, dismiss, replyTo = clip.msgId, replyToSender = phone.id)
+        phone.sync.fetchMessages()
+        assertTrue(phone.received(MessageTypes.NOTIFICATION_DISMISS).isEmpty())
+    }
+
+    @Test
     fun `a message from a device not yet in the cache triggers one directory refresh`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()

@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import com.mtajchert.carom.app.core.database.entity.DirectoryDeviceEntity
+import com.mtajchert.carom.app.core.database.entity.ForwardedNotificationEntity
 import com.mtajchert.carom.app.core.database.entity.OutboxEntity
 import com.mtajchert.carom.app.core.database.entity.RecentItemEntity
 import com.mtajchert.carom.app.core.database.entity.SeenMessageEntity
@@ -72,6 +73,20 @@ class CaromDatabaseTest {
         dao.observeLatest(10).test {
             assertEquals(listOf("n4", "n3"), awaitItem().map { it.summary })
         }
+    }
+
+    @Test
+    fun `forwarded keys are deleted once and trimmed to the newest`() = runTest {
+        val dao = db.forwardedNotificationDao()
+        dao.upsert(ForwardedNotificationEntity("a", 1))
+        dao.upsert(ForwardedNotificationEntity("b", 2))
+        dao.upsert(ForwardedNotificationEntity("c", 3))
+        assertEquals(1, dao.delete("b"))
+        assertEquals(0, dao.delete("b"))
+        dao.trim(keep = 1)
+        assertEquals(listOf("c"), dao.keys())
+        dao.clear()
+        assertEquals(emptyList<String>(), dao.keys())
     }
 
     private fun outbox(id: String, state: String, next: Long, expires: Long) = OutboxEntity(

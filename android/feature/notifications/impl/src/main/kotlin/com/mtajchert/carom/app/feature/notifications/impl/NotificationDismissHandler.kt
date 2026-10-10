@@ -9,8 +9,8 @@ import javax.inject.Inject
 
 /**
  * `notification.dismiss@1` (*Dismiss on phone* on a desktop): cancels the notification if it is
- * still showing. The engine has already applied SPEC §3.3, including rule 7 (only a device the
- * posted message went to may reply), before this runs.
+ * still showing. The engine has already applied SPEC §3.3, including rule 7: only a device the
+ * posted message went to may reply, and the dismissed key must be that message's key.
  */
 class NotificationDismissHandler @Inject constructor(
     private val bridge: ActiveNotificationsBridge,

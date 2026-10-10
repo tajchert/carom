@@ -7,6 +7,7 @@ import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.mtajchert.carom.app.core.database.entity.DirectoryDeviceEntity
+import com.mtajchert.carom.app.core.database.entity.ForwardedNotificationEntity
 import com.mtajchert.carom.app.core.database.entity.NotificationAppEntity
 import com.mtajchert.carom.app.core.database.entity.OutboxEntity
 import com.mtajchert.carom.app.core.database.entity.RecentItemEntity
@@ -101,6 +102,29 @@ interface NotificationAppDao {
     /** Refreshes the label and last post time without touching the user's mode. */
     @Query("UPDATE notification_apps SET label = :label, last_posted_at = :lastPostedAt WHERE package_name = :packageName")
     suspend fun touch(packageName: String, label: String, lastPostedAt: Long)
+}
+
+@Dao
+interface ForwardedNotificationDao {
+    @Upsert
+    suspend fun upsert(item: ForwardedNotificationEntity)
+
+    /** Returns the number of rows deleted: 1 when [key] had been forwarded. */
+    @Query("DELETE FROM forwarded_notifications WHERE `key` = :key")
+    suspend fun delete(key: String): Int
+
+    @Query("SELECT `key` FROM forwarded_notifications")
+    suspend fun keys(): List<String>
+
+    /** Keeps the [keep] most recently forwarded keys. */
+    @Query(
+        "DELETE FROM forwarded_notifications WHERE `key` NOT IN " +
+            "(SELECT `key` FROM forwarded_notifications ORDER BY forwarded_at DESC LIMIT :keep)",
+    )
+    suspend fun trim(keep: Int)
+
+    @Query("DELETE FROM forwarded_notifications")
+    suspend fun clear()
 }
 
 @Dao

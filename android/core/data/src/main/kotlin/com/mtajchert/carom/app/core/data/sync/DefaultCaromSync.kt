@@ -13,6 +13,7 @@ import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import com.mtajchert.carom.app.core.protocol.Envelope
 import com.mtajchert.carom.app.core.protocol.Envelopes
 import com.mtajchert.carom.app.core.protocol.Identity
+import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.OpenRecordError
 import com.mtajchert.carom.app.core.protocol.Outcome
@@ -20,6 +21,7 @@ import com.mtajchert.carom.app.core.protocol.Payload
 import com.mtajchert.carom.app.core.protocol.Protocol
 import com.mtajchert.carom.app.core.protocol.ReceiveContext
 import com.mtajchert.carom.app.core.protocol.ReceiveError
+import com.mtajchert.carom.app.core.protocol.Received
 import com.mtajchert.carom.app.core.protocol.Receiver
 import com.mtajchert.carom.app.core.protocol.Records
 import com.mtajchert.carom.app.core.protocol.Rekey
@@ -351,7 +353,13 @@ class DefaultCaromSync(
             lastClipboardTs = syncState.lastClipboardTs(),
             originalRecipients = { id -> outbox.get(id)?.takeIf { it.state == OutboxState.SENT }?.recipients },
         )
-        val result = Receiver.receive(message.envelope, ctx)
+        val result = Receiver.receive(message.envelope, ctx).let { r ->
+            if (r is Outcome.Ok && !dismissMatchesOriginal(r.value, identity, contents.keysByKv)) {
+                Outcome.Err(ReceiveError.REPLY_NOT_ALLOWED)
+            } else {
+                r
+            }
+        }
         when (result) {
             is Outcome.Ok -> {
                 val received = result.value
@@ -369,6 +377,23 @@ class DefaultCaromSync(
             is Outcome.Err -> log.log("receive_dropped", "${result.error.code} seq=${message.seq}")
         }
         return result
+    }
+
+    /**
+     * SPEC §3.3 rule 7, second half: a `notification.dismiss@1` must name the `key` of the
+     * `notification.posted@1` it replies to. The original is reopened from our outbox (sealed by us,
+     * kept until it expires), so a recipient can only dismiss the notification it was sent.
+     */
+    private suspend fun dismissMatchesOriginal(received: Received, identity: Identity, keys: Map<Long, ByteArray>): Boolean {
+        if (received.payload.type != MessageTypes.NOTIFICATION_DISMISS) return true
+        val replyTo = received.payload.replyTo ?: return false
+        val original = outbox.get(replyTo)?.takeIf { it.state == OutboxState.SENT && it.type == MessageTypes.NOTIFICATION_POSTED }
+            ?: return false
+        val opened = (Envelopes.open(parseJsonOrNull(original.envelopeJson), identity.signPub, keys) as? Outcome.Ok)?.value ?: return false
+        if (opened.payload.type != MessageTypes.NOTIFICATION_POSTED) return false
+        val postedKey = MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), opened.payload.body)?.key ?: return false
+        val dismissKey = MessageBodies.fromJson(MessageBodies.NotificationDismiss.serializer(), received.payload.body)?.key ?: return false
+        return postedKey == dismissKey
     }
 
     // -------------------------------------------------------------------------
