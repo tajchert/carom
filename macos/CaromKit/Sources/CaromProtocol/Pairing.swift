@@ -15,6 +15,14 @@ public struct PairAcceptBody: Sendable, Equatable, Codable {
         case kxPub = "kx_pub"
     }
 
+    public init(pairId: String, signPub: String, kxPub: String, mac: String, pop: String) {
+        self.pairId = pairId
+        self.signPub = signPub
+        self.kxPub = kxPub
+        self.mac = mac
+        self.pop = pop
+    }
+
     public var json: JSON {
         ["pair_id": .string(pairId), "sign_pub": .string(signPub), "kx_pub": .string(kxPub), "mac": .string(mac),
          "pop": .string(pop)]
