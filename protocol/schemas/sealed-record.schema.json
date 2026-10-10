@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:sealed-record",
+  "title": "Sealed device record",
+  "description": "SPEC §5.1: the published form, body of PUT /v1/devices/self/record as {record}.",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "urn:carom:v1:common#/$defs/device_id" },
+    "updated": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
+    "kv": { "$ref": "urn:carom:v1:common#/$defs/kv" },
+    "salt": { "$ref": "urn:carom:v1:common#/$defs/b64_32" },
+    "ct": { "type": "string", "allOf": [{ "$ref": "urn:carom:v1:common#/$defs/b64" }], "minLength": 22 },
+    "sig": { "$ref": "urn:carom:v1:common#/$defs/b64_64" }
+  },
+  "required": ["id", "updated", "kv", "salt", "ct", "sig"],
+  "additionalProperties": false
+}

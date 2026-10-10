@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:notification.dismiss@1",
+  "title": "notification.dismiss@1 body",
+  "description": "SPEC §4. Sent with payload-level `reply_to` = the posted message's msg_id. Default TTL 1 day, no collapse.",
+  "type": "object",
+  "properties": {
+    "key": { "type": "string" }
+  },
+  "required": ["key"]
+}

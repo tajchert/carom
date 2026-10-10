@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:device-record",
+  "title": "Device record (plaintext)",
+  "description": "SPEC §5.1. Sealed with tag \"carom/v1/rec\" and H = [id, u64(updated)]. Receivers MUST also check device_id(sign_pub) == id and that id/updated match the sealed form. Unknown fields are ignored.",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "urn:carom:v1:common#/$defs/device_id" },
+    "name": { "type": "string" },
+    "kind": { "enum": ["phone", "desktop", "cli"] },
+    "platform": { "type": "string" },
+    "app_version": { "type": "string" },
+    "sign_pub": { "$ref": "urn:carom:v1:common#/$defs/b64_32" },
+    "kx_pub": { "$ref": "urn:carom:v1:common#/$defs/b64_32" },
+    "caps": { "type": "array", "items": { "type": "string" } },
+    "receive": {
+      "type": "object",
+      "description": "Message type → \"*\" (from every device) or the allowed sender ids. A missing type means \"do not send me this\".",
+      "additionalProperties": {
+        "oneOf": [
+          { "const": "*" },
+          { "type": "array", "items": { "$ref": "urn:carom:v1:common#/$defs/device_id" } }
+        ]
+      }
+    },
+    "updated": { "$ref": "urn:carom:v1:common#/$defs/time_ms" }
+  },
+  "required": ["id", "name", "kind", "platform", "app_version", "sign_pub", "kx_pub", "caps", "receive", "updated"]
+}

@@ -1,0 +1,200 @@
+{
+  "description": "QR / pasted URIs (SPEC §8). Builders percent-encode every UTF-8 byte outside A-Z a-z 0-9 - . _ ~ with uppercase hex, in the parameter order v, h, t (setup) or v, h, c, s (pair). Parsers trim surrounding whitespace and are strict: scheme and kind are case-sensitive, the parameter set must be exact (any order, no duplicates, no unknowns), v must be \"1\"; values may contain percent-escapes (either hex case) and the raw characters A-Za-z0-9-._~!$'()*,;:@/? only, so a raw \"+\" or \"=\" is invalid and \"+\" never means space; decoded values must be valid UTF-8. h must be an https URL (http only for localhost, 127.0.0.1 and [::1]) without credentials, query or fragment. t must be at least 32 characters without control characters. c matches [A-Za-z0-9_-]{1,64}. s is the canonical b64 of exactly 32 bytes.",
+  "build": [
+    {
+      "kind": "setup",
+      "hub": "https://carom-hub.example.workers.dev",
+      "setup_token": "abcdefghijklmnopqrstuvwxyz0123456789",
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&t=abcdefghijklmnopqrstuvwxyz0123456789"
+    },
+    {
+      "kind": "setup",
+      "hub": "https://hub.example.com:8443/carom",
+      "setup_token": "Sx9+/=&é token with spaces 0123456789",
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fhub.example.com%3A8443%2Fcarom&t=Sx9%2B%2F%3D%26%C3%A9%20token%20with%20spaces%200123456789"
+    },
+    {
+      "kind": "pair",
+      "hub": "https://carom-hub.example.workers.dev",
+      "pair_id": "p_4f8e2c1a9b7d",
+      "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d",
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=p_4f8e2c1a9b7d&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0"
+    },
+    {
+      "kind": "pair",
+      "hub": "http://localhost:8787",
+      "pair_id": "0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b",
+      "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d",
+      "uri": "carom://pair?v=1&h=http%3A%2F%2Flocalhost%3A8787&c=0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0"
+    }
+  ],
+  "parse_valid": [
+    {
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&t=abcdefghijklmnopqrstuvwxyz0123456789",
+      "expected": {
+        "kind": "setup",
+        "hub": "https://carom-hub.example.workers.dev",
+        "setup_token": "abcdefghijklmnopqrstuvwxyz0123456789"
+      }
+    },
+    {
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fhub.example.com%3A8443%2Fcarom&t=Sx9%2B%2F%3D%26%C3%A9%20token%20with%20spaces%200123456789",
+      "expected": {
+        "kind": "setup",
+        "hub": "https://hub.example.com:8443/carom",
+        "setup_token": "Sx9+/=&é token with spaces 0123456789"
+      }
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=p_4f8e2c1a9b7d&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "expected": {
+        "kind": "pair",
+        "hub": "https://carom-hub.example.workers.dev",
+        "pair_id": "p_4f8e2c1a9b7d",
+        "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d"
+      }
+    },
+    {
+      "uri": "carom://pair?v=1&h=http%3A%2F%2Flocalhost%3A8787&c=0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "expected": {
+        "kind": "pair",
+        "hub": "http://localhost:8787",
+        "pair_id": "0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b",
+        "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d"
+      }
+    },
+    {
+      "uri": "  carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0\n",
+      "expected": {
+        "kind": "pair",
+        "hub": "https://carom-hub.example.workers.dev",
+        "pair_id": "abc",
+        "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d"
+      }
+    },
+    {
+      "uri": "carom://pair?s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0&c=abc&h=https%3A%2F%2Fcarom-hub.example.workers.dev&v=1",
+      "expected": {
+        "kind": "pair",
+        "hub": "https://carom-hub.example.workers.dev",
+        "pair_id": "abc",
+        "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d"
+      }
+    },
+    {
+      "uri": "carom://pair?v=1&h=https://carom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "expected": {
+        "kind": "pair",
+        "hub": "https://carom-hub.example.workers.dev",
+        "pair_id": "abc",
+        "pair_secret_hex": "912d142ab69950264db514d5a40a7345cce24ff78176500afbadcf0c6c0bca3d"
+      }
+    },
+    {
+      "uri": "carom://setup?v=1&h=https%3a%2f%2fcarom-hub.example.workers.dev&t=%61bcdefghijklmnopqrstuvwxyz0123456789",
+      "expected": {
+        "kind": "setup",
+        "hub": "https://carom-hub.example.workers.dev",
+        "setup_token": "abcdefghijklmnopqrstuvwxyz0123456789"
+      }
+    }
+  ],
+  "parse_invalid": [
+    {
+      "uri": "carom://pair?v=2&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "unsupported version"
+    },
+    {
+      "uri": "carom://pair?h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "missing v"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc",
+      "reason": "missing s"
+    },
+    {
+      "uri": "carom://pair?v=1&v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "duplicate parameter"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0&x=1",
+      "reason": "unknown parameter"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0&",
+      "reason": "empty parameter"
+    },
+    {
+      "uri": "CAROM://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "scheme is case-sensitive"
+    },
+    {
+      "uri": "https://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "wrong scheme"
+    },
+    {
+      "uri": "carom://join?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "unknown kind"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0#frag",
+      "reason": "fragment (becomes part of s)"
+    },
+    {
+      "uri": "carom://pair?v=1&h=http%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "http hub on a non-loopback host"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fuser%3Apw%40hub.example.com&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "credentials in the hub url"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fhub.example.com%2F%3Fq%3D1&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "query in the hub url"
+    },
+    {
+      "uri": "carom://pair?v=1&h=not-a-url&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "hub is not a url"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=a%2Fb&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "pair_id with a character outside [A-Za-z0-9_-]"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0",
+      "reason": "empty pair_id"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "reason": "pair secret 31 bytes"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0%3D",
+      "reason": "padded pair secret"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj+",
+      "reason": "raw + in a value"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0%2",
+      "reason": "truncated percent escape"
+    },
+    {
+      "uri": "carom://pair?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=kS0UKraZUCZNtRTVpApzRcziT_eBdlAK-63PDGwLyj0%ZZ",
+      "reason": "invalid percent escape"
+    },
+    {
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&t=short-token",
+      "reason": "setup token shorter than 32 characters"
+    },
+    {
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&t=%FFaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": "setup token is not valid UTF-8"
+    },
+    {
+      "uri": "carom://setup?v=1&h=https%3A%2F%2Fcarom-hub.example.workers.dev&t=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&c=abc",
+      "reason": "pair parameter in a setup uri"
+    }
+  ]
+}

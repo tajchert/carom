@@ -1,0 +1,71 @@
+{
+  "description": "collapse = b64(HMAC-SHA256(K_collapse(K), lp(from) || lp(real_key))[0..16]) with K_collapse(K) = HKDF(ikm=K, salt=\"\", info=\"carom/v1/collapse\", L=32) (SPEC §3.2).",
+  "cases": [
+    {
+      "name": "clipboard",
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+      "real_key": "clip",
+      "real_key_utf8_hex": "636c6970",
+      "collapse_key_hex": "ed2306bb94c55787797f4a4a96dc672235221437eae92d58f33906ed0c0157bd",
+      "hmac_input_hex": "0000001a6465765f33786c686372774e4c654f493838496b414f5074435100000004636c6970",
+      "hmac_hex": "459039f581d87c39541696bc60d555e52630b3b0f4ed03131e4fce5dfe1ca631",
+      "collapse": "RZA59YHYfDlUFpa8YNVV5Q"
+    },
+    {
+      "name": "device status",
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "from": "dev_yEtJsCLemxZR0R2zF9V93Q",
+      "real_key": "status",
+      "real_key_utf8_hex": "737461747573",
+      "collapse_key_hex": "ed2306bb94c55787797f4a4a96dc672235221437eae92d58f33906ed0c0157bd",
+      "hmac_input_hex": "0000001a6465765f7945744a73434c656d785a523052327a46395639335100000006737461747573",
+      "hmac_hex": "f6cffd13212a133e2bcd1a38cc9df2e1459bbd57e22d8142903c435d5fa66762",
+      "collapse": "9s_9EyEqEz4rzRo4zJ3y4Q"
+    },
+    {
+      "name": "notification key (ascii)",
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+      "real_key": "n:0|com.whatsapp|1|null|10123",
+      "real_key_utf8_hex": "6e3a307c636f6d2e77686174736170707c317c6e756c6c7c3130313233",
+      "collapse_key_hex": "ed2306bb94c55787797f4a4a96dc672235221437eae92d58f33906ed0c0157bd",
+      "hmac_input_hex": "0000001a6465765f33786c686372774e4c654f493838496b414f507443510000001d6e3a307c636f6d2e77686174736170707c317c6e756c6c7c3130313233",
+      "hmac_hex": "30ef5401741a0c063b7f6bb261ec87c2fadde0b192e0661f6b139ab7dbe61aee",
+      "collapse": "MO9UAXQaDAY7f2uyYeyHwg"
+    },
+    {
+      "name": "notification key (unicode)",
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+      "real_key": "n:Zażółć gęślą jaźń 🎉",
+      "real_key_utf8_hex": "6e3a5a61c5bcc3b3c582c4872067c499c59b6cc485206a61c5bac58420f09f8e89",
+      "collapse_key_hex": "ed2306bb94c55787797f4a4a96dc672235221437eae92d58f33906ed0c0157bd",
+      "hmac_input_hex": "0000001a6465765f33786c686372774e4c654f493838496b414f50744351000000216e3a5a61c5bcc3b3c582c4872067c499c59b6cc485206a61c5bac58420f09f8e89",
+      "hmac_hex": "fe49c789c626b49315a66a9382c04cb98708f96871f0ba332629a6fae12b1b81",
+      "collapse": "_knHicYmtJMVpmqTgsBMuQ"
+    },
+    {
+      "name": "empty real key",
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+      "real_key": "",
+      "real_key_utf8_hex": "",
+      "collapse_key_hex": "ed2306bb94c55787797f4a4a96dc672235221437eae92d58f33906ed0c0157bd",
+      "hmac_input_hex": "0000001a6465765f33786c686372774e4c654f493838496b414f5074435100000000",
+      "hmac_hex": "92429a0134f4e745a7430679097dd00742af864c4c75797fd6a409f482733bb1",
+      "collapse": "kkKaATT050WnQwZ5CX3QBw"
+    },
+    {
+      "name": "same key under kv 2 differs",
+      "group_key_hex": "c61a3d67c636e2b4aedb39fec04c1bc9e89b50bad2df94d272ef5a7d5119bf9d",
+      "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+      "real_key": "clip",
+      "real_key_utf8_hex": "636c6970",
+      "collapse_key_hex": "9d92d53de4fea0fc952f58d46592ed2fa5136b47b881bf33abc52fb0497f24ca",
+      "hmac_input_hex": "0000001a6465765f33786c686372774e4c654f493838496b414f5074435100000004636c6970",
+      "hmac_hex": "168e3befd3e66d163ddddafccec03380a16eb994ee1755806428a019b5075de6",
+      "collapse": "Fo4779PmbRY93dr8zsAzgA"
+    }
+  ]
+}
