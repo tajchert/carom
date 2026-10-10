@@ -24,12 +24,13 @@ Current Version ID: 7d1a2c3e-0000-4000-8000-000000000000
 `;
 
 /** Fake wrangler runner. `deploys` records each call, including what the secrets file held. */
-export function fakeWrangler({ loggedIn = true, loginOk = true, deployResult = { code: 0, output: SAMPLE_OUTPUT }, deployError } = {}) {
-  const calls = { login: 0, deploys: [] };
+export function fakeWrangler({ loggedIn = true, loginOk = true, deployResult = { code: 0, output: SAMPLE_OUTPUT }, deployError, existing = { exists: false, hubUrl: null }, onDeploy } = {}) {
+  const calls = { login: 0, deploys: [], existing: [] };
   return {
     calls,
     async isLoggedIn() { return loggedIn; },
     async login() { calls.login++; return loginOk; },
+    async findExistingHub(name) { calls.existing.push(name); return existing; },
     async deploy({ name, secretsFile, vars }) {
       calls.deploys.push({
         name,
@@ -38,8 +39,9 @@ export function fakeWrangler({ loggedIn = true, loginOk = true, deployResult = {
         secrets: JSON.parse(readFileSync(secretsFile, 'utf8')),
         mode: statSync(secretsFile).mode & 0o777,
       });
+      onDeploy?.();
       if (deployError) throw deployError;
-      return deployResult;
+      return typeof deployResult === 'function' ? deployResult(calls.deploys.length) : deployResult;
     },
   };
 }
