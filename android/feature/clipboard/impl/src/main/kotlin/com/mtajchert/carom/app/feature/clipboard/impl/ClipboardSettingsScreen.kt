@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -112,8 +113,10 @@ private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Uni
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange),
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange)
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Checkbox(checked = checked, onCheckedChange = null)
         Text(label, style = MaterialTheme.typography.bodyLarge)
