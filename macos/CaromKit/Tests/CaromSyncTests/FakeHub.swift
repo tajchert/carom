@@ -94,8 +94,7 @@ actor FakeHub {
     // MARK: - Routes
 
     func info() -> HubInfo {
-        HubInfo(name: "carom-hub", protocolVersion: 1, version: "fake", setupDone: claimed, vapidPublicKey: nil,
-                jurisdiction: nil)
+        HubInfo(name: "carom-hub", protocolVersion: 1, version: "fake", setupDone: claimed, jurisdiction: nil)
     }
 
     func setup(_ token: String, _ signPub: Data, _ kxPub: Data) throws(HubError) -> HubCredentials {
@@ -202,7 +201,7 @@ actor FakeHub {
         _ = try caller(token)
         return devices.values.filter(\.active).sorted { $0.id < $1.id }.map {
             DeviceListing(id: $0.id, signPub: $0.signPub, kxPub: $0.kxPub, createdAt: $0.createdAt, lastSeen: now,
-                          hasPush: false, record: $0.record)
+                          record: $0.record)
         }
     }
 
@@ -285,8 +284,6 @@ struct FakeHubClient: HubAPI {
     }
     func devices() async throws(HubError) -> [DeviceListing] { try await hub.listDevices(token) }
     func putRecord(_ record: SealedRecord) async throws(HubError) { try await hub.putRecord(token, record) }
-    func putPush(endpoint: String, p256dh: String, auth: String) async throws(HubError) {}
-    func deletePush() async throws(HubError) {}
     func revoke(deviceId: String) async throws(HubError) { try await hub.revoke(token, deviceId) }
     func postMessage(_ envelope: Envelope) async throws(HubError) -> PostResult { try await hub.post(token, envelope) }
     func fetchMessages(limit: Int) async throws(HubError) -> MessagePage { try await hub.fetch(token, limit) }

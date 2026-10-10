@@ -203,7 +203,7 @@ struct AppModelTests {
         #expect(sent.first?.type == .clipboardSet)
         #expect(sent.first?.body["text"] == .string("hello"))
         #expect(sent.first?.only == nil)
-        #expect(h.model.statusMessage == "Sent to Pixel.")
+        #expect(h.model.statusMessage == "Sent to Pixel. It arrives when Carom is opened on your phone.")
     }
 
     @Test func copyIsNotSentWhenAutomaticIsOff() async {

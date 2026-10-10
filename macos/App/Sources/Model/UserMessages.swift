@@ -29,12 +29,22 @@ enum UserMessages {
         "Your Hub refused a message (\(code)). It was not delivered."
     }
 
-    static func sent(to names: [String]) -> String {
-        switch names.count {
+    /// Desktop to phone messages are pull-only (SPEC §9), so a send whose recipients are all
+    /// phones says when it arrives.
+    static func sent(to names: [String], onlyPhones: Bool = false) -> String {
+        let base = switch names.count {
         case 0: "Sent."
         case 1: "Sent to \(names[0])."
         default: "Sent to \(names.count) devices."
         }
+        guard onlyPhones, !names.isEmpty else { return base }
+        return base + (names.count == 1 ? " It arrives when Carom is opened on your phone."
+                                        : " It arrives when Carom is opened on those phones.")
+    }
+
+    /// The hint next to "Send To" in Settings: what phone recipients mean.
+    static func arrivesWhenOpened(on phones: [String]) -> String {
+        "Arrives when Carom is opened on \(phones.formatted(.list(type: .or, width: .standard)))."
     }
 
     /// Explains a failed onboarding, pairing or settings action.

@@ -57,7 +57,7 @@ struct StoreTests {
         state.settings["muted"] = ["com.example"]
         let record = DeviceRecord(identity: identity, name: "Mac", kind: .desktop, platform: "macos",
                                   appVersion: "1", caps: Routing.desktopCaps, updated: 5)
-        state.directory["dev_x"] = DirectoryEntry(record: record, kv: 1, createdAt: 1, lastSeen: 2, hasPush: false)
+        state.directory["dev_x"] = DirectoryEntry(record: record, kv: 1, createdAt: 1, lastSeen: 2)
         state.outbox = [OutboxItem(envelope: Envelope(msgId: "m", from: "a", to: ["b"], collapse: "c", ttlS: 60, kv: 1,
                                                       salt: "s", ct: "c", sig: "g"), createdAt: 10, nextAttemptAt: 10)]
         try store.save(state)

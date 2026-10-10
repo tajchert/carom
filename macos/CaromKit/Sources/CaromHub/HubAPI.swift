@@ -22,8 +22,6 @@ public protocol HubAPI: Sendable {
 
     func devices() async throws(HubError) -> [DeviceListing]
     func putRecord(_ record: SealedRecord) async throws(HubError)
-    func putPush(endpoint: String, p256dh: String, auth: String) async throws(HubError)
-    func deletePush() async throws(HubError)
     /// `DELETE /v1/devices/:id`; pass "self" or this device's id to revoke itself.
     func revoke(deviceId: String) async throws(HubError)
 
@@ -40,17 +38,13 @@ public struct HubInfo: Sendable, Equatable {
     public var protocolVersion: Int
     public var version: String
     public var setupDone: Bool
-    /// b64 of the uncompressed P-256 point.
-    public var vapidPublicKey: String?
     public var jurisdiction: String?
 
-    public init(name: String, protocolVersion: Int, version: String, setupDone: Bool, vapidPublicKey: String?,
-                jurisdiction: String?) {
+    public init(name: String, protocolVersion: Int, version: String, setupDone: Bool, jurisdiction: String?) {
         self.name = name
         self.protocolVersion = protocolVersion
         self.version = version
         self.setupDone = setupDone
-        self.vapidPublicKey = vapidPublicKey
         self.jurisdiction = jurisdiction
     }
 }
@@ -91,18 +85,15 @@ public struct DeviceListing: Sendable, Equatable {
     public var kxPub: String
     public var createdAt: Int?
     public var lastSeen: Int?
-    public var hasPush: Bool
     /// The sealed record, if published (raw, to be opened with `RecordCodec.open`).
     public var record: JSON?
 
-    public init(id: String, signPub: String, kxPub: String, createdAt: Int?, lastSeen: Int?, hasPush: Bool,
-                record: JSON?) {
+    public init(id: String, signPub: String, kxPub: String, createdAt: Int?, lastSeen: Int?, record: JSON?) {
         self.id = id
         self.signPub = signPub
         self.kxPub = kxPub
         self.createdAt = createdAt
         self.lastSeen = lastSeen
-        self.hasPush = hasPush
         self.record = record
     }
 
@@ -111,8 +102,7 @@ public struct DeviceListing: Sendable, Equatable {
               let k = json["kx_pub"]?.stringValue
         else { return nil }
         self.init(id: id, signPub: s, kxPub: k, createdAt: json["created_at"]?.safeInt,
-                  lastSeen: json["last_seen"]?.safeInt, hasPush: json["has_push"]?.boolValue ?? false,
-                  record: json["record"])
+                  lastSeen: json["last_seen"]?.safeInt, record: json["record"])
     }
 }
 

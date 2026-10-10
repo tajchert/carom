@@ -434,11 +434,10 @@ public actor SyncEngine {
                 // devices boxed in the current version).
                 state.signPubCache[l.id] = CachedSigner(signPub: record.signPub, kv: current.kv)
                 newDirectory[l.id] = DirectoryEntry(record: record, kv: sealed.kv, createdAt: l.createdAt,
-                                                    lastSeen: l.lastSeen, hasPush: l.hasPush)
+                                                    lastSeen: l.lastSeen)
             case .failure(.rollback):
                 if var existing = state.directory[l.id] {
                     existing.lastSeen = l.lastSeen
-                    existing.hasPush = l.hasPush
                     newDirectory[l.id] = existing
                 }
             case .failure(let e):
@@ -689,8 +688,8 @@ public actor SyncEngine {
 
     // MARK: - Receiving
 
-    /// `GET /v1/messages` until empty, handling and acknowledging each page (SPEC §9 wake-up
-    /// flow, and the fallback for the WebSocket). Returns the number of messages handled.
+    /// `GET /v1/messages` until empty, handling and acknowledging each page (SPEC §9: the pull
+    /// that runs when the app is awake, and the fallback for the WebSocket). Returns the number of messages handled.
     @discardableResult
     public func fetchMessages() async throws -> Int {
         let hub = try requireHub()

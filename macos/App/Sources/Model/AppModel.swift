@@ -533,12 +533,14 @@ final class AppModel {
             return
         }
         trace("clipboard send \(Self.traceName(outcome))")
-        let names = targets.filter { only?.contains($0.record.id) ?? true }.map(\.record.name)
+        let recipients = targets.filter { only?.contains($0.record.id) ?? true }
+        let names = recipients.map(\.record.name)
+        let onlyPhones = !recipients.isEmpty && recipients.allSatisfy { $0.record.kind == .phone }
         switch outcome {
         case .sent, .superseded:
             activity.add(RecentClip(direction: .sent(to: names), text: item.text, sensitive: item.sensitive,
                                     date: options.now()))
-            showStatus(UserMessages.sent(to: names))
+            showStatus(UserMessages.sent(to: names, onlyPhones: onlyPhones))
         case .queued:
             activity.add(RecentClip(direction: .sent(to: names), text: item.text, sensitive: item.sensitive,
                                     date: options.now()))
