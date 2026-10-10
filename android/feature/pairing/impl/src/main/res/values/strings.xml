@@ -16,11 +16,7 @@
     <string name="feature_pairing_clip_label">Carom pairing code</string>
 
     <!-- Confirm -->
-    <string name="feature_pairing_confirm_title">Add new device?</string>
-    <string name="feature_pairing_confirm_title_kind">Add %1$s device?</string>
-    <string name="feature_pairing_kind_phone">phone</string>
-    <string name="feature_pairing_kind_desktop">desktop</string>
-    <string name="feature_pairing_kind_cli">command-line</string>
+    <string name="feature_pairing_confirm_title">Add device %1$s?</string>
     <string name="feature_pairing_confirm_body">Check that the other device shows the same code. Only add devices you own.</string>
     <string name="feature_pairing_fingerprint_label">Device code</string>
     <string name="feature_pairing_approve">Add device</string>

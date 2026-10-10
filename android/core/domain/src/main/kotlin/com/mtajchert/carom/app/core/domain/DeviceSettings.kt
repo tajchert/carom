@@ -4,11 +4,13 @@ import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.DirectoryEntry
 import com.mtajchert.carom.app.core.data.sync.DirectoryStore
+import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.ReceiveRulesStore
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
 import com.mtajchert.carom.app.core.protocol.DeviceIds
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.ReceiveRule
+import com.mtajchert.carom.app.core.protocol.Routing
 import com.mtajchert.carom.app.core.security.SecretVault
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -76,25 +78,29 @@ data class ReceiveMatrix(
 class ObserveReceiveMatrixUseCase @Inject constructor(
     private val directory: DirectoryStore,
     private val vault: SecretVault,
+    private val rulesStore: ReceiveRulesStore,
 ) {
     operator fun invoke(): Flow<ReceiveMatrix> = combine(
         directory.observe(),
         vault.contents.onStart { vault.load() },
-    ) { entries, contents ->
+        rulesStore.rules,
+    ) { entries, contents, rules ->
         val selfId = contents?.identity?.deviceId ?: return@combine ReceiveMatrix.EMPTY
-        matrixOf(entries, selfId)
+        matrixOf(entries, selfId, rules)
     }
 
     companion object {
-        fun matrixOf(entries: List<DirectoryEntry>, selfId: String): ReceiveMatrix {
+        /** [rules] are the user's stored choice; null means the published record's rules. */
+        fun matrixOf(entries: List<DirectoryEntry>, selfId: String, rules: Map<String, ReceiveRule>? = null): ReceiveMatrix {
             val self = entries.firstOrNull { it.id == selfId }?.record ?: return ReceiveMatrix.EMPTY
+            val receive = rules ?: self.receive
             val senders = entries.filter { it.trusted && it.id != selfId }
                 .map { ReceiveSender(it.id, it.record!!.name) }
-            val types = (self.caps + self.receive.keys).distinct()
+            val types = (self.caps + receive.keys).distinct()
                 .sortedBy { type -> MessageTypes.ALL.indexOf(type).let { if (it < 0) Int.MAX_VALUE else it } }
             val ids = senders.map { it.id }
             val allowed = types.associateWith { type ->
-                when (val rule = self.receive[type]) {
+                when (val rule = receive[type]) {
                     ReceiveRule.Everyone -> ids.toSet()
                     is ReceiveRule.Only -> rule.senders.filter { it in ids }.toSet()
                     null -> emptySet()
@@ -105,33 +111,56 @@ class ObserveReceiveMatrixUseCase @Inject constructor(
     }
 }
 
-/** Changes one cell of the receive matrix and republishes this device's record. */
+/**
+ * The single writer of this device's `receive` rules (SPEC §5.1): the Devices matrix and the
+ * clipboard "Receive clipboard from" setting both go through here. The rules are stored in
+ * [ReceiveRulesStore] (which the published record is built from) and the record is republished once.
+ */
 class SetReceiveRuleUseCase @Inject constructor(
     private val directory: DirectoryStore,
     private val vault: SecretVault,
     private val rulesStore: ReceiveRulesStore,
+    private val profile: LocalDeviceProfileProvider,
     private val sync: CaromSync,
 ) {
-    /** Returns false when the record could not be published now (it is retried on the next refresh). */
+    /**
+     * Changes one cell of the receive matrix. Allowing every known sender becomes `"*"`, which
+     * also lets future devices send, like the pairing default.
+     * Returns false when the record could not be published now (it is retried on the next refresh).
+     */
     suspend operator fun invoke(type: String, senderId: String, allow: Boolean): Boolean {
         val selfId = vault.load().identity?.deviceId ?: return false
         val entries = directory.all()
-        val record = entries.firstOrNull { it.id == selfId }?.record ?: return false
         val senders = entries.filter { it.trusted && it.id != selfId }.map { it.id }.toSet()
-        val rules = (rulesStore.receiveRules() ?: record.receive).toMutableMap()
-        val now = when (val rule = rules[type]) {
+        val now = when (val rule = currentRules(entries, selfId)[type]) {
             ReceiveRule.Everyone -> senders
             is ReceiveRule.Only -> rule.senders.toSet()
             null -> emptySet()
         }
         val next = if (allow) now + senderId else now - senderId
+        val rule = if (senders.isNotEmpty() && next.containsAll(senders)) ReceiveRule.Everyone else ReceiveRule.Only(next.toList())
+        return setRule(type, rule)
+    }
+
+    /**
+     * Sets `receive[type]` to [rule] ("Receive clipboard from": `"*"` or an explicit list) and
+     * republishes the record. An empty list removes the type, which means "do not send me this".
+     */
+    suspend fun setRule(type: String, rule: ReceiveRule): Boolean {
+        val selfId = vault.load().identity?.deviceId ?: return false
+        val rules = currentRules(directory.all(), selfId).toMutableMap()
         when {
-            // Everyone we know is allowed: "*" also lets future devices send, like the pairing default.
-            senders.isNotEmpty() && next.containsAll(senders) -> rules[type] = ReceiveRule.Everyone
-            next.isEmpty() -> rules.remove(type)
-            else -> rules[type] = ReceiveRule.Only(DeviceIds.sorted(next))
+            rule is ReceiveRule.Only && rule.senders.isEmpty() -> rules.remove(type)
+            rule is ReceiveRule.Only -> rules[type] = ReceiveRule.Only(DeviceIds.sorted(rule.senders.toSet()))
+            else -> rules[type] = rule
         }
         rulesStore.setReceiveRules(rules)
         return sync.publishOwnRecord()
     }
+
+    /** The stored choice, else what the record published, else the SPEC §5.1 defaults. */
+    private suspend fun currentRules(entries: List<DirectoryEntry>, selfId: String): Map<String, ReceiveRule> =
+        rulesStore.receiveRules()
+            ?: entries.firstOrNull { it.id == selfId }?.record?.receive
+            ?: Routing.defaultReceive(profile.profile().kind)
 }

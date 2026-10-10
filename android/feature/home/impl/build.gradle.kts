@@ -52,6 +52,7 @@ android {
 
 dependencies {
     api(projects.feature.home.api)
+    implementation(projects.feature.clipboard.api)
     implementation(projects.core.model)
     implementation(projects.core.data)
     implementation(projects.core.domain)

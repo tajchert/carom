@@ -165,6 +165,9 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(projects.core.testing)
+    testImplementation(projects.core.protocol)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     // Navigation and deep link tests drive the real Activity locally through
     // Robolectric, with Hilt supplying the real object graph.

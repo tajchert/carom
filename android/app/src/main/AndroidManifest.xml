@@ -6,9 +6,18 @@
 
     <!--
         Backups are off and every domain is excluded: identity keys, group keys and the device
-        token must never leave the device (SPEC §5.3). Only the launcher activity is exported;
-        later work adds the notification listener, tile, share target and push receiver, each
-        deliberately.
+        token must never leave the device (SPEC §5.3).
+
+        Exported components in the merged manifest, each reviewed:
+        - MainActivity (launcher), ShareTargetActivity (ACTION_SEND text/plain, reads nothing but
+          the shared text), ClipboardTileService (BIND_QUICK_SETTINGS_TILE) and
+          CaromListenerService (BIND_NOTIFICATION_LISTENER_SERVICE);
+        - the push libraries: UnifiedPush connector MessagingReceiverImpl and
+          RaiseToForegroundService (distributor IPC) and the embedded FCM distributor's
+          FirebaseReceiver (c2dm SEND permission);
+        - system-only library components: WorkManager SystemJobService (BIND_JOB_SERVICE) and
+          ProfileInstallReceiver (DUMP, used to install baseline profiles).
+        WorkManager's DiagnosticsReceiver is removed below; nothing uses it.
     -->
     <application
         android:name=".CaromApplication"
@@ -33,6 +42,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name="androidx.work.impl.diagnostics.DiagnosticsReceiver"
+            tools:node="remove" />
 
         <!-- WorkManager is initialised on demand with the Hilt worker factory (CaromApplication). -->
         <provider

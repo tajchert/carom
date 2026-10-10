@@ -39,7 +39,9 @@ interface ForwardingEnvironment {
  * Everything stops when [scope] is cancelled (the listener disconnected).
  *
  * Sending goes through [CaromSync.send], which routes, seals and stores in the outbox; a queued
- * message is left to WorkManager. `removed` is sent only for keys this instance forwarded.
+ * message is left to WorkManager. `removed` is sent only for keys this phone forwarded; they are
+ * kept in Room ([ForwardedKeys]) so a removal is still sent after a listener reconnect or a
+ * process restart, and [reconcile] catches removals that happened while the listener was gone.
  */
 class NotificationForwarder(
     private val scope: CoroutineScope,
@@ -47,6 +49,7 @@ class NotificationForwarder(
     private val scheduler: SyncWorkScheduler,
     private val apps: NotificationAppsRepository,
     private val preferences: UserPreferencesRepository,
+    private val forwarded: ForwardedKeys,
     private val env: ForwardingEnvironment,
     private val throttle: UpdateThrottle = UpdateThrottle(),
 ) {
@@ -54,6 +57,7 @@ class NotificationForwarder(
         class Posted(val read: () -> NotificationSnapshot?) : Event
         class Removed(val key: String) : Event
         class SendThrottled(val key: String) : Event
+        class Reconcile(val activeKeys: () -> Set<String>?) : Event
     }
 
     private val events = Channel<Event>(Channel.UNLIMITED)
@@ -61,7 +65,6 @@ class NotificationForwarder(
     // Owned by the consumer coroutine only.
     private val pending = HashMap<String, MessageBodies.NotificationPosted>()
     private val trailing = HashMap<String, Job>()
-    private val forwarded = LinkedHashSet<String>()
     private var lastFetchAt = Long.MIN_VALUE / 2
     private var fetchJob: Job? = null
 
@@ -88,12 +91,23 @@ class NotificationForwarder(
         events.trySend(Event.Removed(key))
     }
 
+    /**
+     * After the listener (re)connects: sends `removed` for every forwarded key that is no longer
+     * showing. [activeKeys] runs on the consumer; null means the list could not be read.
+     */
+    fun reconcile(activeKeys: () -> Set<String>?) {
+        events.trySend(Event.Reconcile(activeKeys))
+    }
+
     private suspend fun handle(event: Event) = when (event) {
         is Event.Posted -> event.read()?.let { posted(it) }
         is Event.Removed -> removed(event.key)
         is Event.SendThrottled -> {
             trailing.remove(event.key)
             pending.remove(event.key)?.let { sendPosted(it) }
+        }
+        is Event.Reconcile -> event.activeKeys()?.let { active ->
+            for (key in forwarded.all() - active) removed(key)
         }
     }
 
@@ -143,7 +157,7 @@ class NotificationForwarder(
             )
             result = sync.send(MessageTypes.NOTIFICATION_POSTED, NotificationMapper.postedJson(short))
         }
-        if (result is SendResult.Sent || result is SendResult.Queued) remember(body.key)
+        if (result is SendResult.Sent || result is SendResult.Queued) forwarded.add(body.key, env.now())
         after(result)
     }
 
@@ -165,12 +179,6 @@ class NotificationForwarder(
         }
     }
 
-    private fun remember(key: String) {
-        forwarded.remove(key)
-        forwarded.add(key)
-        if (forwarded.size > MAX_FORWARDED_KEYS) forwarded.remove(forwarded.first())
-    }
-
     /** "Fetch after each successful send", coalesced so a burst of notifications fetches once. */
     private fun piggybackFetch() {
         val now = env.now()
@@ -185,13 +193,13 @@ class NotificationForwarder(
         private val scheduler: SyncWorkScheduler,
         private val apps: NotificationAppsRepository,
         private val preferences: UserPreferencesRepository,
+        private val forwarded: ForwardedKeys,
     ) {
         fun create(scope: CoroutineScope, env: ForwardingEnvironment) =
-            NotificationForwarder(scope, sync, scheduler, apps, preferences, env)
+            NotificationForwarder(scope, sync, scheduler, apps, preferences, forwarded, env)
     }
 
     companion object {
-        const val MAX_FORWARDED_KEYS = 500
         const val FETCH_INTERVAL_MS = 15_000L
         private const val FALLBACK_CHARS = 1000
     }

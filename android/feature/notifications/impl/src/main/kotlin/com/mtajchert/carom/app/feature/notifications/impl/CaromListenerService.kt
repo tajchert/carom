@@ -52,8 +52,19 @@ class CaromListenerService : NotificationListenerService() {
         scope?.cancel()
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope = newScope
-        forwarder = forwarderFactory.create(newScope, AndroidForwardingEnvironment())
+        val f = forwarderFactory.create(newScope, AndroidForwardingEnvironment())
+        forwarder = f
         bridge.attach(control)
+        // Removals that happened while we were not bound (reconnect, process death) are sent now.
+        f.reconcile {
+            try {
+                activeNotifications?.mapTo(HashSet()) { it.key }
+            } catch (_: SecurityException) {
+                null // access was revoked; keep the keys for the next connection
+            } catch (_: RuntimeException) {
+                null // the binder went away before we read the list
+            }
+        }
     }
 
     override fun onListenerDisconnected() {

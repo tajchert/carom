@@ -10,11 +10,13 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.mtajchert.carom.app.feature.clipboard.api.ClipboardSettingsRoute
 import com.mtajchert.carom.app.feature.clipboard.impl.navigation.clipboardEntries
 import com.mtajchert.carom.app.feature.devices.api.DevicesRoute
 import com.mtajchert.carom.app.feature.devices.impl.navigation.devicesEntries
 import com.mtajchert.carom.app.feature.home.api.HomeRoute
 import com.mtajchert.carom.app.feature.home.impl.navigation.homeEntries
+import com.mtajchert.carom.app.feature.notifications.api.NotificationAppsRoute
 import com.mtajchert.carom.app.feature.notifications.impl.navigation.notificationsEntries
 import com.mtajchert.carom.app.feature.onboarding.api.OnboardingRoute
 import com.mtajchert.carom.app.feature.onboarding.impl.navigation.onboardingEntries
@@ -68,7 +70,11 @@ fun CaromNavHost(
             )
             pairingEntries(onBack = back)
             devicesEntries(onBack = back)
-            settingsEntries(onBack = back)
+            settingsEntries(
+                onBack = back,
+                onOpenNotificationApps = { backStack.add(NotificationAppsRoute) },
+                onOpenClipboardSettings = { backStack.add(ClipboardSettingsRoute) },
+            )
             notificationsEntries(onBack = back)
             clipboardEntries(onBack = back)
         },

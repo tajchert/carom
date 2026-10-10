@@ -61,7 +61,7 @@ class PairingScreenTest {
     @Test
     fun `the confirmation shows the fingerprint and both answers`() {
         show(PairingUiState.Confirm("Xq3v9KpL"))
-        composeRule.onNodeWithText("Add new device?").assertIsDisplayed()
+        composeRule.onNodeWithText("Add device Xq3v9KpL?").assertIsDisplayed()
         composeRule.onNodeWithText("Xq3v9KpL").assertIsDisplayed()
         composeRule.onNodeWithText("Add device").performClick()
         composeRule.onNodeWithText("Don't add").performClick()

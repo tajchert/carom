@@ -336,6 +336,86 @@ class TrustAndRevocationTest {
     }
 
     @Test
+    fun `leaving first rekeys without this device, then deletes it`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val laptop = h.join(phone, "Laptop")
+        mac.sync.refreshDirectory()
+        laptop.sync.refreshDirectory()
+        val phoneId = phone.id
+
+        assertEquals(RevokeResult.RevokedSelf, phone.sync.revoke(phoneId))
+
+        // SPEC §5.4: PUT /v1/keyring comes before DELETE self, and the new key is not boxed for us.
+        assertTrue(h.hub.requests.indexOf("PUT /v1/keyring") in 0 until h.hub.requests.lastIndexOf("DELETE /v1/devices/:id"))
+        val version = h.hub.keyringVersions.single()
+        assertEquals(phoneId, version.by)
+        assertEquals(setOf(mac.id, laptop.id), version.boxes.keys)
+        assertTrue(phone.vault.wiped)
+
+        // The others verify the version with the leaver's cached sign_pub and move to kv 2.
+        mac.sync.refreshDirectory()
+        laptop.sync.refreshDirectory()
+        assertEquals(2L, mac.vault.load().currentKey!!.kv)
+        assertEquals(2L, laptop.vault.load().currentKey!!.kv)
+        mac.sync.refreshDirectory()
+        assertEquals(setOf(mac.id, laptop.id), mac.trusted())
+        // The removal is explained by the rekey, not flagged as "removed (no rekey)".
+        h.clock.advance(DefaultCaromSync.REMOVAL_GRACE_MS + 1)
+        mac.sync.refreshDirectory()
+        assertTrue(mac.state.notices.none { it is NoticeText.DeviceRemovedNoRekey })
+        assertTrue(mac.state.notices.any { it is NoticeText.DeviceRemoved && it.deviceId == phoneId })
+
+        assertTrue(mac.sync.send(MessageTypes.CLIPBOARD_SET, MessageBodies.toJson(MessageBodies.ClipboardSet.serializer(), MessageBodies.ClipboardSet(text = "x", sensitive = false))) is SendResult.Sent)
+        laptop.sync.fetchMessages()
+        assertEquals(2L, laptop.received(MessageTypes.CLIPBOARD_SET).single().envelope.kv)
+    }
+
+    @Test
+    fun `a device that joins after a rekey fetches the keyring and trusts members that have not republished`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val laptop = h.join(phone, "Laptop")
+        assertEquals(RevokeResult.Revoked, phone.sync.revoke(laptop.id))
+        // The Mac is offline: its record is still sealed under kv 1.
+        assertEquals(1L, mac.vault.load().currentKey!!.kv)
+
+        val tablet = h.join(phone, "Tablet")
+        assertEquals(2L, tablet.vault.load().currentKey!!.kv)
+        // SPEC §5.3: GET /v1/keyring?have=1, verified with the phone's key, gives the kv 2 box list.
+        assertEquals(VerifiedKeyring(2, phone.id, setOf(phone.id, mac.id)), tablet.state.verifiedKeyring())
+        assertEquals(setOf(phone.id, mac.id, tablet.id), tablet.trusted())
+
+        // So the Mac's clipboard reaches the tablet, which trusts the Mac's kv 1 record.
+        mac.sync.refreshDirectory()
+        assertTrue(mac.sync.send(MessageTypes.CLIPBOARD_SET, MessageBodies.toJson(MessageBodies.ClipboardSet.serializer(), MessageBodies.ClipboardSet(text = "hi", sensitive = false))) is SendResult.Sent)
+        tablet.sync.fetchMessages()
+        assertEquals(1, tablet.received(MessageTypes.CLIPBOARD_SET).size)
+    }
+
+    @Test
+    fun `the last device leaving writes no keyring version`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        assertEquals(RevokeResult.RevokedSelf, phone.sync.revoke(phone.id))
+        assertTrue(h.hub.keyringVersions.isEmpty())
+        assertTrue(phone.vault.wiped)
+    }
+
+    @Test
+    fun `leaving is refused while the rekey cannot be written, and nothing is wiped`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        h.join(phone, "Mac")
+        h.hub.failures["PUT /v1/keyring"] = FakeHub.networkFailure()
+        assertEquals(RevokeResult.Failed(retryable = true), phone.sync.revoke(phone.id))
+        assertFalse(phone.vault.wiped)
+        assertTrue(phone.id in h.hub.activeDeviceIds)
+    }
+
+    @Test
     fun `the revoked frame wipes immediately and still runs the hooks`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()

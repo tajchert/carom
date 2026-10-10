@@ -27,6 +27,7 @@ class NotificationForwarderTest {
     private val scheduler = FakeSyncWorkScheduler()
     private val apps = FakeNotificationAppsRepository()
     private val prefs = FakeUserPreferencesRepository()
+    private val forwardedKeys = FakeForwardedKeys()
     private var locked = false
     private val logged = mutableListOf<String>()
 
@@ -40,7 +41,7 @@ class NotificationForwarderTest {
                 logged += if (detail == null) event else "$event $detail"
             }
         }
-        return NotificationForwarder(backgroundScope, sync, scheduler, apps, prefs, env)
+        return NotificationForwarder(backgroundScope, sync, scheduler, apps, prefs, forwardedKeys, env)
     }
 
     private fun snapshot(key: String = "k1", pkg: String = "com.chat", text: String = "hello") = NotificationSnapshot(
@@ -159,6 +160,39 @@ class NotificationForwarderTest {
         f.onRemoved("k1") // only once
         runCurrent()
         assertEquals(2, fake.sent.size)
+    }
+
+    @Test
+    fun `a forwarded key survives a listener reconnect and its removal is still sent`() = runTest {
+        forwarder().onPosted { snapshot() }
+        runCurrent()
+        assertEquals(setOf("k1"), forwardedKeys.keys)
+
+        // The listener reconnected (or the process restarted): a new forwarder, same stored keys.
+        val next = forwarder()
+        next.onRemoved("k1")
+        runCurrent()
+        assertEquals(listOf(MessageTypes.NOTIFICATION_POSTED, MessageTypes.NOTIFICATION_REMOVED), sentTypes)
+        assertTrue(forwardedKeys.keys.isEmpty())
+    }
+
+    @Test
+    fun `reconcile sends removed for forwarded keys that are no longer showing`() = runTest {
+        val f = forwarder()
+        f.onPosted { snapshot(key = "gone") }
+        f.onPosted { snapshot(key = "still") }
+        runCurrent()
+
+        forwarder().reconcile { setOf("still", "other") }
+        runCurrent()
+        assertEquals(MessageTypes.NOTIFICATION_REMOVED, fake.sent.last().type)
+        assertEquals("gone", fake.sent.last().body["key"]!!.jsonPrimitive.content)
+        assertEquals(setOf("still"), forwardedKeys.keys)
+
+        // An unreadable list changes nothing.
+        forwarder().reconcile { null }
+        runCurrent()
+        assertEquals(3, fake.sent.size)
     }
 
     @Test

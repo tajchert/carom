@@ -57,7 +57,8 @@ object Rekey {
 
     /**
      * Builds the keyring version for the new key [groupKey] with version [kv] (= old kv + 1).
-     * [members] are the remaining members, including the rekeying device itself.
+     * [members] are the remaining members, including the rekeying device itself unless it is
+     * [leaving]: a device that removes itself first rekeys without itself (SPEC §5.4).
      */
     fun build(
         by: Identity,
@@ -66,10 +67,16 @@ object Rekey {
         members: List<RekeyMember>,
         ephSks: Map<String, ByteArray> = emptyMap(),
         rng: Rng = SecureRng,
+        leaving: Boolean = false,
     ): KeyringVersion {
         require(Seal.isValidKv(kv) && kv >= 2) { "rekey kv must be >= 2" }
         require(groupKey.size == Protocol.KEY_LENGTH) { "group key must be 32 bytes" }
-        require(members.any { it.id == by.deviceId }) { "members must include the rekeying device" }
+        require(members.isNotEmpty()) { "a keyring version needs at least one box" }
+        if (leaving) {
+            require(members.none { it.id == by.deviceId }) { "a leaving device must not box the key for itself" }
+        } else {
+            require(members.any { it.id == by.deviceId }) { "members must include the rekeying device" }
+        }
         val boxes = LinkedHashMap<String, Box>()
         for (m in members) {
             require(DeviceIds.isValid(m.id) && m.id !in boxes) { "invalid or duplicate member ${m.id}" }

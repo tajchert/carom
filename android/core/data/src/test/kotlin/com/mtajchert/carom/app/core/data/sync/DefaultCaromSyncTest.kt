@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.core.data.sync
 
+import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.hub.HubErrorCode
 import com.mtajchert.carom.app.core.hub.HubException
 import com.mtajchert.carom.app.core.hub.HubMessage
@@ -68,12 +69,13 @@ class DefaultCaromSyncTest {
     }
 
     @Test
-    fun `a receive rule set on the phone is published and survives republishing`() = runTest {
+    fun `a stored receive rule is published and survives republishing`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()
         val mac = h.join(phone, "Mac")
 
-        assertTrue(phone.sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Only(listOf(phone.id))))
+        phone.receive = mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Only(listOf(phone.id)))
+        assertTrue(phone.sync.publishOwnRecord())
         mac.sync.refreshDirectory()
         // The Mac is not in the allowed list, so the phone gets nothing from it.
         assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("x")))
@@ -82,7 +84,8 @@ class DefaultCaromSyncTest {
         mac.sync.refreshDirectory()
         assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("y")))
 
-        assertTrue(phone.sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Everyone))
+        phone.receive = mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone)
+        assertTrue(phone.sync.publishOwnRecord())
         mac.sync.refreshDirectory()
         assertTrue(mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("z")) is SendResult.Sent)
     }
@@ -202,6 +205,37 @@ class DefaultCaromSyncTest {
     }
 
     @Test
+    fun `a dismiss naming another key than the original notification is dropped`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val original = phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k1")) as SendResult.Sent
+        phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k2"))
+        mac.sync.fetchMessages()
+
+        // SPEC §3.3 rule 7: the reply goes to k1's message but tries to dismiss k2.
+        val dismiss = MessageBodies.toJson(MessageBodies.NotificationDismiss.serializer(), MessageBodies.NotificationDismiss("k2"))
+        assertTrue(mac.sync.send(MessageTypes.NOTIFICATION_DISMISS, dismiss, replyTo = original.msgId, replyToSender = phone.id) is SendResult.Sent)
+        assertEquals(FetchResult.Fetched(handled = 0, dropped = 1), phone.sync.fetchMessages())
+        assertTrue(phone.received(MessageTypes.NOTIFICATION_DISMISS).isEmpty())
+        assertEquals(0, h.hub.pendingFor(phone.id))
+    }
+
+    @Test
+    fun `a dismiss replying to a message that was not a posted notification is dropped`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val clip = phone.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("x")) as SendResult.Sent
+        mac.sync.fetchMessages()
+
+        val dismiss = MessageBodies.toJson(MessageBodies.NotificationDismiss.serializer(), MessageBodies.NotificationDismiss("k1"))
+        mac.sync.send(MessageTypes.NOTIFICATION_DISMISS, dismiss, replyTo = clip.msgId, replyToSender = phone.id)
+        phone.sync.fetchMessages()
+        assertTrue(phone.received(MessageTypes.NOTIFICATION_DISMISS).isEmpty())
+    }
+
+    @Test
     fun `a message from a device not yet in the cache triggers one directory refresh`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()
@@ -220,7 +254,8 @@ class DefaultCaromSyncTest {
         val phone = h.setUp()
         val mac = h.join(phone, "Mac")
         val macId = mac.id
-        mac.sync.revoke(macId)
+        // An older or buggy client deletes itself without the rekey SPEC §5.4 asks for.
+        mac.rawClient().revoke(HubClient.SELF)
         phone.sync.refreshDirectory()
         h.clock.advance(DefaultCaromSync.REMOVAL_GRACE_MS)
         phone.sync.refreshDirectory()

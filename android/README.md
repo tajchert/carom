@@ -17,16 +17,19 @@ Done (foundation):
   file in `protocol/vectors/`.
 - `core:hub`: an HTTP client for every SPEC §6 route and an OkHttp WebSocket client (§7).
 - `core:security`: Android Keystore-wrapped storage for identity keys, group keys and the token.
-- `core:database`, `core:datastore`: Room schema v1 and preferences.
+- `core:database`, `core:datastore`: Room schema v2 (v1 to v2 adds `forwarded_notifications`;
+  `MigrationTest` checks every migration against the exported schemas) and preferences.
 - `core:data`: the `CaromSync` engine (directory, outbox send pipeline, SPEC §3.3 receive
   pipeline with refresh-before-drop, §5.3 transitional trust, §5.5 chained keyring verification,
-  rekey/revocation, §5.4 removal notices and the `401` "pair again" latch) and `Enrollment`
+  rekey/revocation, §5.4 removal notices and the `401` "pair again" latch, "Leave hub" rekeying
+  without itself before it deletes itself, the §3.3 rule 7 dismiss key check against the original
+  message in the outbox, and the §5.3 joiner keyring fetch) and `Enrollment`
   (setup, join, invite), tested against an in-memory Hub; WorkManager + Hilt worker factory;
   `OutboxWorker`, `FetchWorker`; the sync runtime (`runtime/`).
 - `core:push`: UnifiedPush connector 3.x with the embedded FCM distributor (see "Fetching").
 - Home (status, push state, last sync, quick actions, problem banners, recent items), Devices
-  (list, rename, remove with rekey, receive-from matrix) and Settings (device name, pause,
-  delivery state, about, leave hub).
+  (list, rename, remove with rekey, receive-from matrix) and Settings (device name, Apps and
+  Clipboard sub-screens, pause, delivery state, about, leave hub).
 - Onboarding (`feature:onboarding`): shown at start when there are no keys or Hub (and again after
   a revocation). Welcome, set up a new Hub or join, CameraX + zxing QR scanner (camera permission
   asked on that step only) or paste, progress and cause-and-fix errors, the joining device's
@@ -35,15 +38,18 @@ Done (foundation):
   exemption), done.
 - Pairing (`feature:pairing`, `PairingRoute`): "Add device" shows the QR code and a copyable URI
   with a 5-minute countdown, polls `GET /v1/pair/:id` every 2 s while visible, and asks
-  "Add device <fingerprint>?". A foreground WebSocket can push candidates by binding
-  `PairCandidateFeed` (pairing api); without one the screen only polls.
+  "Add device <fingerprint>?". `:app` binds `PairCandidateFeed` to
+  `LiveHubConnection.pairCandidates`, so a `pair` frame on the foreground WebSocket shows the
+  prompt at once.
 - `feature:notifications`: phone -> desktop mirroring. `CaromListenerService` (declared in the
   module's own manifest, merged into the app) applies the CLIENTS.md filters, per-app modes
   (Forward / Hide content / Off, with a small deny list of system packages), the global pause and
   "only when locked" switches, Android 15 redaction detection, MessagingStyle mapping, 4000-char
-  truncation and a 2 s per-key update throttle, then sends through `CaromSync.send`. Removals are
-  sent only for keys this listener connection forwarded. `notification.dismiss@1` cancels the
-  notification if it is still showing. The "Apps" screen (`NotificationAppsRoute`) lists apps
+  truncation and a 2 s per-key update throttle, then sends through `CaromSync.send`. Forwarded
+  keys are kept in Room, so removals are sent across listener reconnects and process death; on
+  connect the listener sends `removed` for forwarded keys that are no longer showing.
+  `notification.dismiss@1` cancels the notification if it is still showing (the engine has
+  already checked that the key matches the posted message it replies to). The "Apps" screen (`NotificationAppsRoute`) lists apps
   seen posting notifications.
 
 
@@ -112,7 +118,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:common` | Dispatcher qualifiers, `Result` |
 | `:core:testing` | `FakeHub` (in-memory Hub), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
 | `:feature:{home,onboarding,pairing,devices,settings,notifications}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
-| `:feature:clipboard:{api,impl}` | Two-way clipboard: `ClipboardSend.intent`, transparent `ClipboardSendActivity`, exported share target `ShareTargetActivity` and Quick Settings tile, `clipboard.set@1` handler (sensitive flag, 10 s echo guard, optional quiet notification with "Copy again"), clipboard settings screen (`ClipboardSettingsRoute`; "Send clipboard to" is stored locally, "Receive clipboard from" is written to the record via `CaromSync.setReceiveRule`) |
+| `:feature:clipboard:{api,impl}` | Two-way clipboard: `ClipboardSend.intent`, transparent `ClipboardSendActivity`, exported share target `ShareTargetActivity` and Quick Settings tile, `clipboard.set@1` handler (sensitive flag, 10 s echo guard, optional quiet notification with "Copy again"), clipboard settings screen (`ClipboardSettingsRoute`; "Send clipboard to" is stored locally, "Receive clipboard from" goes through `SetReceiveRuleUseCase`), the optional ongoing "Carom" notification with a Send clipboard action |
 | `:benchmark` | Startup Macrobenchmark, Baseline Profile generator, `StartupSmokeTest` |
 
 Rules: features depend on other features' **api** modules only and navigate through callbacks
@@ -128,8 +134,9 @@ wired in `CaromNavHost`; core modules never depend on features; `core:protocol` 
   `SendClipboardUseCase` does).
 - **Fetching**: `SyncWorkScheduler.scheduleFetch()` after tile/share actions; the push, foreground
   and piggyback triggers are already wired (see "Fetching" above).
-- **Receive rules**: `SetReceiveRuleUseCase` changes one `receive` cell and republishes the record
-  (rules persist in `ReceiveRulesStore`); the clipboard "Receive from" setting should reuse it.
+- **Receive rules**: `SetReceiveRuleUseCase` is the only writer: `invoke` changes one matrix cell,
+  `setRule` sets a whole rule ("Receive clipboard from"). Rules persist in `ReceiveRulesStore`,
+  which the published record and both screens read; the record is republished once per change.
 - **Leaving / wiping**: anything that must happen before the keys go away implements `WipeHook`.
 - **Onboarding/pairing UI**: `Enrollment.setUpNewHub`, `join`, `createInvite`,
   `checkCandidate`/`verify`, `approve`, `reject`; parse scanned/pasted text with `QrUri.parse`.

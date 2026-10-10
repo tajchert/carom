@@ -55,15 +55,12 @@ interface CaromSync {
     /** Revokes [deviceId] (any member, including this one), then rekeys (SPEC §5.4). */
     suspend fun revoke(deviceId: String): RevokeResult
 
-    /** Seals and publishes this device's record under the current key. */
-    suspend fun publishOwnRecord(): Boolean
-
     /**
-     * Sets this device's `receive[type]` rule (SPEC §5.1, e.g. "Receive clipboard from") and
-     * republishes the record. The rule survives later republishing (rekeys, renames). Returns
-     * false when not paired or the Hub could not be reached.
+     * Seals and publishes this device's record under the current key. Its `receive` rules come
+     * from [LocalDeviceProfile.receive] (the user's choice), else the last published record, else
+     * the SPEC §5.1 defaults for its kind.
      */
-    suspend fun setReceiveRule(type: String, rule: ReceiveRule): Boolean
+    suspend fun publishOwnRecord(): Boolean
 
     /** The Hub said this device is revoked: wipe keys and local state, return to onboarding. */
     suspend fun onRevoked()

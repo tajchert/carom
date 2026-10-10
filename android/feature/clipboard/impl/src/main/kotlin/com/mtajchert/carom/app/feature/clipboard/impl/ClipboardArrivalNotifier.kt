@@ -11,6 +11,8 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.mtajchert.carom.app.core.data.sync.WipeHook
+import com.mtajchert.carom.app.core.hub.HubClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -70,6 +72,15 @@ class AndroidClipboardArrivalNotifier @Inject constructor(
             text.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty().trim().let {
                 if (it.length > MAX_LINE) it.take(MAX_LINE - 1) + "…" else it
             }
+    }
+}
+
+/** Clipboard text must not stay on screen after this phone left its group. */
+class ClearClipboardNoticeOnWipe @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : WipeHook {
+    override suspend fun beforeWipe(client: HubClient?) {
+        NotificationManagerCompat.from(context).cancel(AndroidClipboardArrivalNotifier.NOTIFICATION_ID)
     }
 }
 

@@ -18,7 +18,6 @@
         <item quantity="other">%1$d messages waiting to be sent</item>
     </plurals>
     <string name="feature_home_send_clipboard">Send clipboard</string>
-    <string name="feature_home_send_clipboard_unavailable">Sending the clipboard is not available in this version.</string>
     <string name="feature_home_add_device">Add a device</string>
     <string name="feature_home_recent">Recent</string>
     <string name="feature_home_recent_clipboard_sent">Sent clipboard: %1$s</string>

@@ -13,14 +13,15 @@ import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import com.mtajchert.carom.app.core.protocol.Envelope
 import com.mtajchert.carom.app.core.protocol.Envelopes
 import com.mtajchert.carom.app.core.protocol.Identity
+import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.OpenRecordError
 import com.mtajchert.carom.app.core.protocol.Outcome
 import com.mtajchert.carom.app.core.protocol.Payload
 import com.mtajchert.carom.app.core.protocol.Protocol
 import com.mtajchert.carom.app.core.protocol.ReceiveContext
-import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.protocol.ReceiveError
+import com.mtajchert.carom.app.core.protocol.Received
 import com.mtajchert.carom.app.core.protocol.Receiver
 import com.mtajchert.carom.app.core.protocol.Records
 import com.mtajchert.carom.app.core.protocol.Rekey
@@ -352,7 +353,13 @@ class DefaultCaromSync(
             lastClipboardTs = syncState.lastClipboardTs(),
             originalRecipients = { id -> outbox.get(id)?.takeIf { it.state == OutboxState.SENT }?.recipients },
         )
-        val result = Receiver.receive(message.envelope, ctx)
+        val result = Receiver.receive(message.envelope, ctx).let { r ->
+            if (r is Outcome.Ok && !dismissMatchesOriginal(r.value, identity, contents.keysByKv)) {
+                Outcome.Err(ReceiveError.REPLY_NOT_ALLOWED)
+            } else {
+                r
+            }
+        }
         when (result) {
             is Outcome.Ok -> {
                 val received = result.value
@@ -372,6 +379,23 @@ class DefaultCaromSync(
         return result
     }
 
+    /**
+     * SPEC §3.3 rule 7, second half: a `notification.dismiss@1` must name the `key` of the
+     * `notification.posted@1` it replies to. The original is reopened from our outbox (sealed by us,
+     * kept until it expires), so a recipient can only dismiss the notification it was sent.
+     */
+    private suspend fun dismissMatchesOriginal(received: Received, identity: Identity, keys: Map<Long, ByteArray>): Boolean {
+        if (received.payload.type != MessageTypes.NOTIFICATION_DISMISS) return true
+        val replyTo = received.payload.replyTo ?: return false
+        val original = outbox.get(replyTo)?.takeIf { it.state == OutboxState.SENT && it.type == MessageTypes.NOTIFICATION_POSTED }
+            ?: return false
+        val opened = (Envelopes.open(parseJsonOrNull(original.envelopeJson), identity.signPub, keys) as? Outcome.Ok)?.value ?: return false
+        if (opened.payload.type != MessageTypes.NOTIFICATION_POSTED) return false
+        val postedKey = MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), opened.payload.body)?.key ?: return false
+        val dismissKey = MessageBodies.fromJson(MessageBodies.NotificationDismiss.serializer(), received.payload.body)?.key ?: return false
+        return postedKey == dismissKey
+    }
+
     // -------------------------------------------------------------------------
     // Directory and trust (SPEC §5.3, §5.4)
     // -------------------------------------------------------------------------
@@ -389,19 +413,25 @@ class DefaultCaromSync(
         }
         val contents = vault.load()
         val key = contents.currentKey ?: return DirectoryResult.NotPaired
-        val trust = TrustContext(
-            key = key,
-            previousKey = contents.keysByKv[key.kv - 1],
-            // Transitional trust only follows the newest verified version, and only for the current key.
-            boxedInCurrent = syncState.verifiedKeyring()?.takeIf { it.kv == key.kv }?.members.orEmpty(),
-        )
         val previous = directory.all()
         val previousById = previous.associateBy { it.id }
-        val entries = devices.map { d ->
-            val prev = previousById[d.id]
-            val (record, kv) = openRecord(d, trust, prev) ?: (null to null)
-            DirectoryEntry(d.id, d.signPub, d.kxPub, d.createdAt, d.lastSeen, d.hasPush, record, kv)
+        suspend fun open(): List<DirectoryEntry> {
+            val trust = TrustContext(
+                key = key,
+                previousKey = contents.keysByKv[key.kv - 1],
+                // Transitional trust only follows the newest verified version, and only for the current key.
+                boxedInCurrent = syncState.verifiedKeyring()?.takeIf { it.kv == key.kv }?.members.orEmpty(),
+            )
+            return devices.map { d ->
+                val prev = previousById[d.id]
+                val (record, kv) = openRecord(d, trust, prev) ?: (null to null)
+                DirectoryEntry(d.id, d.signPub, d.kxPub, d.createdAt, d.lastSeen, d.hasPush, record, kv)
+            }
         }
+        var entries = open()
+        // SPEC §5.3: a device that joined through a welcome holds the newest key but not the box
+        // list of the version that made it; fetch and verify it so transitional trust applies.
+        if (checkKeyring && adoptCurrentKeyringVersion(s, key, entries)) entries = open()
         val presentIds = entries.map { it.id }.toSet()
         val removed = previous.filter { it.trusted && it.id !in presentIds && it.id != s.identity.deviceId }
         directory.replace(entries)
@@ -417,6 +447,48 @@ class DefaultCaromSync(
         statusFlow.value = ConnectionStatus.IDLE
         val all = directory.all()
         return DirectoryResult.Refreshed(all.count { it.trusted }, all.count { !it.trusted }, removed.map { it.id })
+    }
+
+    /**
+     * SPEC §5.3, joiner: `GET /v1/keyring?have=<kv − 1>` for the version of our current key, whose
+     * signature is verified with the `sign_pub` of a trusted member (or our own). Our key came in
+     * the welcome, so that version usually has no box for us; its box list is what we need.
+     * Returns true when it became the newest verified version.
+     */
+    private suspend fun adoptCurrentKeyringVersion(s: Session, key: StoredGroupKey, entries: List<DirectoryEntry>): Boolean {
+        if (key.kv < 2 || syncState.verifiedKeyring()?.kv == key.kv) return false
+        val raw = try {
+            s.client.keyring(have = key.kv - 1)
+        } catch (e: HubException) {
+            failed(e)
+            return false
+        }
+        val json = raw.firstOrNull { Rekey.parse(it)?.kv == key.kv } ?: return false
+        val version = Rekey.parse(json) ?: return false
+        val signer = if (version.by == s.identity.deviceId) {
+            s.identity.signPub
+        } else {
+            entries.firstOrNull { it.id == version.by && it.trusted && it.recordKv == key.kv }
+                ?.let { B64.decodeOrNull(it.record!!.signPub) }
+        } ?: run {
+            log.log("keyring_rejected", "untrusted_signer kv=${version.kv}")
+            return false
+        }
+        if (!DeviceIds.matches(version.by, signer) || !Rekey.verifySignature(version, signer)) {
+            log.log("keyring_rejected", "bad_signature kv=${version.kv}")
+            return false
+        }
+        // When the version does box this device, it must hold exactly the key we already have.
+        if (s.identity.deviceId in version.boxes) {
+            val opened = Rekey.open(json, s.identity.deviceId, s.identity.kxSk, mapOf(version.by to signer))
+            if ((opened as? Outcome.Ok)?.value?.key?.contentEquals(key.key) != true) {
+                log.log("keyring_rejected", "key_mismatch kv=${version.kv}")
+                return false
+            }
+        }
+        syncState.setVerifiedKeyring(VerifiedKeyring(version.kv, version.by, version.boxes.keys))
+        log.log("keyring_adopted", "kv=${version.kv}")
+        return true
     }
 
     private class TrustContext(val key: StoredGroupKey, val previousKey: ByteArray?, val boxedInCurrent: Set<String>)
@@ -610,6 +682,35 @@ class DefaultCaromSync(
         return RekeyResult.Rekeyed(kv)
     }
 
+    /**
+     * "Leave hub" (SPEC §5.4): boxes a new key for every other trusted member, but not for this
+     * device, and keeps nothing locally. A lost race (409) learns the winning key and tries again.
+     * With no other member there is nobody to protect, so nothing is written ([RekeyResult.NotPaired]).
+     */
+    private suspend fun rekeyWithoutSelf(s: Session): RekeyResult {
+        repeat(MAX_RESEALS) {
+            val current = vault.load().currentKey ?: return RekeyResult.NotPaired
+            val members = directory.all()
+                .filter { it.trusted && it.id != s.identity.deviceId }
+                .map { RekeyMember(it.id, B64.decode(it.record!!.kxPub)) }
+            if (members.isEmpty()) return RekeyResult.NotPaired
+            val kv = current.kv + 1
+            val version = Rekey.build(s.identity, kv, rng.bytes(Protocol.KEY_LENGTH), members, rng = rng, leaving = true)
+            try {
+                s.client.putKeyring(version)
+                log.log("rekeyed_without_self", "kv=$kv")
+                return RekeyResult.Rekeyed(kv)
+            } catch (e: HubException.Http) {
+                if (e.code != HubErrorCode.CONFLICT) return RekeyResult.Failed(retryable = failed(e))
+                // Someone else rekeyed first: learn their key (and members), then rekey on top of it.
+                checkKeyringLocked(s)
+            } catch (e: HubException) {
+                return RekeyResult.Failed(retryable = failed(e))
+            }
+        }
+        return RekeyResult.Conflict
+    }
+
     /** Retries a rekey this device owes after a revocation, until a newer key exists without those devices. */
     private suspend fun retryPendingRekey(s: Session) {
         val pending = syncState.pendingRekey() ?: return
@@ -636,6 +737,13 @@ class DefaultCaromSync(
         }
         val s = session() ?: return RevokeResult.NotPaired
         if (self) {
+            // SPEC §5.4: a device leaving on its own first rekeys without itself, so the others
+            // keep a key it never held, and only then deletes itself.
+            when (val rekey = rekeyWithoutSelf(s)) {
+                is RekeyResult.Rekeyed, RekeyResult.NotPaired -> Unit
+                is RekeyResult.Failed -> return RevokeResult.Failed(rekey.retryable)
+                RekeyResult.Conflict -> return RevokeResult.Failed(retryable = true)
+            }
             // Remove the push subscription while the token still works.
             runWipeHooks(s.client)
             try {
@@ -669,11 +777,7 @@ class DefaultCaromSync(
 
     override suspend fun publishOwnRecord(): Boolean = directoryLock.withLock { publishOwnRecordLocked() }
 
-    override suspend fun setReceiveRule(type: String, rule: ReceiveRule): Boolean = directoryLock.withLock {
-        publishOwnRecordLocked(receiveChange = type to rule)
-    }
-
-    private suspend fun publishOwnRecordLocked(receiveChange: Pair<String, ReceiveRule>? = null): Boolean {
+    private suspend fun publishOwnRecordLocked(): Boolean {
         val s = session() ?: return false
         val profile = profileProvider.profile()
         val entries = directory.all()
@@ -687,8 +791,7 @@ class DefaultCaromSync(
             signPub = B64.encode(s.identity.signPub),
             kxPub = B64.encode(s.identity.kxPub),
             caps = knownTypes,
-            receive = (profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind))
-                .let { base -> if (receiveChange == null) base else base + receiveChange },
+            receive = profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind),
             updated = maxOf(clock.now(), (previous?.updated ?: 0) + 1),
         )
         val sealed = Records.seal(record, s.key.key, s.key.kv, s.identity.signSk, rng = rng)

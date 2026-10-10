@@ -37,9 +37,14 @@ interface SyncStatusRepository {
     suspend fun dismissNotices(upToId: Long)
 }
 
-/** This device's `receive` rules as chosen by the user (docs/CLIENTS.md "Receive from"). */
+/**
+ * This device's `receive` rules as chosen by the user (docs/CLIENTS.md "Receive from"). The one
+ * source of truth for both the Devices matrix and the clipboard settings; the published record
+ * is built from it ([AndroidDeviceProfileProvider]). Written only by `SetReceiveRuleUseCase`.
+ */
 interface ReceiveRulesStore {
     /** Null until the user changes something; the record then keeps its published rules. */
+    val rules: Flow<Map<String, ReceiveRule>?>
     suspend fun receiveRules(): Map<String, ReceiveRule>?
     suspend fun setReceiveRules(rules: Map<String, ReceiveRule>)
 }
@@ -129,8 +134,12 @@ class DataStoreSyncStateStore @Inject constructor(
 
     // ReceiveRulesStore ------------------------------------------------------
 
-    override suspend fun receiveRules(): Map<String, ReceiveRule>? {
-        val obj = current()[RECEIVE]?.let { parseJsonOrNull(it) } as? JsonObject ?: return null
+    override val rules: Flow<Map<String, ReceiveRule>?> = data.map { decodeRules(it[RECEIVE]) }.distinctUntilChanged()
+
+    override suspend fun receiveRules(): Map<String, ReceiveRule>? = decodeRules(current()[RECEIVE])
+
+    private fun decodeRules(text: String?): Map<String, ReceiveRule>? {
+        val obj = text?.let { parseJsonOrNull(it) } as? JsonObject ?: return null
         return obj.mapNotNull { (type, rule) -> ReceiveRule.fromJson(rule)?.let { type to it } }.toMap()
     }
 

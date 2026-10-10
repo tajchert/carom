@@ -115,7 +115,17 @@ jobs:
           packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Validate reviewed screenshots
-        run: ./gradlew --no-daemon :core:designsystem:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest :feature:home:impl:validateDebugScreenshotTest
+        run: >-
+          ./gradlew --no-daemon
+          :core:designsystem:validateDebugScreenshotTest
+          :core:ui:validateDebugScreenshotTest
+          :feature:home:impl:validateDebugScreenshotTest
+          :feature:onboarding:impl:validateDebugScreenshotTest
+          :feature:pairing:impl:validateDebugScreenshotTest
+          :feature:devices:impl:validateDebugScreenshotTest
+          :feature:settings:impl:validateDebugScreenshotTest
+          :feature:notifications:impl:validateDebugScreenshotTest
+          :feature:clipboard:impl:validateDebugScreenshotTest
       - name: Upload screenshot comparisons
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

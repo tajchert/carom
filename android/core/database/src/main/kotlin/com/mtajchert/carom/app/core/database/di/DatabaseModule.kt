@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room3.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import com.mtajchert.carom.app.core.database.CaromDatabase
+import com.mtajchert.carom.app.core.database.CaromMigrations
 import com.mtajchert.carom.app.core.database.dao.DirectoryDao
+import com.mtajchert.carom.app.core.database.dao.ForwardedNotificationDao
 import com.mtajchert.carom.app.core.database.dao.NotificationAppDao
 import com.mtajchert.carom.app.core.database.dao.OutboxDao
 import com.mtajchert.carom.app.core.database.dao.RecentItemDao
@@ -26,6 +28,7 @@ internal object DatabaseModule {
     fun providesCaromDatabase(@ApplicationContext context: Context): CaromDatabase =
         Room.databaseBuilder<CaromDatabase>(context, CaromDatabase.NAME)
             .setDriver(AndroidSQLiteDriver())
+            .addMigrations(*CaromMigrations.ALL)
             .build()
 
     @Provides
@@ -39,6 +42,9 @@ internal object DatabaseModule {
 
     @Provides
     fun providesNotificationAppDao(db: CaromDatabase): NotificationAppDao = db.notificationAppDao()
+
+    @Provides
+    fun providesForwardedNotificationDao(db: CaromDatabase): ForwardedNotificationDao = db.forwardedNotificationDao()
 
     @Provides
     fun providesRecentItemDao(db: CaromDatabase): RecentItemDao = db.recentItemDao()

@@ -4,6 +4,7 @@ import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.QrPayload
+import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.protocol.QrUri
 import com.mtajchert.carom.app.core.protocol.Received
 import com.mtajchert.carom.app.core.testing.hub.FakeHub
@@ -49,6 +50,9 @@ class TestDevice(val name: String, val kind: DeviceKind, val hub: FakeHub, val c
     val wipeHookSawKeys = mutableListOf<Boolean>()
     var sentCount = 0
 
+    /** The user's stored receive rules ([LocalDeviceProfile.receive]); null keeps the published ones. */
+    var receive: Map<String, ReceiveRule>? = null
+
     private val hubProvider = HubProvider {
         state.enrollment?.let { (url, _, _) -> hub.factory.client(url) { vault.load().deviceToken } }
     }
@@ -61,7 +65,7 @@ class TestDevice(val name: String, val kind: DeviceKind, val hub: FakeHub, val c
         directory = directory,
         syncState = state,
         handlers = handlers.values.toSet(),
-        profileProvider = { LocalDeviceProfile(name, kind, if (kind == DeviceKind.PHONE) "android" else "macos", "1.0.0") },
+        profileProvider = { LocalDeviceProfile(name, kind, if (kind == DeviceKind.PHONE) "android" else "macos", "1.0.0", receive) },
         notices = state,
         localStateWiper = { wipedLocalState = true; state.enrollment = null },
         clock = clock,

@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.feature.devices.impl
 
+import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfile
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
 import com.mtajchert.carom.app.core.domain.ObserveReceiveMatrixUseCase
 import com.mtajchert.carom.app.core.domain.RemoveDeviceUseCase
@@ -32,6 +33,7 @@ class DevicesViewModelTest {
     private val prefs = FakeUserPreferencesRepository()
     private val directory = InMemoryDirectoryStore()
     private val vault = InMemorySecretVault()
+    private val receiveRules = FakeReceiveRulesStore()
     private val devices = FakeDeviceRepository(
         listOf(
             DeviceSummary("dev_other", "Mac", DeviceKind.DESKTOP, "macos", 1, false, isSelf = false, trusted = true),
@@ -42,10 +44,10 @@ class DevicesViewModelTest {
     private val viewModel by lazy {
         DevicesViewModel(
             devices,
-            ObserveReceiveMatrixUseCase(directory, vault),
+            ObserveReceiveMatrixUseCase(directory, vault, receiveRules),
             RenameThisDeviceUseCase(prefs, sync),
             RemoveDeviceUseCase(sync),
-            SetReceiveRuleUseCase(directory, vault, FakeReceiveRulesStore(), sync),
+            SetReceiveRuleUseCase(directory, vault, receiveRules, { LocalDeviceProfile("Pixel", com.mtajchert.carom.app.core.protocol.DeviceKind.PHONE, "android", "1.0.0") }, sync),
         )
     }
 

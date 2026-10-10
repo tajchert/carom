@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.activity.compose.setContent
 import com.mtajchert.carom.app.MainActivity
@@ -65,9 +66,22 @@ class AppNavigationTest {
     fun `settings open from Home and show the toggles`() {
         startOnHome()
         composeRule.onNodeWithContentDescription("Settings").performClick()
-        composeRule.onNodeWithText("Pause notification forwarding").assertIsDisplayed()
+        composeRule.onNodeWithText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
         composeRule.onNodeWithText("Connect this phone").assertIsDisplayed()
+    }
+
+    @Test
+    fun `settings open the Apps and Clipboard screens with the settings moved there`() {
+        startOnHome()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Apps").performScrollTo().performClick()
+        composeRule.onNodeWithText("Forward only when the screen is locked").assertIsDisplayed()
+        back()
+        composeRule.onNodeWithText("Clipboard").performScrollTo().performClick()
+        composeRule.onNodeWithText("Show a notification when a clipboard arrives", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        back()
+        composeRule.onNodeWithText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
     }
 
     @Test

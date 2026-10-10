@@ -6,7 +6,9 @@ import com.mtajchert.carom.app.core.protocol.KeyringVersion
 import com.mtajchert.carom.app.core.protocol.PairAcceptBody
 import com.mtajchert.carom.app.core.protocol.ProtocolJson
 import com.mtajchert.carom.app.core.protocol.SealedRecord
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonArray
@@ -173,14 +175,17 @@ class OkHttpHubClient(
         }
     }
 
-    /** Runs the request and returns the 2xx body text; throws [HubException] otherwise. */
+    /**
+     * Runs the request and returns the 2xx body text; throws [HubException] otherwise. Runs on
+     * [Dispatchers.IO]: the body is read after the call resumes, which must never be on the main thread.
+     */
     private suspend fun execute(
         method: String,
         path: String,
         auth: Boolean,
         body: JsonElement?,
         query: Map<String, String>,
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
         val url = base.newBuilder().addPathSegments(path).apply {
             query.forEach { (k, v) -> addQueryParameter(k, v) }
         }.build()
@@ -195,7 +200,7 @@ class OkHttpHubClient(
                 if (auth) tokenProvider.token()?.let { header("Authorization", "Bearer $it") }
             }
             .build()
-        return http.newCall(request).await().use { response ->
+        http.newCall(request).await().use { response ->
             val text = try {
                 response.body.string()
             } catch (e: IOException) {

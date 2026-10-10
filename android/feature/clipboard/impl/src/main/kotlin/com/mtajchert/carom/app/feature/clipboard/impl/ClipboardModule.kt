@@ -1,6 +1,8 @@
 package com.mtajchert.carom.app.feature.clipboard.impl
 
+import com.mtajchert.carom.app.core.data.runtime.SyncStartHook
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
+import com.mtajchert.carom.app.core.data.sync.WipeHook
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -19,4 +21,15 @@ abstract class ClipboardModule {
 
     @Binds
     internal abstract fun bindsSendTargets(impl: DataStoreClipboardSendTargets): ClipboardSendTargets
+
+    @Binds
+    internal abstract fun bindsOngoingNotifier(impl: AndroidOngoingNotifier): OngoingNotifier
+
+    /** Removes the "Clipboard from …" notice when this phone leaves its Hub. */
+    @Binds @IntoSet
+    internal abstract fun bindsClearArrivalOnWipe(impl: ClearClipboardNoticeOnWipe): WipeHook
+
+    /** Keeps the optional ongoing notification in step with its setting and the pairing. */
+    @Binds @IntoSet
+    internal abstract fun bindsOngoingNotification(impl: OngoingNotificationController): SyncStartHook
 }
