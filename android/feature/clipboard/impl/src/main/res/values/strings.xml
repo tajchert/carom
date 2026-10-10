@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_clipboard_title">Clipboard</string>
+    <string name="feature_clipboard_send_now">Send clipboard</string>
+    <string name="feature_clipboard_send_to">Send clipboard to</string>
+    <string name="feature_clipboard_no_devices">No other device takes clipboard text yet.</string>
+    <string name="feature_clipboard_receive_from">Receive clipboard from</string>
+    <string name="feature_clipboard_receive_any">Any device</string>
+    <string name="feature_clipboard_update_failed">Could not update. Try again when you are online.</string>
+    <string name="feature_clipboard_notification">Show a notification when a clipboard arrives</string>
+
+    <string name="feature_clipboard_sent">Clipboard sent</string>
+    <string name="feature_clipboard_queued">Clipboard will be sent when you are online</string>
+    <string name="feature_clipboard_too_large">Too large to send. The limit is about 60 KB of text.</string>
+    <string name="feature_clipboard_empty">The clipboard is empty</string>
+    <string name="feature_clipboard_no_recipients">No device takes clipboard text from this phone</string>
+    <string name="feature_clipboard_failed">Could not send the clipboard</string>
+    <string name="feature_clipboard_not_paired">Set up Carom first</string>
+    <string name="feature_clipboard_echo">That text just came from another device</string>
+
+    <string name="feature_clipboard_tile_label">Send clipboard</string>
+    <string name="feature_clipboard_share_label">Send to Carom</string>
+
+    <string name="feature_clipboard_channel_name">Clipboard from other devices</string>
+    <string name="feature_clipboard_channel_description">A quiet note when text arrives from another device</string>
+    <string name="feature_clipboard_arrived_title">Clipboard from %1$s</string>
+    <string name="feature_clipboard_arrived_sensitive">Sensitive text copied</string>
+    <string name="feature_clipboard_copy_again">Copy again</string>
+    <string name="feature_clipboard_unknown_device">another device</string>
+</resources>

@@ -11,6 +11,7 @@ import com.mtajchert.carom.app.core.data.sync.SendResult
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.hub.HubMessage
 import com.mtajchert.carom.app.core.model.ConnectionStatus
+import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.JsonObject
 
@@ -41,6 +42,12 @@ class FakeCaromSync : CaromSync {
     }
 
     override suspend fun publishOwnRecord() = true
+
+    val receiveRules = mutableMapOf<String, ReceiveRule>()
+    override suspend fun setReceiveRule(type: String, rule: ReceiveRule): Boolean {
+        receiveRules[type] = rule
+        return true
+    }
     override suspend fun onRevoked() {
         status.value = ConnectionStatus.NOT_SET_UP
     }

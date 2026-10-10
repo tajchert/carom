@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <!-- Not exported: started by the tile, the in-app button and the ongoing notification action. -->
+        <activity
+            android:name=".ClipboardSendActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CaromClipboardTransparent" />
+
+        <!--
+            Exported on purpose: the system share sheet starts it. It accepts text/plain only and
+            sends the shared text through the same path as the tile.
+        -->
+        <activity
+            android:name=".ShareTargetActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/feature_clipboard_share_label"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CaromClipboardTransparent">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- Exported on purpose, guarded by the system-only BIND_QUICK_SETTINGS_TILE permission. -->
+        <service
+            android:name=".ClipboardTileService"
+            android:exported="true"
+            android:icon="@drawable/feature_clipboard_ic_notification"
+            android:label="@string/feature_clipboard_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Not exported: only our own notification action reaches it. -->
+        <receiver
+            android:name=".CopyAgainReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

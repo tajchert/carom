@@ -8,6 +8,7 @@ import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.protocol.Envelopes
 import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.MessageTypes
+import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.protocol.parseJsonOrNull
 import com.mtajchert.carom.app.core.testing.hub.FakeHub
 import kotlinx.coroutines.test.runTest
@@ -64,6 +65,26 @@ class DefaultCaromSyncTest {
         val again = HubMessage(99, got.envelope.toJson())
         assertEquals(99L, mac.sync.process(listOf(again)))
         assertEquals(1, mac.received(MessageTypes.CLIPBOARD_SET).size)
+    }
+
+    @Test
+    fun `a receive rule set on the phone is published and survives republishing`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+
+        assertTrue(phone.sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Only(listOf(phone.id))))
+        mac.sync.refreshDirectory()
+        // The Mac is not in the allowed list, so the phone gets nothing from it.
+        assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("x")))
+
+        assertTrue(phone.sync.publishOwnRecord())
+        mac.sync.refreshDirectory()
+        assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("y")))
+
+        assertTrue(phone.sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Everyone))
+        mac.sync.refreshDirectory()
+        assertTrue(mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("z")) is SendResult.Sent)
     }
 
     @Test

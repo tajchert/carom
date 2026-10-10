@@ -24,8 +24,7 @@ Done (foundation):
 - App shell: Home (start destination, connection status) and wired placeholder screens for
   onboarding, pairing, devices and settings.
 
-Not done yet: onboarding and pairing UI (camera/QR), the notification listener, clipboard
-share target/tile, UnifiedPush, foreground WebSocket, message handlers. The libraries they
+Not done yet: onboarding and pairing UI (camera/QR), the notification listener, UnifiedPush, foreground WebSocket, message handlers. The libraries they
 need are already in `gradle/libs.versions.toml` and every module is already registered in
 `settings.gradle.kts`, so feature work does not touch those files.
 
@@ -72,6 +71,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:common` | Dispatcher qualifiers, `Result` |
 | `:core:testing` | `FakeHub` (in-memory Hub), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
 | `:feature:{home,onboarding,pairing,devices,settings}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
+| `:feature:clipboard:{api,impl}` | Two-way clipboard: `ClipboardSend.intent`, transparent `ClipboardSendActivity`, exported share target `ShareTargetActivity` and Quick Settings tile, `clipboard.set@1` handler (sensitive flag, 10 s echo guard, optional quiet notification with "Copy again"), clipboard settings screen (`ClipboardSettingsRoute`; "Send clipboard to" is stored locally, "Receive clipboard from" is written to the record via `CaromSync.setReceiveRule`) |
 | `:benchmark` | Startup Macrobenchmark, Baseline Profile generator, `StartupSmokeTest` |
 
 Rules: features depend on other features' **api** modules only and navigate through callbacks
