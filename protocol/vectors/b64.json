@@ -1,0 +1,99 @@
+{
+  "description": "base64url without padding (RFC 4648 §5). Decoders MUST reject padding, characters outside the base64url alphabet (including whitespace and +/), lengths with len % 4 == 1, and non-zero unused trailing bits.",
+  "encode": [
+    {
+      "bytes_hex": "",
+      "b64": ""
+    },
+    {
+      "bytes_hex": "66",
+      "b64": "Zg"
+    },
+    {
+      "bytes_hex": "666f",
+      "b64": "Zm8"
+    },
+    {
+      "bytes_hex": "666f6f",
+      "b64": "Zm9v"
+    },
+    {
+      "bytes_hex": "666f6f62",
+      "b64": "Zm9vYg"
+    },
+    {
+      "bytes_hex": "666f6f6261",
+      "b64": "Zm9vYmE"
+    },
+    {
+      "bytes_hex": "fbff",
+      "b64": "-_8"
+    },
+    {
+      "bytes_hex": "fbefbe",
+      "b64": "----"
+    },
+    {
+      "bytes_hex": "ffffffff",
+      "b64": "_____w"
+    },
+    {
+      "bytes_hex": "9f4e80a4be8a77c14b14e562f9f2e293",
+      "b64": "n06ApL6Kd8FLFOVi-fLikw"
+    },
+    {
+      "bytes_hex": "4123ebeddfc582ef15ff137ec533989003ecba78a52dcc4b4c7eb20e58f50fc0",
+      "b64": "QSPr7d_Fgu8V_xN-xTOYkAPsunilLcxLTH6yDlj1D8A"
+    }
+  ],
+  "decode_invalid": [
+    {
+      "input": "A",
+      "reason": "length % 4 == 1"
+    },
+    {
+      "input": "AAAAA",
+      "reason": "length % 4 == 1"
+    },
+    {
+      "input": "Zg==",
+      "reason": "padding is not allowed"
+    },
+    {
+      "input": "Zg=",
+      "reason": "padding is not allowed"
+    },
+    {
+      "input": "Zm8=",
+      "reason": "padding is not allowed"
+    },
+    {
+      "input": "Zh",
+      "reason": "non-canonical: unused trailing bits are not zero"
+    },
+    {
+      "input": "Zm9",
+      "reason": "non-canonical: unused trailing bits are not zero"
+    },
+    {
+      "input": "+/8",
+      "reason": "standard alphabet characters + and / are not allowed"
+    },
+    {
+      "input": "Zm 9v",
+      "reason": "whitespace is not allowed"
+    },
+    {
+      "input": "Zm9v\n",
+      "reason": "whitespace is not allowed"
+    },
+    {
+      "input": "Zm9v.",
+      "reason": "character outside the alphabet"
+    },
+    {
+      "input": "Zm9vé",
+      "reason": "non-ASCII character"
+    }
+  ]
+}

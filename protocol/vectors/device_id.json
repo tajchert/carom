@@ -1,0 +1,95 @@
+{
+  "description": "device_id = \"dev_\" || b64(SHA-256(sign_pub)[0..16]) (SPEC §2.2). Fixture identities used by every other vector file: sign_sk is the RFC 8032 Ed25519 32-byte seed, kx_sk the raw X25519 scalar (clamped at use per RFC 7748). Each secret is SHA-256(\"carom/v1/test-vectors/<name>.sign\" or \".kx\").",
+  "identities": [
+    {
+      "name": "phone",
+      "device_id": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+      "sign_sk_hex": "3782dc0b91a91f3983baf0581f0f02d4eef0b73e025e9f8c9a64f8068550bee0",
+      "sign_pub_hex": "f55f6d4b4f02c9fdd94b22de83b96633a5810b6f47f2a00189b667bad5b050b8",
+      "sign_pub_b64": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+      "kx_sk_hex": "9f07b70d0e0996147d2bee4554e14de8c6b20dd019973dfc97621fcfe64ac9af",
+      "kx_pub_hex": "dff9e404f51f3560805c83c3aba11988ea1bb2cc611991a089e149a66251f419",
+      "kx_pub_b64": "3_nkBPUfNWCAXIPDq6EZiOobssxhGZGgieFJpmJR9Bk",
+      "sha256_sign_pub_hex": "df196172bc0d2de388f3c22400e3ed0935349de30fc9e9fa127b1d5eab481776",
+      "expected_device_id": "dev_3xlhcrwNLeOI88IkAOPtCQ"
+    },
+    {
+      "name": "mac",
+      "device_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+      "sign_sk_hex": "c97931f77c8f05a6f7bb420a47f607c2b5194fe3d86cc64e5e971d6fe4a56ed3",
+      "sign_pub_hex": "e6625eca9c2e2558a25267afcf8be15a6db54b911ed5c3145c028435b7f431ff",
+      "sign_pub_b64": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+      "kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "kx_pub_hex": "394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "kx_pub_b64": "OU5avXg9CdlnUKBd3wJuJDF8qbBVRuiJpFd7bAV7ElU",
+      "sha256_sign_pub_hex": "c84b49b022de9b1651d11db317d57ddd4594b93237227b60d8e9dee54cdd4108",
+      "expected_device_id": "dev_yEtJsCLemxZR0R2zF9V93Q"
+    },
+    {
+      "name": "laptop",
+      "device_id": "dev_9uxH-5VhZAm0ozgjLN74Xw",
+      "sign_sk_hex": "2cf733544d3eb312263553367f40fbb8188a8b62eb77caaaa5298f037f635350",
+      "sign_pub_hex": "d3746bf1d3f4a519f41fcded5ed89a98b561101fc4a6f299e7c16dbf0554f897",
+      "sign_pub_b64": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+      "kx_sk_hex": "1d6822968739c479e9257fd2ba90a36309792785111b9d65f9b873e306ef2a1a",
+      "kx_pub_hex": "d02f7be91e2b45cfd6b3b3bd91540ea08ff36e49008db7359f306b072da48b0a",
+      "kx_pub_b64": "0C976R4rRc_Ws7O9kVQOoI_zbkkAjbc1nzBrBy2kiwo",
+      "sha256_sign_pub_hex": "f6ec47fb95616409b4a338232cdef85fdd57dc6d90f4160314ac85657400e1e2",
+      "expected_device_id": "dev_9uxH-5VhZAm0ozgjLN74Xw"
+    },
+    {
+      "name": "tablet",
+      "device_id": "dev__p1GmcgGJKiAkqtjBJlAhg",
+      "sign_sk_hex": "ca6c50268c4b4654cb324b7e813a023c77d77753bb97eb2de1f31618fbd23db9",
+      "sign_pub_hex": "a09747c946501f011e3ef93f1301415b54422264648e225da7296fb762f45feb",
+      "sign_pub_b64": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s",
+      "kx_sk_hex": "fb8d0dc8116beb795ff12c0455d0218fa0e5ea561e650350aa2cf3b6e375f8ed",
+      "kx_pub_hex": "87ff1d0d91b2d8169ddca4f63cc13130e8869c1600aaf4917c4e69a28f972203",
+      "kx_pub_b64": "h_8dDZGy2Bad3KT2PMExMOiGnBYAqvSRfE5poo-XIgM",
+      "sha256_sign_pub_hex": "fe9d4699c80624a88092ab63049940868e710591395c4c5fb8763329b1800d34",
+      "expected_device_id": "dev__p1GmcgGJKiAkqtjBJlAhg"
+    },
+    {
+      "name": "outsider",
+      "device_id": "dev_ygZ7pPWyLUUXdxCHJDh4-g",
+      "sign_sk_hex": "027f97fc30380e268aaa2e187d4ac05c39d9dabbb2edc97d325a3e95847a22eb",
+      "sign_pub_hex": "eb3d2ea24908b3f5c529c2b56d6cabd7a20ca96c246bc994335a915e843ded07",
+      "sign_pub_b64": "6z0uokkIs_XFKcK1bWyr16IMqWwka8mUM1qRXoQ97Qc",
+      "kx_sk_hex": "7430bab564feb8eab9d5d2f9d9043a089b68c2309df63d70201a2b16b56df8dc",
+      "kx_pub_hex": "88ec64ea69d1b0a544707fbed4e7c938ded3890d70dcc460c7df0786e34d385a",
+      "kx_pub_b64": "iOxk6mnRsKVEcH--1OfJON7TiQ1w3MRgx98HhuNNOFo",
+      "sha256_sign_pub_hex": "ca067ba4f5b22d4517771087243878fa02288a04669188f85548da01a99f356e",
+      "expected_device_id": "dev_ygZ7pPWyLUUXdxCHJDh4-g"
+    }
+  ],
+  "invalid_device_ids": [
+    {
+      "value": "dev_",
+      "reason": "too short"
+    },
+    {
+      "value": "dev_AAAAAAAAAAAAAAAAAAAAA",
+      "reason": "21 characters after dev_"
+    },
+    {
+      "value": "dev_AAAAAAAAAAAAAAAAAAAAAAA",
+      "reason": "23 characters after dev_"
+    },
+    {
+      "value": "Dev_AAAAAAAAAAAAAAAAAAAAAA",
+      "reason": "prefix is case-sensitive"
+    },
+    {
+      "value": "dev_AAAAAAAAAAAAAAAAAAAAAB",
+      "reason": "non-canonical b64 (trailing bits)"
+    },
+    {
+      "value": "dev_AAAAAAAAAAAAAAAAAAAA+A",
+      "reason": "character outside base64url"
+    },
+    {
+      "value": "dev_AAAAAAAAAAAAAAAAAAAAA=",
+      "reason": "padding"
+    }
+  ]
+}

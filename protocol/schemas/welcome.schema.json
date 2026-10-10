@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:welcome",
+  "title": "Welcome (plaintext)",
+  "description": "SPEC §8 step 4: the plaintext of the welcome box. `keys` holds every group key version the joiner needs; kv values are distinct.",
+  "type": "object",
+  "properties": {
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "kv": { "$ref": "urn:carom:v1:common#/$defs/kv" },
+          "k": { "$ref": "urn:carom:v1:common#/$defs/b64_32" }
+        },
+        "required": ["kv", "k"]
+      }
+    },
+    "inviter": { "$ref": "urn:carom:v1:common#/$defs/device_id" }
+  },
+  "required": ["keys", "inviter"]
+}

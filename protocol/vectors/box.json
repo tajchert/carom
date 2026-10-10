@@ -1,0 +1,174 @@
+{
+  "description": "Box (SPEC §2.4): ss = X25519(eph_sk, rcpt_kx_pub), rejected if all-zero; key = HKDF(ikm = ss || psk, salt = eph_pub || rcpt_kx_pub, info = \"carom/v1/box\", L = 32); ct = ChaCha20-Poly1305(key, 12 zero bytes, aad, plaintext); box = {epk: b64(eph_pub), ct: b64(ct)}. The opener uses ss = X25519(rcpt_kx_sk, eph_pub) and its own kx_pub in the salt. An empty psk_hex means no psk. expected_plaintext_hex null means opening MUST fail.",
+  "seal_cases": [
+    {
+      "name": "no psk",
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "rcpt_kx_pub_hex": "394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "eph_sk_hex": "acf40b53a6f95cb715aa3f60c1b2fe231b6b30067eebc8c96b031f5161a9aa65",
+      "eph_pub_hex": "8eb1aea973f2ad7cc7d00280c87021b56f8fe0aea7784b58fc720cefc297730b",
+      "shared_secret_hex": "a5fa10ec0e0e0502fc4ad4aa289684f96426b7acae0e249e5651073fa213185c",
+      "psk_hex": "",
+      "hkdf_ikm_hex": "a5fa10ec0e0e0502fc4ad4aa289684f96426b7acae0e249e5651073fa213185c",
+      "hkdf_salt_hex": "8eb1aea973f2ad7cc7d00280c87021b56f8fe0aea7784b58fc720cefc297730b394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "box_key_hex": "ec1f9d9852259d9e21f451a0a13ab4a14c597678f987996bb9af306c6ff2abd7",
+      "aad_hex": "6361726f6d207465737420616164",
+      "plaintext_hex": "68656c6c6f20626f78",
+      "ct_hex": "d6fd34370a506c6ac411ee01b9a597d44f5f80955c4beee83d",
+      "box": {
+        "epk": "jrGuqXPyrXzH0AKAyHAhtW-P4K6neEtY_HIM78KXcws",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      }
+    },
+    {
+      "name": "with psk",
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "rcpt_kx_pub_hex": "394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "eph_sk_hex": "b14c2ef1de40291d6ebb1544646e5e2cbdca30ffdf179a6d97e3d4e0f7d08f31",
+      "eph_pub_hex": "e3b5d2412ac485c1546d0dde029799e1e1a5e5de1a52a31784bc0e767ae20449",
+      "shared_secret_hex": "3bdbf3f045801e26219212579e083f2860d2516c7753ffe124db6de09c2b5456",
+      "psk_hex": "bdcd379f40db1d70f754b5cebb38339947f34dba3d99c5446c214446cdb66c70",
+      "hkdf_ikm_hex": "3bdbf3f045801e26219212579e083f2860d2516c7753ffe124db6de09c2b5456bdcd379f40db1d70f754b5cebb38339947f34dba3d99c5446c214446cdb66c70",
+      "hkdf_salt_hex": "e3b5d2412ac485c1546d0dde029799e1e1a5e5de1a52a31784bc0e767ae20449394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "box_key_hex": "31f5d708a286f4ed626e0d3910e377393b57958e2cda053568886db5e41495d4",
+      "aad_hex": "6361726f6d207465737420616164",
+      "plaintext_hex": "68656c6c6f20626f78",
+      "ct_hex": "b0da4acfb78a762fefffc50e8e413c29ae269156619436b96f",
+      "box": {
+        "epk": "47XSQSrEhcFUbQ3eApeZ4eGl5d4aUqMXhLwOdnriBEk",
+        "ct": "sNpKz7eKdi_v_8UOjkE8Ka4mkVZhlDa5bw"
+      }
+    },
+    {
+      "name": "empty aad, 32-byte plaintext",
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "rcpt_kx_pub_hex": "394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "eph_sk_hex": "d136323b06321b4d240806f09fef24d8812c22f1c33bd7124ecc999c864ca4c0",
+      "eph_pub_hex": "f7e74dc0e9e6976280d38a09a5f697771963e17e8d746fb07a26bf296df7452c",
+      "shared_secret_hex": "06d494054109bb8170c1c9cc01c97f9b74f2841230b58d3fc5c85d77cd88d028",
+      "psk_hex": "",
+      "hkdf_ikm_hex": "06d494054109bb8170c1c9cc01c97f9b74f2841230b58d3fc5c85d77cd88d028",
+      "hkdf_salt_hex": "f7e74dc0e9e6976280d38a09a5f697771963e17e8d746fb07a26bf296df7452c394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "box_key_hex": "9eca52d6a14959d7af69aa321d15d4aeabb8fea7191bccd320dde8cefdeb769a",
+      "aad_hex": "",
+      "plaintext_hex": "eabe9c234485f9fcefcaaa90e98ade55edabed069dc068d0d706a98624f1c097",
+      "ct_hex": "d904c7f1f6f458be348e03850bdf0e13e3506c499c6f0093f0ebd363cc25d5b1f4a7415bd094995780ae0eb33fa20fe8",
+      "box": {
+        "epk": "9-dNwOnml2KA04oJpfaXdxlj4X6NdG-weia_KW33RSw",
+        "ct": "2QTH8fb0WL40jgOFC98OE-NQbEmcbwCT8OvTY8wl1bH0p0Fb0JSZV4CuDrM_og_o"
+      }
+    }
+  ],
+  "open_cases": [
+    {
+      "name": "valid, no psk",
+      "box": {
+        "epk": "jrGuqXPyrXzH0AKAyHAhtW-P4K6neEtY_HIM78KXcws",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": "68656c6c6f20626f78"
+    },
+    {
+      "name": "valid, with psk",
+      "box": {
+        "epk": "47XSQSrEhcFUbQ3eApeZ4eGl5d4aUqMXhLwOdnriBEk",
+        "ct": "sNpKz7eKdi_v_8UOjkE8Ka4mkVZhlDa5bw"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "bdcd379f40db1d70f754b5cebb38339947f34dba3d99c5446c214446cdb66c70",
+      "expected_plaintext_hex": "68656c6c6f20626f78"
+    },
+    {
+      "name": "psk missing",
+      "box": {
+        "epk": "47XSQSrEhcFUbQ3eApeZ4eGl5d4aUqMXhLwOdnriBEk",
+        "ct": "sNpKz7eKdi_v_8UOjkE8Ka4mkVZhlDa5bw"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "wrong psk",
+      "box": {
+        "epk": "47XSQSrEhcFUbQ3eApeZ4eGl5d4aUqMXhLwOdnriBEk",
+        "ct": "sNpKz7eKdi_v_8UOjkE8Ka4mkVZhlDa5bw"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "38d5574fbf0cfd649cac7202fbd770ca86aa3782bfe7b324da576f2d6de1bc4b",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "wrong aad",
+      "box": {
+        "epk": "jrGuqXPyrXzH0AKAyHAhtW-P4K6neEtY_HIM78KXcws",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616144",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "ct first bit flipped",
+      "box": {
+        "epk": "jrGuqXPyrXzH0AKAyHAhtW-P4K6neEtY_HIM78KXcws",
+        "ct": "1_00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "wrong recipient key",
+      "box": {
+        "epk": "jrGuqXPyrXzH0AKAyHAhtW-P4K6neEtY_HIM78KXcws",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "1d6822968739c479e9257fd2ba90a36309792785111b9d65f9b873e306ef2a1a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "epk is the zero point (all-zero shared secret)",
+      "box": {
+        "epk": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "epk is the low-order point 1 (all-zero shared secret)",
+      "box": {
+        "epk": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    },
+    {
+      "name": "epk 31 bytes",
+      "box": {
+        "epk": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "ct": "1v00NwpQbGrEEe4BuaWX1E9fgJVcS-7oPQ"
+      },
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "aad_hex": "6361726f6d207465737420616164",
+      "psk_hex": "",
+      "expected_plaintext_hex": null
+    }
+  ]
+}

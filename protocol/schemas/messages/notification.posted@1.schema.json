@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:notification.posted@1",
+  "title": "notification.posted@1 body",
+  "description": "SPEC §4. Default TTL 2 days, collapse key `n:<key>`. Text is plain text: receivers MUST NOT render markup or auto-open URLs.",
+  "type": "object",
+  "properties": {
+    "key": { "type": "string", "description": "Android notification key." },
+    "app": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Package name." },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "title": { "type": "string" },
+    "text": { "type": "string" },
+    "sub_text": { "type": "string" },
+    "category": { "type": "string" },
+    "posted_at": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
+    "redacted": { "type": "boolean" },
+    "ongoing": { "type": "boolean" }
+  },
+  "required": ["key", "app", "posted_at", "redacted"]
+}

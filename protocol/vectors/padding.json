@@ -1,0 +1,71 @@
+{
+  "description": "Payload padding (SPEC §3.1): append ASCII spaces (0x20) up to the next multiple of 256 while the length is <= 4096, and the next multiple of 4096 above that. A length that is already a multiple is unchanged (0 stays 0). Payloads over 65536 bytes are rejected before padding.",
+  "cases": [
+    {
+      "input_length": 0,
+      "padded_length": 0
+    },
+    {
+      "input_length": 1,
+      "padded_length": 256
+    },
+    {
+      "input_length": 255,
+      "padded_length": 256
+    },
+    {
+      "input_length": 256,
+      "padded_length": 256
+    },
+    {
+      "input_length": 257,
+      "padded_length": 512
+    },
+    {
+      "input_length": 512,
+      "padded_length": 512
+    },
+    {
+      "input_length": 4095,
+      "padded_length": 4096
+    },
+    {
+      "input_length": 4096,
+      "padded_length": 4096
+    },
+    {
+      "input_length": 4097,
+      "padded_length": 8192
+    },
+    {
+      "input_length": 8192,
+      "padded_length": 8192
+    },
+    {
+      "input_length": 8193,
+      "padded_length": 12288
+    },
+    {
+      "input_length": 61440,
+      "padded_length": 61440
+    },
+    {
+      "input_length": 61441,
+      "padded_length": 65536
+    },
+    {
+      "input_length": 65535,
+      "padded_length": 65536
+    },
+    {
+      "input_length": 65536,
+      "padded_length": 65536
+    }
+  ],
+  "rejected": [
+    {
+      "input_length": 65537,
+      "reason": "exceeds the 65536-byte plaintext limit"
+    }
+  ]
+}

@@ -1,0 +1,1350 @@
+{
+  "description": "Receiver rules (SPEC §3.3) applied in order: shape (bad_shape); 1. own id in to (not_addressed), from in the trusted directory with device_id(sign_pub) == from (untrusted_sender); 2. signature (bad_signature), kv known (unknown_kv), decryption (decrypt_failed), payload JSON wrapper {type, ts, reply_to?, body} (bad_payload); 3. now - ts <= ttl_s*1000 + 300000 (expired) and ts - now <= 300000 (from_future), both inclusive; 4. msg_id not seen (replay); 5. type known / in caps (unknown_type, acknowledged and ignored); 6. clipboard.set older than the last applied (stale_clipboard, equal ts is accepted); 7. reply_to only from a recipient of the original (reply_not_allowed). context.directory maps device id to b64 sign_pub, context.keys maps kv to group key hex. expected is \"ok\" or the first failing error code. Every failure is dropped silently and still acknowledged.",
+  "cases": [
+    {
+      "name": "valid clipboard.set",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "ok"
+    },
+    {
+      "name": "v changed to 2",
+      "envelope": {
+        "v": 2,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_shape"
+    },
+    {
+      "name": "msg_id replaced",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7169-ae7a-e3691783fc27",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "from replaced by another trusted device",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev__p1GmcgGJKiAkqtjBJlAhg",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "to reordered",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_9uxH-5VhZAm0ozgjLN74Xw",
+          "dev_yEtJsCLemxZR0R2zF9V93Q"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "to with a recipient removed",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "to with a recipient added",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw",
+          "dev__p1GmcgGJKiAkqtjBJlAhg"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "collapse replaced",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "P3vp5b7Ml3NqQjX952gjFw",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "collapse removed",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "ttl_s changed",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 172800,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "kv changed to 2 (receiver knows kv 2)",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 2,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+          "2": "c61a3d67c636e2b4aedb39fec04c1bc9e89b50bad2df94d272ef5a7d5119bf9d"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "salt replaced",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "fmIMdGVzJdUShlFBS6s-chF78D90Ws-DpCz5S-H-lUM",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "ct first bit flipped",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nBqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "sig first bit flipped",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "EdyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_signature"
+    },
+    {
+      "name": "sealed under kv 2, receiver only has kv 1",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-75a4-b9b3-35132582044b",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "Fo4779PmbRY93dr8zsAzgA",
+        "ttl_s": 86400,
+        "kv": 2,
+        "salt": "K_estK0ilIwDtknbi50Qir2nhwVEY6n0hOHNoPkS-2k",
+        "ct": "Di8gRGBDoY5k1VhpuzZyQsCCSdaAIfrcT_1g-n84r7b0pUPeJFv9TT4ESKPM3EVzq3It4UrvqCCztwSHIucdp1yzCocaxo3XELDuk2gGyiahc-pDudQjMzVP54WBzog1BzMCNr1qmX95HlFVqncaP1p1PoYeJkIG2BLnu7OIVDX4ympHVOnsCanb5PgibFHARjdsnXsvRStI7MSENrcAWj39q59zVC0gecvZJCjBMey9MEKjWv4ADYxtanywzN5A77m14GJYwWODNknAzqKd1fYzPyMJlP5LMpqZqelEiqTwc8_gISd2DbawAP_WsOQ_keilAGFv9dIkbQUmjcdF-8V_8J1yOelMoFP4Fs3KuQk",
+        "sig": "3c-yqRMI17LOSPuh5yyWYPbfw80WErcKnzRXMtkn3PobU29SBzwkt2Q4DX548hVEDY3wgqa8y2GB1N_Y_31ZDg"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "unknown_kv"
+    },
+    {
+      "name": "receiver holds a different key for kv 1",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "c61a3d67c636e2b4aedb39fec04c1bc9e89b50bad2df94d272ef5a7d5119bf9d"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "decrypt_failed"
+    },
+    {
+      "name": "sender not in the trusted directory",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-77d6-98b7-06954441d382",
+        "from": "dev_ygZ7pPWyLUUXdxCHJDh4-g",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "kAlmsFa2VGpU2m5dkEajUQ",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "1u7nq0Ksbq6KWWcb7FXERBgwe82b1QdCl2S_-6hZG-0",
+        "ct": "OFgUkp4jSYjTD2hJqEeqkpzAG5WXeVFeVDYz9SNpOGQFSI2FUZxNXowjSgF2ELacQ4tLDPeSWMnnF0mSAKkUzOVffusmEcbFlDcb0eBrVbJ6KELz0-YnqxVadkFEJ3TWsyyrHm7gKmOXuOII-8aRydCT6PiSIky1Cj_wt5-jr6MGPmgeCKqQWdqaLrdun4Hkpbz5HiP3D3YuvFdA5WDa2Qf2PJqC0jorYf1sBes2v3OQWTefnkypKNeuvnzbDyPrxM4L_3ScnTRfQFWJkupsHKxpKtH1y_BjfeLrCPX7NUFOgw8tf1_nsx3ppRwXnKNDs5F38j5tCdHOeRAaZEojZjzxnBzZwyul6bsBWz7r1Rw",
+        "sig": "hDvCqvDG4eIKCggkJumPz37EY95h6iBSo5F2NzfJHJfUap-m9FJPZ63FAI7ReSN_F3l10iV6E5rRHgrxr_D-Ag"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "untrusted_sender"
+    },
+    {
+      "name": "directory sign_pub does not derive the sender id",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s",
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "untrusted_sender"
+    },
+    {
+      "name": "receiver not in to",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev__p1GmcgGJKiAkqtjBJlAhg",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "not_addressed"
+    },
+    {
+      "name": "ts - now == 300000 (accepted)",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791647700000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "ok"
+    },
+    {
+      "name": "ts - now == 300001",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791647699999,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "from_future"
+    },
+    {
+      "name": "now - ts == ttl_s*1000 + 300000 (accepted)",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791734700000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "ok"
+    },
+    {
+      "name": "now - ts == ttl_s*1000 + 300001",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791734700001,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "expired"
+    },
+    {
+      "name": "msg_id already seen",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [
+          "01a1268a-e800-7614-b735-9b848038782d"
+        ],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "replay"
+    },
+    {
+      "name": "plaintext is not JSON",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-72e6-873e-7fea43e54a46",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "VixOyKtax8U6yRU1DU1T7pBHbjHirPG72dsU4aQBRi8",
+        "ct": "p9SpVkkyGzk2m1d-ZixbOJCRLVPQlJ21",
+        "sig": "G3v6SsrySnJopa6jGzcjpbo1L2SIuqTALSISImGOeRSJswwJh9us17gMWh07MW7K_WhkmRXWnjcAyeN5XPuNCQ"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_payload"
+    },
+    {
+      "name": "unknown type",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-760f-a938-b7b8d940a108",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "0mRqsHyowDRaUwff07eY82ai6wiKJzf3wWAQIwFtOVU",
+        "ct": "7YR6i5nFJHAHFKZp_LVLNspWdckAHE8moo0FdtH1YXqMUFEyuWjyZLz_xvE9x2chbD0CJ5b855ysuONBtEUmMxdMmF_h8vtZ1DSr6H_SP2sz50RPBpVQsBzbFmUuQMgkNqsS1i1QuDRM5DJ0VLJQiTIL7rUaVjAjJjidb0CJWiKYL2gkrn9Mu90L7iSRrMSMDAePCQEsG_arhngWSutvu5nMkv0bGU9QhlyuT1cINhd6oQpSVf0IHR9jheGoZZ_JwptYgO8mD8MRDOkomr0tM5FxVW4GKE6TP3ZPN-OEBSCeLemWlOSKas3zGrqK_Y-rMnZNPJwpzB6i1DV6j4osIgLBYvBNmLMrGXL3cafM41M",
+        "sig": "SDwS3oOtYbY9tnEBcyijD3kmZrcOC6l82C682nZ5gL1ditkXJQjiSi_S02VWJn9UER9OIYLCEm_0edIQUYkPDg"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "unknown_type"
+    },
+    {
+      "name": "type not in the receiver caps",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "unknown_type"
+    },
+    {
+      "name": "clipboard older than the last applied",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": 1791648000001,
+        "original_recipients": {}
+      },
+      "expected": "stale_clipboard"
+    },
+    {
+      "name": "clipboard with ts equal to the last applied",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-e800-7614-b735-9b848038782d",
+        "from": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "to": [
+          "dev_yEtJsCLemxZR0R2zF9V93Q",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw"
+        ],
+        "collapse": "RZA59YHYfDlUFpa8YNVV5Q",
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "O2GBda-IyIMCDnYUUt_x1eoHkRsLf4e7Wtm02Qz82Uw",
+        "ct": "nRqzHACxGBK9jK1XMEqXH2Wa4VmGiZfhPwQm5c3-YDwSSa8l7gRW9sUlmOFa_r6zNkdoZ6rttNJJLCsqbJAExXvcjI5CdaU1BGdzqg_RrHESRL07TcIxLahlaDkTbs0j01dH1UkjPRXHQM4n6DF_5cZtRR6LP8F0K2q2UpNyHhxUw31W9Qy3qRtQhIJPV-A3pqv465Rx68nxd8XPN3PLyavilERLszlFNvUgP8HSZxoxIb2tIqgNvt5PHCnJmoBlA5NCpTMTcFBJz9b26GQyFpvlFqVVlu7VNbPfpzal3YtDEs4toSJBsO-SqmqnbO7V5W_gJvZ3H2vBaJoHc5MCtW95_XB48xs3WGbhi6QKMgE",
+        "sig": "ENyB4dXmZa88JqExwUoAo3vdulq_jjXFD_3ImPwW9tuQNwAc9w2ez4tG8eBe6oXhaP5hGBLTORb4YFIJGPjqAA"
+      },
+      "context": {
+        "self_id": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "now": 1791648001000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": 1791648000000,
+        "original_recipients": {}
+      },
+      "expected": "ok"
+    },
+    {
+      "name": "reply from a recipient of the original",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-fb88-7702-8807-4271328b9d87",
+        "from": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "to": [
+          "dev_3xlhcrwNLeOI88IkAOPtCQ"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "yWTPBAtM6a6P_HUG43XaKYD7cy2Ycxf6NbTUsKVHp30",
+        "ct": "k97KUcd2qiQKnVwleej1qxRX7RhISLk629B8EMJeQWW-k6Pf1QB4l6grwLEZ0P_culVaWFE8v93Vnve83y1wVUwrEillIjGt1OMwlBg_IPgMuRVC9XE1t9xFQqxTlv0sLBZttwSyEvTKvYVps6aq6KjVap8l_3IrW0pV0WUZRzKek9Wlul3cqDdtrGqypBIQtMaP75U8n6Et0eVuHS5_kjnVfXHLAm861I48yG5QiJyiQoLf4biAFHR2tHVtED0npcDLndjbxy9CPisyO8CUJyKFgXrO-Dc5g4exB8IqDl88WSfPq2aB6NoIDwEGGSAZ-S5ArdJ_bX9pSuaibmunSXPvrfcXjXqaau_vzA79G-M",
+        "sig": "RDfdiW3M2AnqmwPUUG0B6JkjuRVqcphB2oOdmz5peaJDHJ_R8vhfAyugwcsTT8wtRj4cLoF68fEj3rHWQEYlCw"
+      },
+      "context": {
+        "self_id": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "now": 1791648006000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {
+          "01a1268a-e800-76da-a9c7-692ec75d5ab0": [
+            "dev_yEtJsCLemxZR0R2zF9V93Q",
+            "dev_9uxH-5VhZAm0ozgjLN74Xw"
+          ]
+        }
+      },
+      "expected": "ok"
+    },
+    {
+      "name": "reply from a device that was not a recipient of the original",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-fb88-7701-8dcc-37c32b2d1e3c",
+        "from": "dev__p1GmcgGJKiAkqtjBJlAhg",
+        "to": [
+          "dev_3xlhcrwNLeOI88IkAOPtCQ"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "IWkiTGH4mZHBypylrbvymshID2p67_KKuusHTfjRi7o",
+        "ct": "ssPAgaLzpsb6nnZNVFYFnuBecSpdLmejpMfeu6teugP5v5qCbj43ZA6VJ7RE6eckgaap0_RQeHU4Mw3Kn4RDuySucLBLbxPPum4GzECtpSQkWBwtbTaIz6papRqZSSwCQbL_tF8S2tNNgI1-hRaYxX6YCWfNc63l8iChLCXYiExXp6ieHYL6KtWmeWZXhXSpKLvdx94NU1TnrO0Ca-k1M_HfvJxir7YNAqyz5UzHU9naUUWeMbbHynD2v9TnEFtizbW9kZ_AcIEussZlRliRWRUxpFmxgGkHwGUNUrpxVZoCCBHu2oeFxzGyMYL7OSmSjWdWpcp5dkAHPAuNcCJKBL3PUy8X2l81Yo8qUeTLwyc",
+        "sig": "w-JdAPcEebczTvwI1VdMEy_fAaA2tnUv1OLRny4Zpaj3JUgxwa-plZxISPrcyv6gWBdx7y4PiHEMStiI4Ea-BQ"
+      },
+      "context": {
+        "self_id": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "now": 1791648006000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {
+          "01a1268a-e800-76da-a9c7-692ec75d5ab0": [
+            "dev_yEtJsCLemxZR0R2zF9V93Q",
+            "dev_9uxH-5VhZAm0ozgjLN74Xw"
+          ]
+        }
+      },
+      "expected": "reply_not_allowed"
+    },
+    {
+      "name": "reply to an unknown original message",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-fb88-7702-8807-4271328b9d87",
+        "from": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "to": [
+          "dev_3xlhcrwNLeOI88IkAOPtCQ"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "yWTPBAtM6a6P_HUG43XaKYD7cy2Ycxf6NbTUsKVHp30",
+        "ct": "k97KUcd2qiQKnVwleej1qxRX7RhISLk629B8EMJeQWW-k6Pf1QB4l6grwLEZ0P_culVaWFE8v93Vnve83y1wVUwrEillIjGt1OMwlBg_IPgMuRVC9XE1t9xFQqxTlv0sLBZttwSyEvTKvYVps6aq6KjVap8l_3IrW0pV0WUZRzKek9Wlul3cqDdtrGqypBIQtMaP75U8n6Et0eVuHS5_kjnVfXHLAm861I48yG5QiJyiQoLf4biAFHR2tHVtED0npcDLndjbxy9CPisyO8CUJyKFgXrO-Dc5g4exB8IqDl88WSfPq2aB6NoIDwEGGSAZ-S5ArdJ_bX9pSuaibmunSXPvrfcXjXqaau_vzA79G-M",
+        "sig": "RDfdiW3M2AnqmwPUUG0B6JkjuRVqcphB2oOdmz5peaJDHJ_R8vhfAyugwcsTT8wtRj4cLoF68fEj3rHWQEYlCw"
+      },
+      "context": {
+        "self_id": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "now": 1791648006000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "reply_not_allowed"
+    }
+  ]
+}

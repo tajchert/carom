@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:envelope",
+  "title": "Envelope",
+  "description": "SPEC §3. Strict: the Hub rejects unknown fields. Two rules are not expressible here and must be checked in code: the ids in `to` must not include `from`, and the serialized envelope must be at most 98304 bytes.",
+  "type": "object",
+  "properties": {
+    "v": { "const": 1 },
+    "msg_id": { "$ref": "urn:carom:v1:common#/$defs/uuidv7" },
+    "from": { "$ref": "urn:carom:v1:common#/$defs/device_id" },
+    "to": {
+      "type": "array",
+      "items": { "$ref": "urn:carom:v1:common#/$defs/device_id" },
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "collapse": { "$ref": "urn:carom:v1:common#/$defs/b64_16" },
+    "ttl_s": { "type": "integer", "minimum": 60, "maximum": 604800 },
+    "kv": { "$ref": "urn:carom:v1:common#/$defs/kv" },
+    "salt": { "$ref": "urn:carom:v1:common#/$defs/b64_32" },
+    "ct": {
+      "type": "string",
+      "allOf": [{ "$ref": "urn:carom:v1:common#/$defs/b64" }],
+      "minLength": 22,
+      "maxLength": 87403,
+      "description": "16 to 65552 bytes: at most 65536 bytes of plaintext plus the 16-byte tag."
+    },
+    "sig": { "$ref": "urn:carom:v1:common#/$defs/b64_64" }
+  },
+  "required": ["v", "msg_id", "from", "to", "ttl_s", "kv", "salt", "ct", "sig"],
+  "additionalProperties": false
+}

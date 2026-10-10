@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:notification.removed@1",
+  "title": "notification.removed@1 body",
+  "description": "SPEC §4. Default TTL 2 days, collapse key `n:<key>` (shares the slot with the post).",
+  "type": "object",
+  "properties": {
+    "key": { "type": "string" }
+  },
+  "required": ["key"]
+}

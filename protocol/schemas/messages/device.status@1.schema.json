@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:device.status@1",
+  "title": "device.status@1 body",
+  "description": "SPEC §4. Default TTL 1 day, collapse key `status`.",
+  "type": "object",
+  "properties": {
+    "battery": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "charging": { "type": "boolean" }
+  }
+}

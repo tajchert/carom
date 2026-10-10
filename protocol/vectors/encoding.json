@@ -1,0 +1,63 @@
+{
+  "description": "lp(x) = u32be(len(x)) || x with strings UTF-8 encoded first; u64(n) = 8-byte big-endian (SPEC §1).",
+  "lp": [
+    {
+      "name": "empty",
+      "input_hex": "",
+      "lp_hex": "00000000"
+    },
+    {
+      "name": "ascii string \"carom/v1/env\"",
+      "input_hex": "6361726f6d2f76312f656e76",
+      "lp_hex": "0000000c6361726f6d2f76312f656e76"
+    },
+    {
+      "name": "UTF-8 string \"Michał 🎉\"",
+      "input_hex": "4d69636861c58220f09f8e89",
+      "lp_hex": "0000000c4d69636861c58220f09f8e89"
+    },
+    {
+      "name": "300 bytes of 0xab",
+      "input_hex": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+      "lp_hex": "0000012cabababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab"
+    }
+  ],
+  "u64": [
+    {
+      "n": "0",
+      "u64_hex": "0000000000000000"
+    },
+    {
+      "n": "1",
+      "u64_hex": "0000000000000001"
+    },
+    {
+      "n": "255",
+      "u64_hex": "00000000000000ff"
+    },
+    {
+      "n": "256",
+      "u64_hex": "0000000000000100"
+    },
+    {
+      "n": "60",
+      "u64_hex": "000000000000003c"
+    },
+    {
+      "n": "604800",
+      "u64_hex": "0000000000093a80"
+    },
+    {
+      "n": "1791648000000",
+      "u64_hex": "000001a1268ae800"
+    },
+    {
+      "n": "9007199254740991",
+      "u64_hex": "001fffffffffffff"
+    },
+    {
+      "n": "18446744073709551615",
+      "u64_hex": "ffffffffffffffff"
+    }
+  ]
+}

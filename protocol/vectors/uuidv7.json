@@ -1,0 +1,79 @@
+{
+  "description": "msg_id is a lowercase hyphenated UUIDv7 (RFC 9562), monotonic per sender. Receivers and the Hub order msg_ids by plain string comparison, which equals byte order for valid ids. Reference layout (RFC 9562 §6.2 method 1): unix_ts_ms (48 bits) | ver 0111 | 12-bit counter in rand_a | var 10 | 62 random bits (the low 62 bits of rand_b_hex). The counter is reseeded with a random 11-bit value (top bit clear) on each new millisecond and incremented otherwise; if the clock goes backwards the last timestamp is reused; on counter overflow the timestamp is advanced by 1 ms. Other implementations may use any RFC 9562 method 1 or 3 generator; only `format`, `valid`/`invalid` and the monotonic property are normative. `generator_sequence` documents this generator with rng = the test-vector seeded stream \"uuid/generator\" (10 bytes per id: 2 counter-seed bytes, 8 rand_b bytes; stream block i = SHA-256(\"carom/v1/test-vectors/uuid/generator/\" || u32be(i))).",
+  "format": [
+    {
+      "ms": 0,
+      "counter": 0,
+      "rand_b_hex": "0000000000000000",
+      "uuid": "00000000-0000-7000-8000-000000000000"
+    },
+    {
+      "ms": 1791648000000,
+      "counter": 291,
+      "rand_b_hex": "ffffffffffffffff",
+      "uuid": "01a1268a-e800-7123-bfff-ffffffffffff"
+    },
+    {
+      "ms": 281474976710655,
+      "counter": 4095,
+      "rand_b_hex": "fcf20ce68b10684c",
+      "uuid": "ffffffff-ffff-7fff-bcf2-0ce68b10684c"
+    }
+  ],
+  "generator_sequence": [
+    {
+      "clock_ms": 1791648000000,
+      "uuid": "01a1268a-e800-7620-83ef-63ee868de6d2"
+    },
+    {
+      "clock_ms": 1791648000000,
+      "uuid": "01a1268a-e800-7621-a415-03bd8c1aa5ed"
+    },
+    {
+      "clock_ms": 1791648000000,
+      "uuid": "01a1268a-e800-7622-8900-c3662af3f54a"
+    },
+    {
+      "clock_ms": 1791648000001,
+      "uuid": "01a1268a-e801-7557-afd5-1bfca06ab57b"
+    },
+    {
+      "clock_ms": 1791647999995,
+      "uuid": "01a1268a-e801-7558-9aeb-69d51bde62cf"
+    },
+    {
+      "clock_ms": 1791647999995,
+      "uuid": "01a1268a-e801-7559-ab94-3053ccb399cc"
+    },
+    {
+      "clock_ms": 1791648000002,
+      "uuid": "01a1268a-e802-7539-842c-1ee75cbce405"
+    }
+  ],
+  "invalid": [
+    {
+      "value": "0192A4B1-7C3D-7E5F-8A9B-0C1D2E3F4A5B",
+      "reason": "uppercase"
+    },
+    {
+      "value": "0192a4b1-7c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "reason": "version 4"
+    },
+    {
+      "value": "0192a4b1-7c3d-7e5f-ca9b-0c1d2e3f4a5b",
+      "reason": "variant is not 10xx"
+    },
+    {
+      "value": "0192a4b17c3d7e5f8a9b0c1d2e3f4a5b",
+      "reason": "no hyphens"
+    },
+    {
+      "value": "{0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b}",
+      "reason": "braces"
+    },
+    {
+      "value": "0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5",
+      "reason": "too short"
+    }
+  ]
+}

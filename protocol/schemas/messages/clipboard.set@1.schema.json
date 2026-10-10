@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:clipboard.set@1",
+  "title": "clipboard.set@1 body",
+  "description": "SPEC §4. Default TTL 1 day, collapse key `clip`.",
+  "type": "object",
+  "properties": {
+    "mime": { "const": "text/plain" },
+    "text": { "type": "string" },
+    "sensitive": { "type": "boolean" },
+    "source": { "type": "string" }
+  },
+  "required": ["mime", "text", "sensitive"]
+}

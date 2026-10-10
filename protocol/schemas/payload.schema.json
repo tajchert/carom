@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:payload",
+  "title": "Payload",
+  "description": "SPEC §3.1: the plaintext inside an envelope `ct`, possibly followed by ASCII-space padding. Receivers ignore unknown fields. For known v1 types the body must match that type's schema; unknown types are acknowledged and ignored.",
+  "type": "object",
+  "properties": {
+    "type": { "type": "string", "minLength": 1 },
+    "ts": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
+    "reply_to": { "$ref": "urn:carom:v1:common#/$defs/uuidv7" },
+    "body": { "type": "object" }
+  },
+  "required": ["type", "ts", "body"],
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "notification.posted@1" } } },
+      "then": { "properties": { "body": { "$ref": "urn:carom:v1:notification.posted@1" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "notification.removed@1" } } },
+      "then": { "properties": { "body": { "$ref": "urn:carom:v1:notification.removed@1" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "notification.dismiss@1" } } },
+      "then": {
+        "required": ["reply_to"],
+        "properties": {
+          "reply_to": { "$ref": "urn:carom:v1:common#/$defs/uuidv7" },
+          "body": { "$ref": "urn:carom:v1:notification.dismiss@1" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "clipboard.set@1" } } },
+      "then": { "properties": { "body": { "$ref": "urn:carom:v1:clipboard.set@1" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "device.status@1" } } },
+      "then": { "properties": { "body": { "$ref": "urn:carom:v1:device.status@1" } } }
+    }
+  ]
+}

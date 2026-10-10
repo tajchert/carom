@@ -1,0 +1,74 @@
+{
+  "description": "HKDF-SHA256 derivations (RFC 5869). An empty salt is the zero-length string, which HKDF treats as 32 zero bytes. info strings are ASCII. All outputs are 32 bytes.",
+  "msg_key": [
+    {
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "salt_hex": "665f4ec0d32f53a0facddc8fad9d49678e51b6580b320b508f89bee852da981a",
+      "info": "carom/v1/msg",
+      "msg_key_hex": "e8afe422d521abfd9933ee0d6bbbc75bca320bc3678e09a8caf23ac725005e3f"
+    },
+    {
+      "group_key_hex": "c61a3d67c636e2b4aedb39fec04c1bc9e89b50bad2df94d272ef5a7d5119bf9d",
+      "salt_hex": "665f4ec0d32f53a0facddc8fad9d49678e51b6580b320b508f89bee852da981a",
+      "info": "carom/v1/msg",
+      "msg_key_hex": "f643420aada1ee72f943c25dc16a5a8066158e60ba67c24e6e19b7c53bde142a"
+    }
+  ],
+  "collapse_key": [
+    {
+      "group_key_hex": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a",
+      "salt_hex": "",
+      "info": "carom/v1/collapse",
+      "collapse_key_hex": "ed2306bb94c55787797f4a4a96dc672235221437eae92d58f33906ed0c0157bd"
+    },
+    {
+      "group_key_hex": "c61a3d67c636e2b4aedb39fec04c1bc9e89b50bad2df94d272ef5a7d5119bf9d",
+      "salt_hex": "",
+      "info": "carom/v1/collapse",
+      "collapse_key_hex": "9d92d53de4fea0fc952f58d46592ed2fa5136b47b881bf33abc52fb0497f24ca"
+    }
+  ],
+  "pair_key": [
+    {
+      "pair_secret_hex": "19d33add011de7fc07ad5cbe8421595b9c5ac9ef472ce648f82430f12e350dac",
+      "salt_hex": "",
+      "info": "carom/v1/pair",
+      "k_pair_hex": "6cd6572cca118d9471bc26671c1ee4ba5f69210e14c49131e17fef0a2eb34fc0"
+    }
+  ],
+  "token_key": [
+    {
+      "setup_token": "correct-horse-battery-staple-0123456789",
+      "ikm_hex": "636f72726563742d686f7273652d626174746572792d737461706c652d30313233343536373839",
+      "salt_hex": "",
+      "info": "carom/v1/token-key",
+      "token_key_hex": "32e859f1fb444d31631f539749b9191990a31e1a825e45cdb6c3027af9a4bc34"
+    }
+  ],
+  "box_key": [
+    {
+      "eph_sk_hex": "4051309e12cd91bdfe359c2daa80efd865648c207e27f035cae2c95bee3ffbd7",
+      "eph_pub_hex": "09fc127a83037784dfdf72d92849f9594323c7b89412eeea0f671d63ba028b11",
+      "rcpt_kx_pub_hex": "394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "shared_secret_hex": "fe904313c77fa23a95e7aa87077c3edd753be2b914c5486efe06553991d1754f",
+      "psk_hex": "",
+      "ikm_hex": "fe904313c77fa23a95e7aa87077c3edd753be2b914c5486efe06553991d1754f",
+      "salt_hex": "09fc127a83037784dfdf72d92849f9594323c7b89412eeea0f671d63ba028b11394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "info": "carom/v1/box",
+      "box_key_hex": "1ffa7a8a21d1f88fadb78523fdbfec5866bdd9b9e61eefc82e150835e78e0c12"
+    },
+    {
+      "eph_sk_hex": "4051309e12cd91bdfe359c2daa80efd865648c207e27f035cae2c95bee3ffbd7",
+      "eph_pub_hex": "09fc127a83037784dfdf72d92849f9594323c7b89412eeea0f671d63ba028b11",
+      "rcpt_kx_pub_hex": "394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "rcpt_kx_sk_hex": "eedc0767ab8512273d65fbe0e896fc15fd750a3d866e99b2677eadf2d145055a",
+      "shared_secret_hex": "fe904313c77fa23a95e7aa87077c3edd753be2b914c5486efe06553991d1754f",
+      "psk_hex": "6cd6572cca118d9471bc26671c1ee4ba5f69210e14c49131e17fef0a2eb34fc0",
+      "ikm_hex": "fe904313c77fa23a95e7aa87077c3edd753be2b914c5486efe06553991d1754f6cd6572cca118d9471bc26671c1ee4ba5f69210e14c49131e17fef0a2eb34fc0",
+      "salt_hex": "09fc127a83037784dfdf72d92849f9594323c7b89412eeea0f671d63ba028b11394e5abd783d09d96750a05ddf026e24317ca9b05546e889a4577b6c057b1255",
+      "info": "carom/v1/box",
+      "box_key_hex": "86ee14bafb0e6bb747b99b1c01992b2f13702998eb32789fc95769bc214f19fb"
+    }
+  ]
+}

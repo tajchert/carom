@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:keyring-version",
+  "title": "Keyring version",
+  "description": "SPEC §5.5: body of PUT /v1/keyring, and each item of GET /v1/keyring `versions`. `boxes` maps every remaining member id to its box; `sig` covers all boxes.",
+  "type": "object",
+  "properties": {
+    "kv": { "$ref": "urn:carom:v1:common#/$defs/kv" },
+    "by": { "$ref": "urn:carom:v1:common#/$defs/device_id" },
+    "boxes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "urn:carom:v1:common#/$defs/device_id" },
+      "additionalProperties": { "$ref": "urn:carom:v1:common#/$defs/box" }
+    },
+    "sig": { "$ref": "urn:carom:v1:common#/$defs/b64_64" }
+  },
+  "required": ["kv", "by", "boxes", "sig"],
+  "additionalProperties": false
+}

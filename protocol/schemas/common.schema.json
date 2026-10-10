@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:common",
+  "title": "Carom v1 shared definitions",
+  "description": "b64 means base64url without padding. Patterns enforce the exact decoded length and canonical trailing bits.",
+  "$defs": {
+    "b64": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048]|[A-Za-z0-9_-][AQgw])?$",
+      "description": "Canonical base64url without padding, any length."
+    },
+    "b64_16": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{21}[AQgw]$",
+      "description": "b64 of exactly 16 bytes (22 characters)."
+    },
+    "b64_32": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$",
+      "description": "b64 of exactly 32 bytes (43 characters)."
+    },
+    "b64_64": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{85}[AQgw]$",
+      "description": "b64 of exactly 64 bytes (86 characters)."
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^dev_[A-Za-z0-9_-]{21}[AQgw]$",
+      "description": "\"dev_\" || b64(SHA-256(sign_pub)[0..16])."
+    },
+    "uuidv7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Lowercase hyphenated UUIDv7."
+    },
+    "kv": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295,
+      "description": "Group key version (u32, starts at 1)."
+    },
+    "time_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Unix epoch milliseconds."
+    },
+    "box": {
+      "type": "object",
+      "description": "SPEC §2.4.",
+      "properties": {
+        "epk": { "$ref": "#/$defs/b64_32" },
+        "ct": { "type": "string", "allOf": [{ "$ref": "#/$defs/b64" }], "minLength": 22 }
+      },
+      "required": ["epk", "ct"],
+      "additionalProperties": false
+    }
+  }
+}
