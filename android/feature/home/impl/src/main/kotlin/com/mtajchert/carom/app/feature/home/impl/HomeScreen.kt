@@ -54,7 +54,6 @@ import com.mtajchert.carom.app.core.designsystem.component.CaromCard
 import com.mtajchert.carom.app.core.designsystem.component.CaromLoadingIndicator
 import com.mtajchert.carom.app.core.designsystem.component.CaromOutlinedButton
 import com.mtajchert.carom.app.core.designsystem.component.CaromTopAppBar
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
 import com.mtajchert.carom.app.core.ui.ConnectionStatusIndicator
@@ -194,12 +193,6 @@ private fun Paired(state: HomeUiState.Paired, actions: HomeActions, now: Long) {
                     action = stringResource(R.string.feature_home_banner_notification_access_action),
                     onAction = actions.onOpenNotificationAccess,
                 )
-                is HomeBanner.PushUnavailable -> Banner(
-                    icon = Icons.Outlined.Info,
-                    text = stringResource(
-                        if (banner.noDistributor) R.string.feature_home_banner_no_distributor else R.string.feature_home_banner_push_failed,
-                    ),
-                )
                 is HomeBanner.DeviceRemoved -> Unit
             }
         }
@@ -260,7 +253,6 @@ private fun StatusCard(state: HomeUiState.Paired, now: Long) {
             )
             ConnectionStatusIndicator(state.connection)
             Detail(stringResource(R.string.feature_home_hub, state.hubHost))
-            Detail(stringResource(pushLabel(state.push)))
             Detail(
                 state.lastSyncAt?.let { stringResource(R.string.feature_home_last_sync, relativeTime(it, now)) }
                     ?: stringResource(R.string.feature_home_last_sync_never),
@@ -278,12 +270,6 @@ private fun StatusCard(state: HomeUiState.Paired, now: Long) {
 @Composable
 private fun Detail(text: String) {
     Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-private fun pushLabel(push: PushState): Int = when (push) {
-    PushState.REGISTERED -> R.string.feature_home_push_on
-    PushState.REGISTERING, PushState.UNKNOWN -> R.string.feature_home_push_setting_up
-    PushState.NO_DISTRIBUTOR, PushState.FAILED -> R.string.feature_home_push_off
 }
 
 @Composable

@@ -5,12 +5,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.mtajchert.carom.app.core.data.sync.CaromSync
@@ -49,14 +46,8 @@ interface SyncWorkScheduler {
     /** Ensures the outbox is flushed once the network is available, after [delayMs]. */
     fun scheduleOutboxFlush(delayMs: Long = 0)
 
-    /**
-     * One `GET /v1/messages` round once the network is available. [expedited] is for push
-     * wake-ups, which should be handled right away; piggyback fetches after a send are not.
-     */
-    fun scheduleFetch(expedited: Boolean = false)
-
-    /** The 15-minute fallback poll, used only while push is unavailable. */
-    fun setPeriodicFetch(enabled: Boolean)
+    /** One `GET /v1/messages` round once the network is available (piggyback after a send). */
+    fun scheduleFetch()
 
     /** Cancels every scheduled sync job (wipe). */
     fun cancelAll()
@@ -84,27 +75,15 @@ class WorkManagerSyncScheduler @Inject constructor(
         workManager.enqueueUniqueWork(OutboxWorker.UNIQUE_NAME, ExistingWorkPolicy.REPLACE, request)
     }
 
-    override fun scheduleFetch(expedited: Boolean) {
-        val builder = OneTimeWorkRequestBuilder<FetchWorker>()
+    override fun scheduleFetch() {
+        val request = OneTimeWorkRequestBuilder<FetchWorker>()
             .setConstraints(network)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
             .addTag(TAG)
-        if (expedited) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .build()
         // A fetch that has not started yet already covers this request; a running one may have
         // finished its last page, so a new request is appended behind it.
-        workManager.enqueueUniqueWork(FetchWorker.UNIQUE_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, builder.build())
-    }
-
-    override fun setPeriodicFetch(enabled: Boolean) {
-        if (!enabled) {
-            workManager.cancelUniqueWork(FetchWorker.PERIODIC_NAME)
-            return
-        }
-        val request = PeriodicWorkRequestBuilder<FetchWorker>(PERIODIC_MINUTES, TimeUnit.MINUTES)
-            .setConstraints(network)
-            .addTag(TAG)
-            .build()
-        workManager.enqueueUniquePeriodicWork(FetchWorker.PERIODIC_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        workManager.enqueueUniqueWork(FetchWorker.UNIQUE_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     override fun cancelAll() {
@@ -113,7 +92,6 @@ class WorkManagerSyncScheduler @Inject constructor(
 
     private companion object {
         const val BACKOFF_SECONDS = 30L
-        const val PERIODIC_MINUTES = 15L
         const val TAG = "carom-sync"
     }
 }

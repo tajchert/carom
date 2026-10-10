@@ -44,9 +44,9 @@ class OkHttpHubClientTest {
 
     @Test
     fun `info needs no auth and parses every field`() = runTest {
-        server.enqueue(json(200, """{"name":"carom-hub","protocol":1,"version":"0.1.0","setup_done":true,"vapid_public_key":"BA","jurisdiction":null,"extra":1}"""))
+        server.enqueue(json(200, """{"name":"carom-hub","protocol":1,"version":"0.1.0","setup_done":true,"jurisdiction":null,"extra":1}"""))
         val info = client.info()
-        assertEquals(HubInfo("carom-hub", 1, "0.1.0", true, "BA", null), info)
+        assertEquals(HubInfo("carom-hub", 1, "0.1.0", true, null), info)
         val request = take()
         assertEquals("GET", request.method)
         assertEquals("/carom/v1/info", request.url.encodedPath)
@@ -66,10 +66,10 @@ class OkHttpHubClientTest {
 
     @Test
     fun `authenticated routes send the bearer token`() = runTest {
-        server.enqueue(json(200, """{"devices":[{"id":"dev_a","sign_pub":"s","kx_pub":"k","created_at":1,"last_seen":2,"has_push":true,"record":{"id":"dev_a"}}]}"""))
+        server.enqueue(json(200, """{"devices":[{"id":"dev_a","sign_pub":"s","kx_pub":"k","created_at":1,"last_seen":2,"record":{"id":"dev_a"}}]}"""))
         val devices = client.devices()
         assertEquals(1, devices.size)
-        assertTrue(devices[0].hasPush)
+        assertEquals(2L, devices[0].lastSeen)
         assertEquals("Bearer ct1.token", take().headers["Authorization"])
     }
 

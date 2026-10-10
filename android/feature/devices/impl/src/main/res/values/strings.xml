@@ -11,8 +11,6 @@
     <string name="feature_devices_details">%1$s · %2$s</string>
     <string name="feature_devices_last_seen">Last seen %1$s</string>
     <string name="feature_devices_last_seen_never">Not seen yet</string>
-    <string name="feature_devices_push_yes">Instant delivery: on</string>
-    <string name="feature_devices_push_no">Instant delivery: off</string>
     <string name="feature_devices_rename">Rename</string>
     <string name="feature_devices_remove">Remove</string>
     <string name="feature_devices_ok">OK</string>

@@ -158,7 +158,6 @@ private fun DeviceRow(device: DeviceSummary, now: Long, enabled: Boolean, onRena
                 device.lastSeen?.let { stringResource(R.string.feature_devices_last_seen, relativeTime(it, now)) }
                     ?: stringResource(R.string.feature_devices_last_seen_never),
             )
-            Secondary(stringResource(if (device.hasPush) R.string.feature_devices_push_yes else R.string.feature_devices_push_no))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (device.isSelf) {
                     TextButton(onClick = onRename, enabled = enabled) { Text(stringResource(R.string.feature_devices_rename)) }

@@ -50,7 +50,6 @@ fun entry(
     kxPub = "",
     createdAt = 0,
     lastSeen = null,
-    hasPush = false,
     record = DeviceRecord(id, name, kind, "macos", "1", "", "", caps, receive, 1),
     recordKv = 1,
 )

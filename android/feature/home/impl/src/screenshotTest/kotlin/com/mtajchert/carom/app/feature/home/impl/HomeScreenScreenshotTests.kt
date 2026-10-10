@@ -7,7 +7,6 @@ import com.mtajchert.carom.app.core.designsystem.preview.FormFactorPreviews
 import com.mtajchert.carom.app.core.designsystem.preview.LargeFontPreview
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
 import com.mtajchert.carom.app.core.model.ConnectionStatus
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
 
@@ -19,7 +18,6 @@ private val paired = HomeUiState.Paired(
     hubHost = "carom-hub.example.workers.dev",
     connection = ConnectionStatus.IDLE,
     pendingMessages = 2,
-    push = PushState.REGISTERED,
     lastSyncAt = NOW - 3 * MINUTE,
     recent = listOf(
         RecentItem(1, RecentItemKind.CLIPBOARD_RECEIVED, "Meeting notes for Friday", "dev_a", NOW - 2 * MINUTE),
@@ -54,10 +52,8 @@ fun HomePairedLargeFontScreenshotTest() = Home(paired.copy(connection = Connecti
 @Composable
 fun HomeProblemsScreenshotTest() = Home(
     paired.copy(
-        push = PushState.NO_DISTRIBUTOR,
         banners = listOf(
             HomeBanner.NotificationAccess,
-            HomeBanner.PushUnavailable(noDistributor = true),
             HomeBanner.DeviceRemoved(paired.recent[1]),
             HomeBanner.DeviceRemoved(RecentItem(3, RecentItemKind.DEVICE_REMOVED_NO_REKEY, "Tablet", "dev_c", NOW)),
         ),

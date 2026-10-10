@@ -59,7 +59,6 @@ data class DirectoryEntry(
     val kxPub: String,
     val createdAt: Long,
     val lastSeen: Long?,
-    val hasPush: Boolean,
     val record: DeviceRecord?,
     /** kv the trusted record was sealed under. */
     val recordKv: Long?,

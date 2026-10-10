@@ -1,21 +1,15 @@
 package com.mtajchert.carom.app.core.testing.runtime
 
 import com.mtajchert.carom.app.core.data.runtime.NotificationAccess
-import com.mtajchert.carom.app.core.data.runtime.PushStatusRepository
 import com.mtajchert.carom.app.core.data.sync.ReceiveRulesStore
 import com.mtajchert.carom.app.core.data.sync.SyncStatusRepository
 import com.mtajchert.carom.app.core.hub.HubSocket
 import com.mtajchert.carom.app.core.hub.HubSocketEvent
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
-
-class FakePushStatusRepository(initial: PushState = PushState.REGISTERED) : PushStatusRepository {
-    override val state = MutableStateFlow(initial)
-}
 
 class FakeSyncStatusRepository : SyncStatusRepository {
     override val lastSyncAt = MutableStateFlow<Long?>(null)

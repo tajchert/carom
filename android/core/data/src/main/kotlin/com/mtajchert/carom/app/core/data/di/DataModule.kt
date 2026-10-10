@@ -111,7 +111,7 @@ abstract class DataModule {
     @Binds @IntoSet
     internal abstract fun bindsCancelWorkOnWipe(impl: CancelWorkOnWipe): WipeHook
 
-    /** Contributed by `:core:push` (wake-up registration); empty without it. */
+    /** Contributed by feature modules (e.g. the ongoing notification); empty without them. */
     @Multibinds
     internal abstract fun syncStartHooks(): Set<SyncStartHook>
 

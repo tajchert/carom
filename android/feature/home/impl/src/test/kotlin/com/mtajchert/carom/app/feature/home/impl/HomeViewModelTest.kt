@@ -3,14 +3,12 @@ package com.mtajchert.carom.app.feature.home.impl
 import app.cash.turbine.test
 import com.mtajchert.carom.app.core.domain.ObserveHomeStatusUseCase
 import com.mtajchert.carom.app.core.model.ConnectionStatus
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.testing.repository.FakeRecentItemsRepository
 import com.mtajchert.carom.app.core.testing.repository.FakeSessionRepository
 import com.mtajchert.carom.app.core.testing.runtime.FakeNotificationAccess
-import com.mtajchert.carom.app.core.testing.runtime.FakePushStatusRepository
 import com.mtajchert.carom.app.core.testing.runtime.FakeSyncStatusRepository
 import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
 import com.mtajchert.carom.app.core.testing.sync.InMemoryOutboxStore
@@ -28,14 +26,13 @@ class HomeViewModelTest {
 
     private val session = FakeSessionRepository(SessionState.NotPaired)
     private val sync = FakeCaromSync()
-    private val push = FakePushStatusRepository(PushState.REGISTERED)
     private val status = FakeSyncStatusRepository()
     private val access = FakeNotificationAccess(granted = true)
     private val recent = FakeRecentItemsRepository()
     // Built lazily, after MainDispatcherRule has installed the test Main dispatcher.
     private val viewModel by lazy {
         HomeViewModel(
-            ObserveHomeStatusUseCase(session, sync, InMemoryOutboxStore(), push, status),
+            ObserveHomeStatusUseCase(session, sync, InMemoryOutboxStore(), status),
             recent,
             status,
             access,
@@ -83,19 +80,18 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `missing notification access and push are shown and re-checked on resume`() = runTest {
+    fun `missing notification access is shown and re-checked on resume`() = runTest {
         paired()
         access.granted = false
         viewModel.refresh()
-        push.state.value = PushState.NO_DISTRIBUTOR
         viewModel.uiState.test {
             var item = awaitItem()
-            while (item !is HomeUiState.Paired || item.banners.size < 2) item = awaitItem()
-            assertEquals(listOf(HomeBanner.NotificationAccess, HomeBanner.PushUnavailable(noDistributor = true)), item.banners)
+            while (item !is HomeUiState.Paired || item.banners.isEmpty()) item = awaitItem()
+            assertEquals(listOf(HomeBanner.NotificationAccess), item.banners)
             access.granted = true
             viewModel.refresh()
             item = awaitItem() as HomeUiState.Paired
-            assertEquals(listOf(HomeBanner.PushUnavailable(noDistributor = true)), item.banners)
+            assertEquals(emptyList<HomeBanner>(), item.banners)
             cancelAndIgnoreRemainingEvents()
         }
     }

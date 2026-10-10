@@ -425,7 +425,7 @@ class DefaultCaromSync(
             return devices.map { d ->
                 val prev = previousById[d.id]
                 val (record, kv) = openRecord(d, trust, prev) ?: (null to null)
-                DirectoryEntry(d.id, d.signPub, d.kxPub, d.createdAt, d.lastSeen, d.hasPush, record, kv)
+                DirectoryEntry(d.id, d.signPub, d.kxPub, d.createdAt, d.lastSeen, record, kv)
             }
         }
         var entries = open()
@@ -744,7 +744,7 @@ class DefaultCaromSync(
                 is RekeyResult.Failed -> return RevokeResult.Failed(rekey.retryable)
                 RekeyResult.Conflict -> return RevokeResult.Failed(retryable = true)
             }
-            // Remove the push subscription while the token still works.
+            // Hooks that talk to the Hub run while the token still works.
             runWipeHooks(s.client)
             try {
                 s.client.revoke(HubClient.SELF)

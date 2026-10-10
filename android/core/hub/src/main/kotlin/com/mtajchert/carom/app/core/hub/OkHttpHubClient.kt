@@ -109,22 +109,6 @@ class OkHttpHubClient(
         callUnit("PUT", "v1/devices/self/record", body = JsonObject(mapOf("record" to record.toJson())))
     }
 
-    override suspend fun putPush(endpoint: String, p256dh: String, auth: String) {
-        callUnit(
-            "PUT",
-            "v1/devices/self/push",
-            body = buildJsonObject {
-                put("endpoint", endpoint)
-                put("p256dh", p256dh)
-                put("auth", auth)
-            },
-        )
-    }
-
-    override suspend fun deletePush() {
-        callUnit("DELETE", "v1/devices/self/push")
-    }
-
     override suspend fun revoke(deviceId: String) {
         callUnit("DELETE", "v1/devices/${segment(deviceId)}")
     }

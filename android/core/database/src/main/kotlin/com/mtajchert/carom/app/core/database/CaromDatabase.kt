@@ -21,6 +21,7 @@ import com.mtajchert.carom.app.core.database.entity.SeenMessageEntity
  * (never destructive).
  *
  * - 2: `forwarded_notifications`, the keys this phone forwarded.
+ * - 3: `directory.has_push` dropped (no push subscriptions any more).
  */
 @Database(
     entities = [
@@ -31,7 +32,7 @@ import com.mtajchert.carom.app.core.database.entity.SeenMessageEntity
         RecentItemEntity::class,
         ForwardedNotificationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class CaromDatabase : RoomDatabase() {

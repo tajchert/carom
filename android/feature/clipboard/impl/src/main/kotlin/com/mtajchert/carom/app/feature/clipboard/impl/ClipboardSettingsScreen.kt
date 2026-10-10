@@ -69,6 +69,11 @@ fun ClipboardSettingsContent(
         }
 
         Section(R.string.feature_clipboard_receive_from) {
+            Text(
+                stringResource(R.string.feature_clipboard_receive_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             SwitchRow(stringResource(R.string.feature_clipboard_receive_any), state.receiveFromAll, onReceiveFromAll)
             if (!state.receiveFromAll) {
                 state.receiveFrom.forEach { CheckRow(it.name, it.checked) { checked -> onReceiveFrom(it.id, checked) } }

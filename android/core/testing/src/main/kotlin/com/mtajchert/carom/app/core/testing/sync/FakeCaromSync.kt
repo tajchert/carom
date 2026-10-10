@@ -78,25 +78,18 @@ class FakeCaromSync : CaromSync {
 
 class FakeSyncWorkScheduler : SyncWorkScheduler {
     var flushes = 0
-    val fetches = mutableListOf<Boolean>()
-    var periodic: Boolean? = null
+    var fetches = 0
     var cancelled = 0
 
     override fun scheduleOutboxFlush(delayMs: Long) {
         flushes++
     }
 
-    /** Records each request; true means expedited. */
-    override fun scheduleFetch(expedited: Boolean) {
-        fetches += expedited
-    }
-
-    override fun setPeriodicFetch(enabled: Boolean) {
-        periodic = enabled
+    override fun scheduleFetch() {
+        fetches++
     }
 
     override fun cancelAll() {
         cancelled++
-        periodic = null
     }
 }

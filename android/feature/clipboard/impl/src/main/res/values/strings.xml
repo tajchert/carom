@@ -5,6 +5,7 @@
     <string name="feature_clipboard_send_to">Send clipboard to</string>
     <string name="feature_clipboard_no_devices">No other device takes clipboard text yet.</string>
     <string name="feature_clipboard_receive_from">Receive clipboard from</string>
+    <string name="feature_clipboard_receive_hint">Clipboard from your Mac arrives when you open Carom.</string>
     <string name="feature_clipboard_receive_any">Any device</string>
     <string name="feature_clipboard_update_failed">Could not update. Try again when you are online.</string>
     <string name="feature_clipboard_notification">Show a notification when a clipboard arrives</string>

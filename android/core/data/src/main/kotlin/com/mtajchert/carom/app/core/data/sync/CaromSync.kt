@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonObject
  *
  * Every function is safe to call from any coroutine; work is serialized internally. Functions
  * never throw for Hub or network failures: they report them in their result and in [status].
- * Android wiring (listener callbacks, push, WorkManager, foreground WebSocket) calls into this.
+ * Android wiring (listener callbacks, WorkManager, foreground WebSocket) calls into this.
  */
 interface CaromSync {
     val status: StateFlow<ConnectionStatus>
@@ -37,7 +37,7 @@ interface CaromSync {
     /** Posts every due outbox item. Returns the earliest time more work is due, or null. */
     suspend fun flushOutbox(): FlushResult
 
-    /** `GET /v1/messages` until drained, handling and acknowledging every page (push, foreground, after send). */
+    /** `GET /v1/messages` until drained, handling and acknowledging every page (foreground, after send). */
     suspend fun fetchMessages(): FetchResult
 
     /** Runs SPEC §3.3 on [messages] (from a fetch or a WebSocket), dispatches them and returns the highest seq to ack. */

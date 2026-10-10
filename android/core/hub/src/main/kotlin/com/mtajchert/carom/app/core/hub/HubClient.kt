@@ -57,12 +57,6 @@ interface HubClient {
     /** `PUT /v1/devices/self/record`. */
     suspend fun putRecord(record: SealedRecord)
 
-    /** `PUT /v1/devices/self/push`. */
-    suspend fun putPush(endpoint: String, p256dh: String, auth: String)
-
-    /** `DELETE /v1/devices/self/push`. */
-    suspend fun deletePush()
-
     /** `DELETE /v1/devices/:id`. Pass [SELF] to revoke this device. */
     suspend fun revoke(deviceId: String)
 

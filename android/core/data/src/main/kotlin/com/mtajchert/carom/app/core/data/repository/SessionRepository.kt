@@ -63,7 +63,6 @@ class DefaultDeviceRepository @Inject constructor(
                 kind = e.record?.kind?.toModel(),
                 platform = e.record?.platform,
                 lastSeen = e.lastSeen,
-                hasPush = e.hasPush,
                 isSelf = e.id == selfId,
                 trusted = e.trusted,
             )

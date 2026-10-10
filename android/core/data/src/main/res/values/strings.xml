@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="core_data_sync_channel">Sync</string>
-    <string name="core_data_sync_notification">Checking for new items</string>
-</resources>

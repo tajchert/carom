@@ -26,10 +26,9 @@ Done (foundation):
   message in the outbox, and the §5.3 joiner keyring fetch) and `Enrollment`
   (setup, join, invite), tested against an in-memory Hub; WorkManager + Hilt worker factory;
   `OutboxWorker`, `FetchWorker`; the sync runtime (`runtime/`).
-- `core:push`: UnifiedPush connector 3.x with the embedded FCM distributor (see "Fetching").
-- Home (status, push state, last sync, quick actions, problem banners, recent items), Devices
+- Home (status, last sync, quick actions, problem banners, recent items), Devices
   (list, rename, remove with rekey, receive-from matrix) and Settings (device name, Apps and
-  Clipboard sub-screens, pause, delivery state, about, leave hub).
+  Clipboard sub-screens, pause, about, leave hub).
 - Onboarding (`feature:onboarding`): shown at start when there are no keys or Hub (and again after
   a revocation). Welcome, set up a new Hub or join, CameraX + zxing QR scanner (camera permission
   asked on that step only) or paste, progress and cause-and-fix errors, the joining device's
@@ -58,21 +57,12 @@ Done (foundation):
 | Trigger | What runs |
 |---|---|
 | App visible (`ProcessLifecycleOwner` start) | `ForegroundSync`: flush outbox, refresh directory, then a WebSocket (`ForegroundSocketSession`) that processes and acks frames, refreshes on `dir`, wipes on `revoked`, reconnects with jittered backoff. Closed when the app goes to the background. |
-| Push (`CaromPushService.onMessage`) | Expedited one-time `FetchWorker` (`GET /v1/messages`, process, ack). The payload is never read. |
 | After a successful send | `PiggybackFetch` schedules a `FetchWorker`, unless the socket is live. |
-| Push unavailable (no distributor, or registration failed) | 15-minute periodic `FetchWorker` with a network constraint; cancelled once the Hub has a working push endpoint. |
 
 `LiveHubConnection.pairCandidates` exposes `pair` frames from the live socket for the pairing screen.
-Push registration (`PushManager`) uses the VAPID key from `GET /v1/info`, sends the endpoint with
-`PUT /v1/devices/self/push`, re-sends it when it changes and deletes it on wipe (a `WipeHook`
-that runs before the keys are deleted). `PushStatusRepository.state` reports `NO_DISTRIBUTOR`.
-
-Exported components merged from the push libraries (a reviewed decision): the connector's
-`MessagingReceiverImpl` and `RaiseToForegroundService` (distributors are other apps), and the
-embedded distributor's `FirebaseReceiver` (guarded by `com.google.android.c2dm.permission.SEND`).
-Our own `CaromPushService` is not exported. With the embedded distributor, wake-ups go through
-the UnifiedPush FCM gateway (`fcm.distributor.unifiedpush.org`); the payload is the encrypted
-`{"t":"wake"}` only.
+There is no push and no periodic background polling (SPEC §9): messages from a desktop to this
+phone (`clipboard.set`, `notification.dismiss`) are fetched only while the app is awake, which is
+why the Clipboard settings tell the user that a clipboard from a Mac arrives when Carom is opened.
 
 ## Baseline
 
@@ -111,7 +101,6 @@ app ── feature/*/impl ── feature/*/api
 | `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items) |
 | `:core:datastore` | `UserPreferencesDataSource` (Hub URL, device id/name, toggles, theme, last clipboard ts) |
 | `:core:data` | `CaromSync`/`DefaultCaromSync`, `Enrollment`, stores, repositories, `OutboxWorker`, `FetchWorker`, `IncomingMessageHandler`/`WipeHook`/`SyncStartHook` multibindings, `runtime/` (foreground socket, `SyncRuntime`) |
-| `:core:push` | `PushManager`, `CaromPushService`, `UnifiedPushConnector` (UnifiedPush connector + embedded FCM distributor) |
 | `:core:domain` | `ObserveHomeStatusUseCase`, `SendClipboardUseCase`, rename/remove, receive matrix |
 | `:core:model` | App models (`SessionState`, `ConnectionStatus`, `DeviceSummary`, `UserPreferences`, …) |
 | `:core:ui`, `:core:designsystem` | Shared composables and the Carom theme |
@@ -132,7 +121,7 @@ wired in `CaromNavHost`; core modules never depend on features; `core:protocol` 
 - **Sending**: `CaromSync.send(type, body, …)` routes, seals, stores in the outbox and posts;
   on `SendResult.Queued` call `SyncWorkScheduler.scheduleOutboxFlush()` (as
   `SendClipboardUseCase` does).
-- **Fetching**: `SyncWorkScheduler.scheduleFetch()` after tile/share actions; the push, foreground
+- **Fetching**: `SyncWorkScheduler.scheduleFetch()` after tile/share actions; the foreground
   and piggyback triggers are already wired (see "Fetching" above).
 - **Receive rules**: `SetReceiveRuleUseCase` is the only writer: `invoke` changes one matrix cell,
   `setRule` sets a whole rule ("Receive clipboard from"). Rules persist in `ReceiveRulesStore`,

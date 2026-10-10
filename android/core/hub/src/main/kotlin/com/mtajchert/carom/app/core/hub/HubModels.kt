@@ -11,8 +11,6 @@ data class HubInfo(
     val protocol: Int,
     val version: String,
     @SerialName("setup_done") val setupDone: Boolean,
-    /** b64 of the uncompressed P-256 point, for UnifiedPush/VAPID registration. */
-    @SerialName("vapid_public_key") val vapidPublicKey: String,
     /** The Hub sends `null` when no jurisdiction is configured. */
     val jurisdiction: String? = null,
 )
@@ -50,7 +48,6 @@ data class HubDevice(
     @SerialName("kx_pub") val kxPub: String,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("last_seen") val lastSeen: Long? = null,
-    @SerialName("has_push") val hasPush: Boolean = false,
     /** The sealed record, untrusted until `Records.open` accepts it. */
     val record: JsonElement? = null,
 )

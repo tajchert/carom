@@ -10,7 +10,7 @@ exported component changes.
 | Configuration | Behaviour |
 |---|---|
 | App manifest | `allowBackup="false"`; the launcher activity is the only exported component |
-| Permissions | `INTERNET` only. Later work adds notification access, `POST_NOTIFICATIONS`, camera, and the listener/tile/share/push components, each deliberately |
+| Permissions | `INTERNET` only. Later work adds notification access, `POST_NOTIFICATIONS`, camera, and the listener/tile/share components, each deliberately |
 | Network security (release) | `app/src/main/res/xml/network_security_config.xml`: cleartext denied, system trust anchors only |
 | Network security (debug) | `app/src/debug/res/xml/network_security_config.xml`: cleartext also for `10.0.2.2`, `localhost`, `127.0.0.1` (a local `wrangler dev` Hub) |
 | Legacy backup XML | `backup_rules.xml` excludes every domain (root, file, database, sharedpref, external) |
@@ -32,7 +32,7 @@ SPEC §5.3 requires ("A reinstall means a new identity and a new pairing").
 
 ## Still to decide when the features land
 
-- The notification listener, Quick Settings tile, share target and UnifiedPush receiver must
+- The notification listener, Quick Settings tile and share target must
   each be exported only as far as the platform requires, with permission guards where possible.
 - Notification and clipboard content must never reach logs or crash reports.
 - Configure real signing and artifact retention through [Release](RELEASING.md); keys do not

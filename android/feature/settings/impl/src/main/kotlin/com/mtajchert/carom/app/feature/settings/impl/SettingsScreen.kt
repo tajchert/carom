@@ -36,7 +36,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtajchert.carom.app.core.designsystem.component.CaromCard
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
-import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.ui.CaromSimpleScreen
 
 /**
@@ -113,12 +112,6 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             ToggleRow(stringResource(R.string.feature_settings_pause), stringResource(R.string.feature_settings_pause_summary), state.forwardingPaused, actions.onPauseChanged)
         }
 
-        if (state.paired) {
-            Section(stringResource(R.string.feature_settings_section_delivery)) {
-                NavigationRow(stringResource(R.string.feature_settings_push), stringResource(pushText(state.push)), onClick = null)
-            }
-        }
-
         Section(stringResource(R.string.feature_settings_section_about)) {
             state.hubUrl?.let { InfoRow(stringResource(R.string.feature_settings_hub), it) }
             state.deviceId?.let { InfoRow(stringResource(R.string.feature_settings_device_id), it, monospace = true) }
@@ -182,13 +175,6 @@ private fun SettingsMessage.text(): Int = when (this) {
     SettingsMessage.NAME_EMPTY -> R.string.feature_settings_name_empty
     SettingsMessage.NAME_TOO_LONG -> R.string.feature_settings_name_too_long
     SettingsMessage.LEAVE_FAILED -> R.string.feature_settings_leave_failed
-}
-
-private fun pushText(push: PushState): Int = when (push) {
-    PushState.REGISTERED -> R.string.feature_settings_push_on
-    PushState.REGISTERING, PushState.UNKNOWN -> R.string.feature_settings_push_setting_up
-    PushState.NO_DISTRIBUTOR -> R.string.feature_settings_push_no_distributor
-    PushState.FAILED -> R.string.feature_settings_push_failed
 }
 
 @Composable

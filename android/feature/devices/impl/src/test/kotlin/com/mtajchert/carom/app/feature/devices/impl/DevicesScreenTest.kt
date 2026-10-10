@@ -32,9 +32,9 @@ class DevicesScreenTest {
     private val state = DevicesUiState(
         loading = false,
         devices = listOf(
-            DeviceSummary(selfId, "Pixel", DeviceKind.PHONE, "android", null, true, isSelf = true, trusted = true),
-            DeviceSummary(macId, "Mac", DeviceKind.DESKTOP, "macos", null, false, isSelf = false, trusted = true),
-            DeviceSummary("dev_qqqqqqqqqqqqqqqqqqqqqq", null, null, null, null, false, isSelf = false, trusted = false),
+            DeviceSummary(selfId, "Pixel", DeviceKind.PHONE, "android", null, isSelf = true, trusted = true),
+            DeviceSummary(macId, "Mac", DeviceKind.DESKTOP, "macos", null, isSelf = false, trusted = true),
+            DeviceSummary("dev_qqqqqqqqqqqqqqqqqqqqqq", null, null, null, null, isSelf = false, trusted = false),
         ),
         matrix = ReceiveMatrix(
             types = listOf(MessageTypes.CLIPBOARD_SET),
