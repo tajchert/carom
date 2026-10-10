@@ -54,7 +54,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.mtajchert.carom.app.core.data.sync.EnrollmentError
 import com.mtajchert.carom.app.core.designsystem.component.CaromTopAppBar
-import com.mtajchert.carom.app.core.model.DeviceKind
 import com.mtajchert.carom.app.core.ui.DeviceFingerprint
 
 /** "Add device": shows a pair code, waits for the new device and asks the user to confirm it. */
@@ -210,8 +209,7 @@ private fun Countdown(secondsLeft: Int) {
 
 @Composable
 private fun Confirm(state: PairingUiState.Confirm, onApprove: () -> Unit, onReject: () -> Unit) {
-    val title = state.kind?.let { stringResource(R.string.feature_pairing_confirm_title_kind, kindName(it)) }
-        ?: stringResource(R.string.feature_pairing_confirm_title)
+    val title = stringResource(R.string.feature_pairing_confirm_title, state.fingerprint)
     PairingStepLayout(
         title = title,
         icon = Icons.Outlined.DevicesOther,
@@ -239,15 +237,6 @@ private fun Confirm(state: PairingUiState.Confirm, onApprove: () -> Unit, onReje
         }
     }
 }
-
-@Composable
-private fun kindName(kind: DeviceKind): String = stringResource(
-    when (kind) {
-        DeviceKind.PHONE -> R.string.feature_pairing_kind_phone
-        DeviceKind.DESKTOP -> R.string.feature_pairing_kind_desktop
-        DeviceKind.CLI -> R.string.feature_pairing_kind_cli
-    },
-)
 
 @Composable
 private fun Failed(error: EnrollmentError, onNewCode: () -> Unit, onDone: () -> Unit) {

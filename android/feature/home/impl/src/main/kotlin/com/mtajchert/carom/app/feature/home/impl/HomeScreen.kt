@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +58,7 @@ import com.mtajchert.carom.app.core.model.PushState
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
 import com.mtajchert.carom.app.core.ui.ConnectionStatusIndicator
+import com.mtajchert.carom.app.feature.clipboard.api.ClipboardSend
 
 /** Everything Home can ask the app to do. Navigation lambdas come from the nav host. */
 class HomeActions(
@@ -101,17 +101,9 @@ fun HomeScreen(
     )
 }
 
-/** The transparent activity that reads and sends the clipboard (built by the clipboard feature). */
-internal const val CLIPBOARD_SEND_ACTIVITY = "com.mtajchert.carom.app.feature.clipboard.impl.ClipboardSendActivity"
-
+/** The clipboard feature's transparent activity reads the clipboard once it has focus, sends it and finishes. */
 private fun Context.openClipboardSender() {
-    // Explicit and package-scoped: only our own activity can receive this.
-    val intent = Intent().setClassName(packageName, CLIPBOARD_SEND_ACTIVITY)
-    try {
-        startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        Toast.makeText(this, R.string.feature_home_send_clipboard_unavailable, Toast.LENGTH_SHORT).show()
-    }
+    startActivity(ClipboardSend.intent(this))
 }
 
 private fun Context.openNotificationAccessSettings() {

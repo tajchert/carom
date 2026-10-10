@@ -9,7 +9,6 @@ import com.mtajchert.carom.app.core.data.sync.Enrollment
 import com.mtajchert.carom.app.core.data.sync.EnrollmentError
 import com.mtajchert.carom.app.core.data.sync.EnrollmentResult
 import com.mtajchert.carom.app.core.data.sync.Invite
-import com.mtajchert.carom.app.core.model.DeviceKind
 import com.mtajchert.carom.app.core.protocol.VerifiedCandidate
 import com.mtajchert.carom.app.feature.pairing.api.PairCandidateFeed
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,10 +39,10 @@ sealed interface PairingUiState {
     }
 
     /**
-     * A candidate passed mac, pop and device_id: ask "Add <kind> device <fingerprint>?".
-     * [kind] is null until the protocol tells the inviter what kind of device is joining.
+     * A candidate passed mac, pop and device_id: ask "Add device <fingerprint>?" (docs/CLIENTS.md).
+     * The candidate carries no kind; that is only known once the new device publishes its record.
      */
-    data class Confirm(val fingerprint: String, val kind: DeviceKind? = null, val approving: Boolean = false) : PairingUiState
+    data class Confirm(val fingerprint: String, val approving: Boolean = false) : PairingUiState
 
     /** The welcome was posted; the new device finishes on its own. */
     data class Added(val fingerprint: String) : PairingUiState
