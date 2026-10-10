@@ -14,3 +14,7 @@ yourself. Everything is end-to-end encrypted: the Hub only ever sees ciphertext.
 | `docs/` | Setup guide and threat model (planned) |
 
 Status: early development. Read [`protocol/SPEC.md`](protocol/SPEC.md) for the contract.
+
+## License
+
+Carom is licensed under the [GNU General Public License v3.0](LICENSE).
