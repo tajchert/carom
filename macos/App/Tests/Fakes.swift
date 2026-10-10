@@ -4,9 +4,7 @@ import CaromStore
 import CaromSync
 import Foundation
 @testable import Carom
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 func devId(_ c: Character) -> String { "dev_" + String(repeating: c, count: 22) }
 
@@ -139,16 +137,20 @@ final class FakeClipboard: ClipboardWatching {
 
 @MainActor
 final class FakeHotkey: HotkeyRegistering {
-    var handler: (() -> Void)?
+    var handler: (@MainActor () -> Void)?
+    var unregisterCalls = 0
     var fail = false
 
     struct Taken: Error {}
 
-    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) throws {
+    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping @MainActor () -> Void) throws {
         if fail { throw Taken() }
         self.handler = handler
     }
-    func unregister() { handler = nil }
+    func unregister() {
+        unregisterCalls += 1
+        handler = nil
+    }
 }
 
 @MainActor

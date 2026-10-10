@@ -1,4 +1,5 @@
 import AppKit
+import CaromDesktop
 import SwiftUI
 
 /// The menu-bar popover: status, notices, recent activity and the main actions.

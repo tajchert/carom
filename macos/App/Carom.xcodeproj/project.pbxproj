@@ -28,13 +28,13 @@
 		B3515C5ADC7D64B562ECD784 /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E50DA0F17F21B1530485899 /* QRCode.swift */; };
 		B488786EC1F7A8125990109D /* CaromStore in Frameworks */ = {isa = PBXBuildFile; productRef = 1B93479E4FC0F068D4A655C7 /* CaromStore */; };
 		B7CBE75A5CBC52F6A7728986 /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A074715E16C0C1B190933201 /* NotificationSettings.swift */; };
+		C1C272611775FC5BB890BEC7 /* CaromDesktop in Frameworks */ = {isa = PBXBuildFile; productRef = E406DFD49AD96CA3ADBF4A4E /* CaromDesktop */; };
 		C34DA6179ACA172EFCEC2C1B /* DevicesSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44506BB20FD507A392B8A4B7 /* DevicesSettings.swift */; };
 		C8FBCFE71970F29ADB07F99E /* CaromProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = D13BF381F57689665DAA957D /* CaromProtocol */; };
 		CA489319C112D7CB1735806B /* AddDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F405C283C16A225ED8ADA433 /* AddDeviceView.swift */; };
 		CCB9365897E9EF0606503788 /* SecretStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 464AB2B89633C765DE33745D /* SecretStoreFactory.swift */; };
 		CF593BF9A8011666C8B26475 /* ReceivePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2917B35E7F6A61EB49867CD3 /* ReceivePolicy.swift */; };
 		CF75AA1C59B24001C33A038A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2850A9A4E3F1764CECEB2AD4 /* Assets.xcassets */; };
-		D19371FBF63DCB3E3A6DF427 /* CaromDesktopShim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33AB1FF222222157520BE967 /* CaromDesktopShim.swift */; };
 		D59509899BEEA17C42DB12D6 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D08CDEE1E0A38EAA3D7C8F /* Components.swift */; };
 		DB8EE498A7B47FA5AB398CC5 /* InertSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */; };
 		DF9F21CCE145B11D83CA2EC3 /* PolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */; };
@@ -57,7 +57,6 @@
 		15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InertSyncService.swift; sourceTree = "<group>"; };
 		2850A9A4E3F1764CECEB2AD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2917B35E7F6A61EB49867CD3 /* ReceivePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceivePolicy.swift; sourceTree = "<group>"; };
-		33AB1FF222222157520BE967 /* CaromDesktopShim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaromDesktopShim.swift; sourceTree = "<group>"; };
 		376753980E52FC24DC3B9407 /* CaromKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CaromKit; path = ../CaromKit; sourceTree = SOURCE_ROOT; };
 		3E50DA0F17F21B1530485899 /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
 		43523F8D934E0F28AAC18A3A /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
@@ -97,6 +96,7 @@
 				90D3082BD4F9EF70011C69F6 /* CaromHub in Frameworks */,
 				B488786EC1F7A8125990109D /* CaromStore in Frameworks */,
 				1CD0B044CFF75CE9DA67BFB5 /* CaromSync in Frameworks */,
+				C1C272611775FC5BB890BEC7 /* CaromDesktop in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,7 +139,6 @@
 			isa = PBXGroup;
 			children = (
 				BB78DE8AC5B377FFE9278425 /* App */,
-				927BD87A2832C59023A90579 /* Desktop */,
 				4E004F50ABA3AC9CD16495FE /* Model */,
 				17E3BEB4F79BD6B99C613AD9 /* Services */,
 				A67623B715BB39DA4A578974 /* Views */,
@@ -170,14 +169,6 @@
 				032F0ACB34AF5FBCD914C462 /* Tests */,
 				B72AC1034150361D825F0657 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		927BD87A2832C59023A90579 /* Desktop */ = {
-			isa = PBXGroup;
-			children = (
-				33AB1FF222222157520BE967 /* CaromDesktopShim.swift */,
-			);
-			path = Desktop;
 			sourceTree = "<group>";
 		};
 		A67623B715BB39DA4A578974 /* Views */ = {
@@ -259,6 +250,7 @@
 				CE8BAFA1AE1113A6718F4CAC /* CaromHub */,
 				1B93479E4FC0F068D4A655C7 /* CaromStore */,
 				6FCD4A8FE5B9E9A83D3E4421 /* CaromSync */,
+				E406DFD49AD96CA3ADBF4A4E /* CaromDesktop */,
 			);
 			productName = Carom;
 			productReference = AA9085169BBFDC7B19051941 /* Carom.app */;
@@ -292,11 +284,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					64393777E517CDA8E1D42384 = {
-						DevelopmentTeam = LNYRY7V366;
+						DevelopmentTeam = 6ZW8LB554N;
 						ProvisioningStyle = Automatic;
 					};
 					6677A300787E4BD0B1DC48DF = {
-						DevelopmentTeam = LNYRY7V366;
+						DevelopmentTeam = 6ZW8LB554N;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -346,7 +338,6 @@
 				AA566AB94F206C4496389039 /* AppModel.swift in Sources */,
 				119327C7336DFC788A483426 /* Banner.swift in Sources */,
 				F97360303AE0CA205E2576CA /* CaromApp.swift in Sources */,
-				D19371FBF63DCB3E3A6DF427 /* CaromDesktopShim.swift in Sources */,
 				4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */,
 				D59509899BEEA17C42DB12D6 /* Components.swift in Sources */,
 				50AF71BAAE5726B883191D73 /* ConnectionObserver.swift in Sources */,
@@ -651,6 +642,10 @@
 		D13BF381F57689665DAA957D /* CaromProtocol */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CaromProtocol;
+		};
+		E406DFD49AD96CA3ADBF4A4E /* CaromDesktop */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CaromDesktop;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

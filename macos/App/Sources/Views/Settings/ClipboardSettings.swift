@@ -1,7 +1,5 @@
 import SwiftUI
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 struct ClipboardSettings: View {
     @Environment(AppModel.self) private var model

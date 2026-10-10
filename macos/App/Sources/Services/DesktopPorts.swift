@@ -1,8 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 // Narrow seams over the CaromDesktop services so AppModel can be unit-tested with fakes.
 
@@ -27,7 +25,7 @@ protocol ClipboardWatching: AnyObject {
 
 @MainActor
 protocol HotkeyRegistering: AnyObject {
-    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) throws
+    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping @MainActor () -> Void) throws
     func unregister()
 }
 
@@ -49,7 +47,7 @@ struct SystemLoginItem: LoginItemControlling {
 /// The global "send clipboard" shortcut: ⌃⌥⌘C.
 enum SendHotkey {
     static let keyCode = UInt32(kVK_ANSI_C)
-    static let modifiers = UInt32(controlKey | optionKey | cmdKey)
+    static let modifiers = HotkeyModifiers.control | HotkeyModifiers.option | HotkeyModifiers.command
     static let display = "⌃⌥⌘C"
 }
 
@@ -63,7 +61,7 @@ struct DesktopServices {
 
     static func live() -> DesktopServices {
         DesktopServices(presenter: NotificationPresenter(center: .current()),
-                        clipboard: ClipboardWatcher(pasteboard: .general, interval: .milliseconds(500)),
+                        clipboard: ClipboardWatcher(pasteboard: .general, interval: 0.5),
                         hotkey: HotkeyManager(), loginItem: SystemLoginItem())
     }
 }

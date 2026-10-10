@@ -1,3 +1,4 @@
+import CaromDesktop
 import SwiftUI
 
 /// Settings: General, Devices, Notifications, Clipboard, About.

@@ -1,9 +1,7 @@
 import CaromProtocol
 import CaromStore
 import Foundation
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 /// What this Mac accepts, grouped the way the UI shows it.
 enum ReceiveCategory: String, CaseIterable, Identifiable, Sendable {

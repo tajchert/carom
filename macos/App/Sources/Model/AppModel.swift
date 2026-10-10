@@ -5,9 +5,7 @@ import CaromStore
 import CaromSync
 import Observation
 import os
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 enum AppPhase: Equatable, Sendable {
     case loading

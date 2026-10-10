@@ -4,9 +4,7 @@ import CaromSync
 import Foundation
 import Testing
 @testable import Carom
-#if canImport(CaromDesktop)
 import CaromDesktop
-#endif
 
 private let pixel = record(phoneA, "Pixel", kind: .phone)
 private let galaxy = record(phoneB, "Galaxy", kind: .phone)
