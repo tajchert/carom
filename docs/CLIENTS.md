@@ -80,7 +80,7 @@ shown on both screens.
 - Phone: no persistent socket. It fetches with `GET /v1/messages` when:
   - a push arrives,
   - the app comes to the foreground (a WebSocket is allowed while the UI is visible),
-  - after each successful send (piggyback), and
+  - after a successful send (piggyback, at most once every 15 s, and skipped while a socket is live), and
   - after the Quick Settings tile or share actions.
 
 **Push (phone)**
