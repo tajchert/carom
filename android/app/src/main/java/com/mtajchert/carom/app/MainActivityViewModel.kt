@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
 import com.mtajchert.carom.app.core.model.DarkThemeConfig
+import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -86,4 +87,4 @@ fun MainActivityUiState.shouldUseDarkTheme(isSystemInDarkTheme: Boolean): Boolea
 
 /** Respect the stored brand; loading uses the stable app palette. */
 fun MainActivityUiState.shouldUseDynamicColor(): Boolean =
-    this is MainActivityUiState.Success && preferences.themeBrand == com.mtajchert.carom.app.core.model.ThemeBrand.DYNAMIC
+    this is MainActivityUiState.Success && preferences.themeBrand == ThemeBrand.DYNAMIC

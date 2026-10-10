@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_devices_title">Devices</string>
+    <string name="feature_devices_empty">No devices yet. Add one from Home.</string>
+    <string name="feature_devices_unknown">Unverified device %1$s</string>
+    <string name="feature_devices_this_device">%1$s (this device)</string>
+    <string name="feature_devices_kind_phone">Phone</string>
+    <string name="feature_devices_kind_desktop">Computer</string>
+    <string name="feature_devices_kind_cli">Command line</string>
+    <string name="feature_devices_kind_unverified">Not verified</string>
+    <string name="feature_devices_details">%1$s · %2$s</string>
+</resources>

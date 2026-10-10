@@ -24,7 +24,7 @@ class StartupBenchmark {
     )
 
     private fun measureStartup(compilationMode: CompilationMode) = rule.measureRepeated(
-        packageName = TasksJourney.PACKAGE_NAME,
+        packageName = CaromJourney.PACKAGE_NAME,
         metrics = listOf(StartupTimingMetric()),
         compilationMode = compilationMode,
         startupMode = StartupMode.COLD,
@@ -32,6 +32,6 @@ class StartupBenchmark {
         setupBlock = { pressHome() },
     ) {
         startActivityAndWait()
-        TasksJourney.waitForTaskList(device)
+        CaromJourney.waitForHome(device)
     }
 }

@@ -1,7 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="priority_high">High</string>
-    <string name="priority_medium">Medium</string>
-    <string name="priority_low">Low</string>
-    <string name="task_completion">Completion of %1$s</string>
-    <string name="delete_task_description">Delete task %1$s</string>
+    <string name="core_ui_status_not_set_up">Not set up</string>
+    <string name="core_ui_status_idle">Ready</string>
+    <string name="core_ui_status_syncing">Syncing</string>
+    <string name="core_ui_status_offline">Offline, will retry</string>
+    <string name="core_ui_status_rejected">Hub refused this device</string>
 </resources>

@@ -4,7 +4,7 @@ The starter verifies a minified release build but has no production signing conf
 
 ## Prepare a product release
 
-1. Finish identity adoption, remove demo bindings/data, and review the [product checklist](TEMPLATE_CHECKLIST.md). Configure CI on the forge you use; the included workflow targets GitHub Actions, not GitLab.
+1. Review [security and backup defaults](SECURITY_DEFAULTS.md). CI is `.github/workflows/android.yml` at the repository root (GitHub Actions).
 2. Set `versionCode` and `versionName` in `app/build.gradle.kts`. Use an increasing code for successive product releases and define a user-visible naming policy.
 3. Choose the upload/signing arrangement for your distribution channel. For Google Play, distinguish the upload key from the app signing key. Configure release signing in Gradle using protected local/CI inputs, or use Android Studio's **Generate Signed Bundle / APK** workflow. The repository defines no signing-secret variable names to populate.
 4. Keep keystores and passwords outside tracked files. The existing ignore rules cover `.jks` and `.keystore`; they are not a substitute for controlling access and backups. CI signing material belongs in protected secrets and restricted release jobs.
@@ -26,6 +26,6 @@ Retain the exact distributed artifact, version, source commit, and signing-certi
 
 ## Check the distributed build
 
-Test the signed, optimized build rather than relying on debug behavior. Check startup, create/open/delete, persisted preferences, process restart, saved drafts, and deep links. Verify upgrades from the previous shipped version and database restore where supported. Check the minimum/target API, large fonts, RTL, accessibility, and adaptive windows for your product.
+Test the signed, optimized build rather than relying on debug behavior. Check startup, setup and pairing against a real Hub, sending and receiving, revocation, persisted settings and process restart. Verify upgrades from the previous shipped version and database restore where supported. Check the minimum/target API, large fonts, RTL, accessibility, and adaptive windows for your product.
 
 Publish App Link associations with the certificate that signs the installed distribution. Keep physical-device performance checks separate from emulator functional journeys. Use the distribution channel's internal test track before broader rollout, and record what was tested with the release.

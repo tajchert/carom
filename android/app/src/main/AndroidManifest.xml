@@ -2,10 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+        Backups are off and every domain is excluded: identity keys, group keys and the device
+        token must never leave the device (SPEC §5.3). Only the launcher activity is exported;
+        later work adds the notification listener, tile, share target and push receiver, each
+        deliberately.
+    -->
     <application
         android:name=".CaromApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -14,13 +21,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Carom">
-        <!--
-            launchMode="singleTop" keeps a single task instance, so a deep link
-            that arrives while the app is already running is delivered to
-            onNewIntent instead of stacking another copy of MainActivity.
-            MainActivity therefore validates incoming links in BOTH onCreate and
-            onNewIntent - a warm-start link is exactly as untrusted as a cold one.
-        -->
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -31,41 +32,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-            <!--
-                Verified Android App Link. autoVerify="true" makes Android check
-                https://tajchert.github.io/.well-known/assetlinks.json for this app's
-                signing certificate; only then does the system open these links
-                directly instead of showing a chooser. Replace the host and
-                publish assetlinks.json before relying on this.
-            -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:host="tajchert.github.io"
-                    android:pathPrefix="/tasks"
-                    android:scheme="https" />
-            </intent-filter>
-
-            <!--
-                Custom scheme, kept in a SEPARATE intent-filter on purpose.
-                Attributes inside one <data> set combine as a cross product, so
-                merging these two filters would also match carom://tajchert.github.io
-                and https://tasks - links this app never intended to claim.
-                A custom scheme cannot be verified and any other installed app may
-                register the same one, so treat it as the lower-trust path.
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:host="tasks"
-                    android:scheme="carom" />
-            </intent-filter>
         </activity>
+
+        <!-- WorkManager is initialised on demand with the Hilt worker factory (CaromApplication). -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>

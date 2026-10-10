@@ -29,7 +29,7 @@ import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
  * ## When to Use
  *
  * Show this component when:
- * - A list is empty (no tasks, no search results)
+ * - A list is empty (no devices, no recent items)
  * - Content hasn't been created yet
  * - A filter returns no results
  *
@@ -42,10 +42,10 @@ import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
  * ## Usage
  *
  * ```kotlin
- * if (tasks.isEmpty()) {
+ * if (devices.isEmpty()) {
  *     CaromEmptyState(
  *         icon = Icons.Outlined.CheckCircle,
- *         title = "No tasks yet",
+ *         title = "No devices yet",
  *         description = "Create your first task to get started",
  *         actionLabel = "Create Task",
  *         onAction = { navigateToCreateTask() },
@@ -171,7 +171,7 @@ private fun CaromEmptyStatePreview() {
     CaromTheme {
         CaromEmptyState(
             icon = Icons.Outlined.Inbox,
-            title = "No tasks yet",
+            title = "No devices yet",
             description = "Create your first task to get started",
             actionLabel = "Create Task",
             onAction = {},
@@ -195,7 +195,7 @@ private fun CaromEmptyStateMinimalPreview() {
 private fun CaromErrorStatePreview() {
     CaromTheme {
         CaromErrorState(
-            message = "Unable to load tasks. Please check your connection.",
+            message = "Unable to reach your Hub. Please check your connection.",
             onRetry = {},
         )
     }

@@ -1,33 +1,39 @@
 # Security and backup defaults
 
-This describes the sample's configuration, not a complete product security policy. Review it when replacing the feature, adding networking, or storing sensitive data.
+Carom's rules come from [`protocol/SPEC.md`](../../protocol/SPEC.md) §5.3 and
+[`docs/CLIENTS.md`](../../docs/CLIENTS.md) ("Identity and storage", "Private"). This page
+records how the Android app implements them. Review it whenever storage, networking or an
+exported component changes.
 
 ## Current choices
 
-| Configuration | Current behavior |
+| Configuration | Behaviour |
 |---|---|
-| App manifest | `allowBackup="true"`, RTL support, and one exported launcher/deep-link activity |
-| Permissions | The app declares no INTERNET or ACCESS_NETWORK_STATE permission; its backend is an in-memory fake |
-| Network security XML | Cleartext denied by default; exceptions for `10.0.2.2`, `localhost`, and `127.0.0.1`, including subdomains |
-| Legacy backup XML | Excludes the entire SharedPreferences domain |
-| Android 12+ extraction XML | Excludes SharedPreferences from cloud backup; no explicit device-transfer section |
-| Local storage | Room database `carom-database` and DataStore file `files/datastore/user_preferences.preferences_pb` |
+| App manifest | `allowBackup="false"`; the launcher activity is the only exported component |
+| Permissions | `INTERNET` only. Later work adds notification access, `POST_NOTIFICATIONS`, camera, and the listener/tile/share/push components, each deliberately |
+| Network security (release) | `app/src/main/res/xml/network_security_config.xml`: cleartext denied, system trust anchors only |
+| Network security (debug) | `app/src/debug/res/xml/network_security_config.xml`: cleartext also for `10.0.2.2`, `localhost`, `127.0.0.1` (a local `wrangler dev` Hub) |
+| Legacy backup XML | `backup_rules.xml` excludes every domain (root, file, database, sharedpref, external) |
+| Android 12+ extraction XML | `data_extraction_rules.xml` excludes every domain from both `cloud-backup` and `device-transfer` |
+| Secrets | `core:security`: identity keys, group keys and the device token in `noBackupFilesDir/carom/vault.bin`, AES-256-GCM with a non-exportable Android Keystore key (`carom.vault.v1`), no user-auth requirement so background work runs while locked |
+| Other local state | Room `carom-database` (outbox, seen ids, directory, app settings, recent items) and DataStore `user_preferences` (Hub URL, device id/name, toggles) |
+| Logging | No HTTP logging interceptor. Sync logs carry event codes and ids only, never message content, keys, tokens or URIs. `toString()` of every secret-bearing type is redacted |
 
-The cleartext exceptions are in the main configuration, so they also apply to release variants. The fake makes no HTTP requests. When adding a backend, add INTERNET only when required and move development exceptions to an appropriate debug configuration or remove them.
+Hub URLs are never baked into a build; they come from a setup or pair URI, which already
+requires `https:` except for loopback hosts (SPEC §8). With `adb reverse tcp:8787 tcp:8787`
+a debug build can use `http://localhost:8787` from a QR code or pasted URI.
 
-## Backup implications
+## Restore and transfer
 
-The SharedPreferences exclusion does not exclude Room databases or Preferences DataStore: they use different storage domains. The current rules do not explicitly exclude the task database or DataStore file. The missing device-transfer section also means the cloud exclusions are not an explicit device-to-device policy.
+Nothing is backed up or transferred. If the vault file ever reappears without its Keystore key
+(restore, transfer, a cleared Keystore), `FileSecretVault` cannot decrypt it, deletes it and
+reports empty contents, so the app onboards again with a new identity. This is the behaviour
+SPEC §5.3 requires ("A reinstall means a new identity and a new pairing").
 
-Android backs up databases and internal files by default, subject to its transport and device conditions. Use separate cloud and device-transfer rules where required. See the official [Auto Backup guide](https://developer.android.com/identity/data/autobackup), including the platform caveat that disabling cloud backup does not universally disable device transfers.
+## Still to decide when the features land
 
-For a product, decide which user data should restore, which settings are portable, and which credentials/device identifiers must be excluded. Update both `app/src/main/res/xml/backup_rules.xml` and `data_extraction_rules.xml`, then test backup/restore, database migration after restore, and transfer behavior on supported Android versions. Do not treat uninstall/reinstall as proof of an empty database because restoration may occur.
-
-## Other product decisions
-
-- Validate incoming links and authorize the destination against the signed-in user when authentication exists. The sample does not implement authentication; see [Deep links](DEEP_LINKS.md).
-- Choose credential storage and retention deliberately. Room and Preferences DataStore in this starter are not configured as encrypted credential stores.
-- Keep server credentials out of the APK. Review logging, exported components, permission requests, and any new SDK's data collection.
-- Configure real signing and artifact retention through [Release](RELEASING.md); keys do not belong in the repository.
-
-Use the [product checklist](TEMPLATE_CHECKLIST.md) as the handoff list, and document the policy chosen for the actual product.
+- The notification listener, Quick Settings tile, share target and UnifiedPush receiver must
+  each be exported only as far as the platform requires, with permission guards where possible.
+- Notification and clipboard content must never reach logs or crash reports.
+- Configure real signing and artifact retention through [Release](RELEASING.md); keys do not
+  belong in the repository.

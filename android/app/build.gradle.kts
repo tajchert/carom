@@ -7,16 +7,18 @@
 //
 // - Application class with Hilt setup
 // - MainActivity as single entry point
-// - Navigation host combining all features
+// - Navigation host combining all features (Home is the start destination)
 // - Theme observation and application
+// - WorkManager configuration with the Hilt worker factory
 //
 // ## Dependency Approach
 //
 // This module depends on:
-// - All feature:*:impl modules (to access navigation graphs)
+// - All feature:*:impl modules (to access navigation contributions)
 // - core:designsystem (for theme)
-// - core:data (for theme preferences)
+// - core:data (preferences, CaromSync, WorkManager worker)
 // - core:model (for preference models)
+// - every core module that contributes Hilt bindings (hub, security, database, datastore)
 //
 // Features are composed here via their navigation contributions.
 // =============================================================================
@@ -112,17 +114,25 @@ baselineProfile {
 dependencies {
     baselineProfile(projects.benchmark)
     implementation(libs.androidx.profileinstaller)
-    // Project modules
-    implementation(projects.feature.tasks.api)
-    implementation(projects.feature.tasks.impl)
+    // Project modules: every feature is composed here through its navigation contribution.
+    implementation(projects.feature.home.impl)
+    implementation(projects.feature.onboarding.impl)
+    implementation(projects.feature.pairing.impl)
+    implementation(projects.feature.devices.impl)
+    implementation(projects.feature.settings.impl)
     implementation(projects.core.designsystem)
     implementation(projects.core.data)
     implementation(projects.core.model)
     implementation(projects.core.common)
-    implementation(projects.core.network)
+    implementation(projects.core.hub)
+    implementation(projects.core.security)
     implementation(projects.core.database)
     implementation(projects.core.datastore)
     implementation(projects.core.domain)
+
+    // WorkManager with Hilt workers (CaromApplication supplies the HiltWorkerFactory)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
 
     // Android Core
     implementation(libs.androidx.core.ktx)
@@ -140,9 +150,6 @@ dependencies {
 
     // Navigation 3
     implementation(libs.bundles.navigation3)
-
-    // Material 3 adaptive list-detail scenes
-    implementation(libs.bundles.adaptive)
 
     // Hilt
     implementation(libs.hilt.android)

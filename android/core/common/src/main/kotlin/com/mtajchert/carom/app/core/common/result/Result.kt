@@ -20,8 +20,8 @@ import kotlinx.coroutines.CancellationException
  * ## Usage with StateFlow in ViewModel
  *
  * ```kotlin
- * val uiState: StateFlow<Result<List<Task>>> = taskRepository
- *     .observeTasks()
+ * val uiState: StateFlow<Result<List<Device>>> = taskRepository
+ *     .observeDevices()
  *     .asResult()  // Wraps in Result with Loading/Success/Error
  *     .stateIn(
  *         scope = viewModelScope,
@@ -85,11 +85,11 @@ sealed interface Result<out T> {
  *
  * ```kotlin
  * // In Repository
- * fun observeTasks(): Flow<List<Task>> = taskDao.observeAllTasks()
+ * fun observeDevices(): Flow<List<Device>> = deviceDao.observeAll()
  *
  * // In ViewModel
- * val tasksResult: StateFlow<Result<List<Task>>> = repository
- *     .observeTasks()
+ * val devicesResult: StateFlow<Result<List<Device>>> = repository
+ *     .observeDevices()
  *     .asResult()
  *     .stateIn(viewModelScope, ...)
  * ```

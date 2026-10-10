@@ -6,10 +6,10 @@
 // ## vs core:designsystem
 //
 // - **core:designsystem**: Generic Material 3 components (Button, Card, etc.)
-// - **core:ui**: App-specific components (TaskCard, PriorityBadge, etc.)
+// - **core:ui**: App-specific components (ConnectionStatusIndicator, CaromSimpleScreen, etc.)
 //
 // Components in this module:
-// - Know about domain models (Task, TaskPriority)
+// - Know about domain models (ConnectionStatus, DeviceSummary)
 // - Are reused across multiple features
 // - Build on top of designsystem components
 // =============================================================================

@@ -39,7 +39,7 @@ import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
  * Scaffold(
  *     topBar = {
  *         CaromTopAppBar(
- *             title = "Tasks",
+ *             title = "Devices",
  *             onNavigationClick = { navController.popBackStack() },
  *         )
  *     }
@@ -97,7 +97,7 @@ fun CaromTopAppBar(
 private fun CaromTopAppBarPreview() {
     CaromTheme {
         CaromTopAppBar(
-            title = "Tasks",
+            title = "Devices",
         )
     }
 }

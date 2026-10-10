@@ -1,6 +1,6 @@
 # First run and troubleshooting
 
-Start with the unchanged sample before adopting its identity. The current toolchain is in the [README](../README.md) and `gradle/libs.versions.toml`.
+The current toolchain is in the [README](../README.md) and `gradle/libs.versions.toml`.
 
 ## Configure your machine
 
@@ -27,9 +27,15 @@ adb devices
 adb shell am start -n com.mtajchert.carom.app.debug/com.mtajchert.carom.app.MainActivity
 ```
 
-These examples use the original identity. After adoption, substitute your package; the debug application ID keeps the `.debug` suffix. With several devices attached, select the target explicitly, for example with `adb -s <serial>` and Android Studio's run-device selector.
+The debug application ID is `com.mtajchert.carom.app.debug`; release is `com.mtajchert.carom.app`. With several devices attached, select the target explicitly, for example with `adb -s <serial>` and Android Studio's run-device selector.
 
-The first database creation seeds two tasks. Create a task, relaunch, open its detail, and try preferences. Demo import replaces local tasks only after confirmation. For the separate development app, see [Tasks feature host](../samples/tasks-app/README.md).
+A fresh install has no keys, so Home offers "Set up Carom". To try the app against a local Hub, run `npm run dev -w hub` (see [`hub/`](../../hub/)) and forward its port to the device:
+
+```bash
+adb reverse tcp:8787 tcp:8787
+```
+
+Setup and pair URIs then use `http://localhost:8787`, which the debug network security config allows. Release builds accept only https Hubs.
 
 ## Common failures
 
@@ -40,7 +46,7 @@ The first database creation seeds two tasks. Create a task, relaunch, open its d
 | Missing platform or build tools | SDK Manager has the exact versions required by the version catalog |
 | Dependency download fails | Repository access, proxy settings, and whether Gradle offline mode is enabled |
 | Device is absent or unauthorized | `adb devices`, USB debugging authorization, or whether the AVD finished booting |
-| Install fails after switching signing keys | Use a matching signing key or remove only the conflicting sample installation; uninstall deletes its local data |
+| Install fails after switching signing keys | Use a matching signing key or remove only the conflicting installation; uninstall deletes its local data |
 | Screenshot comparison differs | Inspect the diff and rendering environment using [screenshot testing](SCREENSHOT_TESTING.md); do not blindly update references |
 
 For a reproducible failure, capture the failing task and `./gradlew <task> --stacktrace` output. Fix the cause before clearing caches or changing toolchain versions.

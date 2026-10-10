@@ -1,170 +1,144 @@
-# Android App Starter
+# Carom for Android
 
-A pragmatic Android foundation for starting a new mobile product in 2026. The repository is intentionally small enough to understand, while demonstrating boundaries that continue to work as an app grows.
+The Android client of Carom: it forwards phone notifications to your desktops and syncs the
+clipboard between your own devices, end-to-end encrypted, through a Hub you run yourself
+(Cloudflare Worker, [`hub/`](../hub/)). The wire contract is [`protocol/SPEC.md`](../protocol/SPEC.md);
+what the apps do with it is [`docs/CLIENTS.md`](../docs/CLIENTS.md). When this README and the spec
+disagree, the spec wins.
 
-The included Tasks feature is executable sample code, not a promise that every product needs tasks, a REST backend, or a universal synchronization engine.
+The project was adopted from the team's Android template (Compose, Navigation 3, Hilt, Room 3,
+DataStore, Kover, screenshot tests, CI) and its Tasks sample was removed.
+
+## Status
+
+Done (foundation):
+
+- `core:protocol`: the complete protocol v1 in pure Kotlin/JVM, passing every case of every
+  file in `protocol/vectors/`.
+- `core:hub`: an HTTP client for every SPEC §6 route and an OkHttp WebSocket client (§7).
+- `core:security`: Android Keystore-wrapped storage for identity keys, group keys and the token.
+- `core:database`, `core:datastore`: Room schema v1 and preferences.
+- `core:data`: the `CaromSync` engine (directory, outbox send pipeline, SPEC §3.3 receive
+  pipeline, keyring/rekey, revocation) and `Enrollment` (setup, join, invite), tested against an
+  in-memory Hub; WorkManager + Hilt worker factory; `OutboxWorker`.
+- App shell: Home (start destination, connection status) and wired placeholder screens for
+  onboarding, pairing, devices and settings.
+
+Not done yet: onboarding and pairing UI (camera/QR), the notification listener, clipboard
+share target/tile, UnifiedPush, foreground WebSocket, message handlers. The libraries they
+need are already in `gradle/libs.versions.toml` and every module is already registered in
+`settings.gradle.kts`, so feature work does not touch those files.
 
 ## Baseline
-
-Dependency baseline refreshed on **5 October 2026**, including Room **3.0.3** and Gradle **9.8.0**. Navigation uses stable **1.2.0**. See the [October refresh](docs/OCTOBER_2026_REFRESH.md) for changes and verification, and the [September refresh](docs/SEPTEMBER_2026_REFRESH.md) for earlier migration decisions.
 
 | Area | Choice |
 |---|---|
 | Language | Kotlin 2.4.20, Java 17 bytecode |
-| UI | Jetpack Compose, Material 3, Material 3 Adaptive 1.3.0 |
-| Navigation | Navigation 3 1.2.0 with typed, serializable keys, URI matchers, adaptive scenes |
-| State | ViewModel, StateFlow, lifecycle-aware collection |
-| DI | Hilt |
-| Persistence | Room 3.0.3 with platform SQLite driver, Preferences DataStore |
-| Network seam | Serializable DTO boundary with a runnable fake |
+| UI | Jetpack Compose, Material 3 |
+| Navigation | Navigation 3 1.2.0 with typed, serializable keys |
+| DI | Hilt (+ `androidx.hilt:hilt-work`) |
+| Persistence | Room 3.0.3, Preferences DataStore, Android Keystore |
+| Network | OkHttp 5.5.0, kotlinx-serialization |
+| Crypto | Tink 1.23.0 (`tink-android`) + JCA |
+| Background | WorkManager 2.12.0 |
 | Build | AGP 9.4.1, Gradle 9.8.0, version catalog, configuration cache |
-| Android | compileSdk 37, targetSdk 37, minSdk 26 |
+| Android | compileSdk 37, targetSdk 37, **minSdk 29** |
+| App id | `com.mtajchert.carom.app` (debug: `com.mtajchert.carom.app.debug`) |
 
-## What is implemented
+## Module map
 
-- Single-activity, edge-to-edge Compose application
-- App-owned Navigation 3 back stack with destination-scoped ViewModels
-- Adaptive list-detail layout via Navigation 3 scenes, and an adaptive task grid
-- Validated deep links with a synthetic back stack, handled on cold and warm start
-- Feature `api`/`impl` split for navigation boundaries
-- Saved form drafts, state-driven completion, and cancellation-safe write error handling
-- Room-backed reactive reads and local-first task writes
-- One-time Room demo seed; local edits survive process restarts
-- Explicit, confirmed demo import with atomic snapshot replacement
-- Preferences dialog for theme, dynamic colors, and task sorting
-- Safe DataStore defaults, corrupt-file recovery, and forward-compatible enum decoding
-- Explicit Room migration from schema 1 to 2 with exported schemas
-- Edge-to-edge screens with correct system-bar and IME inset handling
-- Reusable design-system, UI, and test-support modules
-- Runnable Tasks feature host for focused development and faster iteration
-- Local Compose screenshot regression tests for reusable components and complete screen states
-- Shared form-factor previews covering phone, folded and unfolded foldable, tablet, desktop, and font scale 1.5
-- Compose behaviour and navigation tests running locally on Robolectric, no emulator required
-- Aggregated Kover coverage across all modules
-- Baseline Profile generation and cold-start Macrobenchmark examples in `:benchmark`
-- Localized resource labels, typed UI errors, and task-specific accessibility semantics
-- Unit tests, Android lint, debug and minified release assembly, and matching GitHub CI
-- Dependabot configuration and editor defaults
+```text
+app ── feature/*/impl ── feature/*/api
+          │
+          ├─ core:domain ── core:data ─┬─ core:hub ──────┐
+          │                            ├─ core:security ─┼─ core:protocol (pure JVM)
+          │                            ├─ core:database  │
+          │                            └─ core:datastore │
+          └─ core:ui ── core:designsystem               core:model (pure JVM)
+```
 
-## Deliberate extension points
+| Module | What belongs there |
+|---|---|
+| `:app` | `MainActivity`, `CaromNavHost` (Home is the start), `CaromApplication` (Hilt root, WorkManager `Configuration.Provider`), manifest, backup/network XML |
+| `:core:protocol` | SPEC as code: `B64`, `lp`/`u64`, `Crypto` (Ed25519, X25519, HKDF, ChaCha20-Poly1305), `Envelopes`, `Payload`, `MessageTypes`/`MessageBodies`, `Receiver` (§3.3), `Records`, `Routing`, `Boxes`, `Pairing`, `Rekey`, `Tokens`, `QrUri`, `UuidV7Generator`, `Collapse` |
+| `:core:hub` | `HubClient` (one suspend function per route, `HubException` errors), `HubSocket`, `Backoff`, `HubClientFactory` |
+| `:core:security` | `SecretVault` / `FileSecretVault` / `AndroidKeystoreCipher` |
+| `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items) |
+| `:core:datastore` | `UserPreferencesDataSource` (Hub URL, device id/name, toggles, theme, last clipboard ts) |
+| `:core:data` | `CaromSync`/`DefaultCaromSync`, `Enrollment`, stores, repositories, `OutboxWorker`, `IncomingMessageHandler` multibinding |
+| `:core:domain` | `ObserveHomeStatusUseCase`, `SendClipboardUseCase` |
+| `:core:model` | App models (`SessionState`, `ConnectionStatus`, `DeviceSummary`, `UserPreferences`, …) |
+| `:core:ui`, `:core:designsystem` | Shared composables and the Carom theme |
+| `:core:common` | Dispatcher qualifiers, `Result` |
+| `:core:testing` | `FakeHub` (in-memory Hub), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
+| `:feature:{home,onboarding,pairing,devices,settings}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
+| `:benchmark` | Startup Macrobenchmark, Baseline Profile generator, `StartupSmokeTest` |
 
-The sample network source is in-memory and is bound in every build. Before shipping a real product, replace it with a product-specific service and environment configuration.
+Rules: features depend on other features' **api** modules only and navigate through callbacks
+wired in `CaromNavHost`; core modules never depend on features; `core:protocol` and
+`core:model` stay free of Android.
 
-Durable bidirectional offline synchronization is not generic infrastructure. It requires backend-specific decisions about identity, retries, ordering, conflicts, tombstones, authentication, and observability. The sample therefore demonstrates local-first UI and explicit snapshot refresh without claiming to be a complete sync engine. See [Sync architecture](docs/SYNC.md).
+### Extension points for the next features
 
-Analytics, crash reporting, push notifications, authentication, billing, and privacy consent are intentionally absent because their correct design depends on the product and vendors selected.
+- **Receiving a message type**: implement `IncomingMessageHandler` and bind it with
+  `@Binds @IntoSet`. The set's types become this device's `caps` and known types.
+- **Sending**: `CaromSync.send(type, body, …)` routes, seals, stores in the outbox and posts;
+  on `SendResult.Queued` call `SyncWorkScheduler.scheduleOutboxFlush()` (as
+  `SendClipboardUseCase` does).
+- **Fetching**: `CaromSync.fetchMessages()` (push wake-up, foreground, after a send). For a
+  WebSocket, feed `HubSocketEvent.Message`s to `CaromSync.process()` and `ack` the returned seq;
+  on `DirectoryChanged` call `refreshDirectory()`; on `Revoked` call `onRevoked()`.
+- **Onboarding/pairing UI**: `Enrollment.setUpNewHub`, `join`, `createInvite`,
+  `checkCandidate`/`verify`, `approve`, `reject`; parse scanned/pasted text with `QrUri.parse`.
 
-## Getting started
+## Running
 
-Prerequisites:
-
-- Current stable Android Studio supporting AGP 9.4, with Android SDK 37 and Build Tools 36.0.0
-- JDK 21 for running Gradle; production code targets Java 17
-- An emulator or device on API 26 or newer
-
-Follow [First run and troubleshooting](docs/GETTING_STARTED.md) for SDK/JDK configuration, installation, and common setup failures.
-
-Verify the repository before making product changes:
+Prerequisites: JDK 21 for Gradle, Android SDK 37 and Build Tools 36.0.0, an API 29+ device or
+emulator. See [First run and troubleshooting](docs/GETTING_STARTED.md).
 
 ```bash
+cd android
 ./gradlew testDebugUnitTest lintDebug assembleDebug :app:lintRelease :app:assembleRelease
+./gradlew :app:installDebug
 ```
 
-When changing Compose UI, also run the local screenshot suite and review any
-reference updates. See [Compose screenshot testing](docs/SCREENSHOT_TESTING.md)
-for component and screen coverage, update/validation commands, selected-test
-workflow, and report locations.
+[Testing](docs/TESTING.md) lists every command (screenshots, coverage, device tests).
 
-[Testing](docs/TESTING.md) describes the test layers and their commands.
+## Protocol vectors
 
-To exercise a deep link on a device:
+`:core:protocol` is a plain Kotlin/JVM module. Its tests read the shared vectors straight from
+`../protocol/vectors/` (relative to `android/`): Gradle passes the directory as the
+`carom.vectors.dir` system property and declares it as a test input, so editing a vector re-runs
+the tests. `ProtocolVectorsTest` consumes every case of every file, compares deterministic
+outputs byte for byte and checks signatures by verification; `everyVectorFileIsConsumed` fails
+when a new vector file appears without a test. CI runs on changes to `android/**` and
+`protocol/vectors/**`.
 
 ```bash
-adb shell am start -W -a android.intent.action.VIEW \
-  -d "https://tajchert.github.io/tasks/abc-123" com.mtajchert.carom.app.debug
+./gradlew :core:protocol:test
 ```
 
-Run the `app` debug configuration before invoking the deep link. The debug application ID is `com.mtajchert.carom.app.debug`.
+Crypto: Tink's `subtle` Ed25519/X25519/HKDF and `aead.internal.InsecureNonceChaCha20Poly1305`
+(the spec's single-use key with a zero nonce needs an explicit-nonce AEAD), JCA for SHA-256 and
+HMAC. Tink has pure-Java fallbacks, so the same code runs on the JVM test runner and on devices,
+without depending on the platform's stripped BouncyCastle.
 
-On first launch, Room creates two demo tasks. Your edits and deletions persist across launches. The toolbar opens preferences for theme, dynamic colors, and sorting; importing demo tasks requires confirmation and replaces your local tasks.
+## Documentation
 
-For isolated Tasks development, run the feature host:
+- [First run and troubleshooting](docs/GETTING_STARTED.md)
+- [Testing](docs/TESTING.md) and [Compose screenshot testing](docs/SCREENSHOT_TESTING.md)
+- [Security and backup defaults](docs/SECURITY_DEFAULTS.md)
+- [Release workflow](docs/RELEASING.md), [Localization](docs/LOCALIZATION.md)
+- [Performance testing](docs/PERFORMANCE_TESTING.md)
+- [Agent setup](docs/AGENT_SETUP.md) and the repository rules in [AGENTS.md](AGENTS.md)
 
-```bash
-./gradlew :samples:tasks-app:installDebug
-```
-
-The host builds only the Tasks feature and its required dependency closure, starts directly inside the feature, and installs alongside the complete app. See the [feature-host guide](samples/tasks-app/README.md) for replication rules, DI and dependency requirements, benefits, and tradeoffs.
-
-## Before building your product
-
-1. Run the [adoption script](docs/ADOPTING.md) to replace project identity and invalidate generated artifacts.
-2. [Replace or remove the Tasks feature](docs/REPLACING_TASKS.md), including its demo seed, preferences controls, and journeys.
-3. Choose the real network/environment strategy; never ship the fake binding accidentally.
-4. Replace the deep link host and publish `assetlinks.json`, or remove the intent filters.
-5. Follow the [release workflow](docs/RELEASING.md) for signing, bundles, versioning, and artifact retention.
-6. Review [security and backup defaults](docs/SECURITY_DEFAULTS.md), privacy, and exported-component policies.
-7. Add product-specific Room migrations whenever the schema changes.
-8. Choose error reporting, analytics, authentication, and sync based on actual requirements.
-9. Add instrumentation and accessibility tests for the product's critical journeys, including [localization and RTL checks](docs/LOCALIZATION.md).
-10. Revisit the adaptive layout for your own screens. List-detail suits tasks;
-    another product may need a supporting pane, or no multi-pane layout at all.
-
-See [Template checklist](docs/TEMPLATE_CHECKLIST.md) for the complete handoff list.
-
-## Architecture
-
-```text
-app
- └─ feature/*/impl ── feature/*/api
-       ├─ core/domain ── core/data
-       └─ core/ui ── core/designsystem
-
-core/data ── core/database + core/datastore + core/network
-all layers may depend on core/model
-```
-
-The main data flow is unidirectional:
-
-```text
-Room → Repository → Use case → ViewModel → StateFlow → Compose
-UI event → ViewModel → Repository → Room
-```
-
-Feature implementations may depend on other features' API modules, never their implementation modules. Core modules do not depend on features.
-
-Further reading, describing implemented behavior and product adoption steps:
-
-- [First run and troubleshooting](docs/GETTING_STARTED.md) - SDK/JDK setup and installation
-- [Replace Tasks](docs/REPLACING_TASKS.md) - sample connections and removal sequence
-- [Security and backup defaults](docs/SECURITY_DEFAULTS.md) - current manifest, storage, and network policies
-- [Release workflow](docs/RELEASING.md) - signing, bundles, mapping retention, and distribution checks
-- [Localization](docs/LOCALIZATION.md) - translations, pseudolocales, RTL, and spoken labels
-
-- [Adaptive layouts](docs/ADAPTIVE_LAYOUTS.md) - list-detail scenes, adaptive grid, and what was deliberately not adopted
-- [Deep links](docs/DEEP_LINKS.md) - the URI contract and the handling rules behind it
-- [Performance testing](docs/PERFORMANCE_TESTING.md) - profile generation and startup measurements
-- [Testing](docs/TESTING.md) - the six layers, their commands and coverage
-- [Compose screenshot testing](docs/SCREENSHOT_TESTING.md) - form factors, references, workflow
-- [Sync architecture](docs/SYNC.md) - why no sync engine ships here
-- [Template checklist](docs/TEMPLATE_CHECKLIST.md) - the handoff list
-
-The larger [Modern Android Guide](MODERN_ANDROID_GUIDE.md) is architectural background and discusses optional production capabilities. This README is the authoritative description of what this repository currently implements.
-
-## Adding a feature
-
-1. Add `feature/<name>/api` containing stable navigation contracts.
-2. Add `feature/<name>/impl` containing UI, ViewModels, and its navigation contribution.
-3. Compose that contribution in `CaromNavHost`.
-4. Keep framework-free models in `core:model`; introduce use cases only for reusable or multi-source business logic.
-5. Add focused ViewModel/domain tests and critical Compose smoke tests.
+The [Modern Android Guide](MODERN_ANDROID_GUIDE.md) is background from the template; it
+describes optional patterns, not what this app implements.
 
 ## Quality contract
 
-The included GitHub Actions workflow runs unit tests, Android lint, debug builds (including the feature host), and a minified unsigned release build. Its emulator job executes SQLite migration/reopen tests, Compose lifecycle/accessibility tests, and the app create/open/delete/restart and preferences journeys. A macOS 15 job validates reviewed screenshots. Actions are pinned and Dependabot maintains them; the wrapper has SHA-256 verification.
-
-These jobs run on GitHub pull requests and pushes to `main`. The current remote is GitLab: GitLab does not execute `.github/workflows/ci.yml`, and this starter does not include a `.gitlab-ci.yml`. Run the documented checks locally or configure equivalent jobs when using GitLab.
-
-[Agent setup](docs/AGENT_SETUP.md) explains Android CLI and official skills; root [AGENTS.md](AGENTS.md) records the repository rules.
-
-Do not use destructive Room migration as a development shortcut in shared code. Do not swallow coroutine cancellation. Represent operation completion and failures as state; keep lifecycle-dependent navigation in Compose. SavedStateHandle holds small drafts, not durable work or an exactly-once submission guarantee. Do not expose raw infrastructure exceptions as user-facing messages.
+`.github/workflows/android.yml` (repository root) runs unit tests (including all protocol
+vectors), lint, debug and minified release builds, Keystore device tests and a cold-start
+journey on an emulator, and validates screenshot references on macOS. Do not use destructive
+Room migrations, do not swallow coroutine cancellation, and never log keys, tokens, setup/pair
+URIs, or notification and clipboard content.

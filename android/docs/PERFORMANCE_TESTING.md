@@ -1,10 +1,10 @@
 # Performance testing
 
 The `:benchmark` Android test module targets the complete app and contains two
-small examples. `BaselineProfileGenerator` captures startup and the Navigation 3
-journey from the task list into the Create task form. `StartupBenchmark` measures
+small examples. `BaselineProfileGenerator` captures startup until Home is ready.
+`StartupBenchmark` measures
 five cold launches without compilation, then five with the required app profile.
-The performance examples wait for visible UI and work with an empty or populated task list. The module also contains `TasksSmokeTest`: functional process-restart journeys that collect no performance timings and can run on an emulator. See [Testing](TESTING.md) for their command and CI coverage.
+The examples wait for Home ("Set up Carom" on a fresh install, "Add a device" once paired). The module also contains `StartupSmokeTest`: a functional process-restart journey that collect no performance timings and can run on an emulator. See [Testing](TESTING.md) for their command and CI coverage.
 
 The Baseline Profile plugin creates `nonMinifiedRelease` for profile generation
 and `benchmarkRelease` for measurements. Both are non-debuggable, locally signed
@@ -61,7 +61,7 @@ Compile both examples without a device:
 
 ## Extend the examples
 
-Update `TasksJourney.PACKAGE_NAME` when renaming the application's ID. Keep UI
+Update `CaromJourney.PACKAGE_NAME` when renaming the application's ID. Keep UI
 selectors aligned with accessibility labels and assert readiness with bounded
 waits. Add profile journeys for actual common paths, and separate measurements
 for scrolling or expensive interactions using the appropriate metrics.
@@ -70,13 +70,9 @@ Do not introduce fixed sleeps or suppress benchmark configuration errors.
 See the official [Baseline Profile configuration](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles)
 and [Macrobenchmark guide](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview).
 
-## Verified baseline (5 October 2026)
+## Profiles in this repository
 
-Both generator methods passed on the API 37.1 emulator. The generated baseline
-and startup files are saved in the source tree, and the compiled profile is
-packaged in release and optimized benchmark APKs. Ordinary debug/release assembly
-ran without generation tasks and reused the configuration cache.
-
-The two startup measurements were attempted on the available emulator and
-correctly rejected it with the unsuppressed `EMULATOR` configuration error.
-Physical-device timings and traces have not been collected.
+The template's generated profiles were removed when the app was adopted (their class names no
+longer exist), so `app/src/main/generated/baselineProfiles/` is empty and
+`coldStartupWithProfile` fails until a profile is generated. Regenerate on an API 33+ device
+once Home and onboarding are real, commit the result, and measure on a physical device only.

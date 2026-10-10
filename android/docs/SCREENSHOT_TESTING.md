@@ -2,7 +2,7 @@
 
 This template uses Google's experimental Compose Preview Screenshot Testing plugin to catch visual regressions locally. A screenshot test renders a composable, compares it with a reviewed reference PNG, and produces an HTML diff when pixels change.
 
-The September 2026 baseline uses `0.0.1-alpha16` with stable AGP 9.4.1. The standalone plugin no longer exposes the old `testOptions.screenshotTests.imageDifferenceThreshold` setting; this template uses the default exact comparison. Native AGP screenshot test suites require AGP 9.5 previews, so migration is deferred until that build tooling is stable. See the [official release notes](https://developer.android.com/studio/preview/compose-screenshot-testing-release-notes).
+The September 2026 baseline uses `0.0.1-alpha16` with stable AGP 9.4.1. The standalone plugin no longer exposes the old `testOptions.screenshotTests.imageDifferenceThreshold` setting; this project uses the default exact comparison. Native AGP screenshot test suites require AGP 9.5 previews, so migration is deferred until that build tooling is stable. See the [official release notes](https://developer.android.com/studio/preview/compose-screenshot-testing-release-notes).
 
 The plugin is currently alpha. Recheck its release notes and generated output when upgrading Android Gradle Plugin, Kotlin, Compose, or the screenshot plugin.
 
@@ -66,7 +66,7 @@ Update all configured modules:
 ./gradlew \
   :core:designsystem:updateDebugScreenshotTest \
   :core:ui:updateDebugScreenshotTest \
-  :feature:tasks:impl:updateDebugScreenshotTest
+  :feature:home:impl:updateDebugScreenshotTest
 ```
 
 References are written below each module:
@@ -91,7 +91,7 @@ Validate the complete local suite:
 ./gradlew \
   :core:designsystem:validateDebugScreenshotTest \
   :core:ui:validateDebugScreenshotTest \
-  :feature:tasks:impl:validateDebugScreenshotTest
+  :feature:home:impl:validateDebugScreenshotTest
 ```
 
 A mismatch fails the task and creates an HTML report at:
@@ -117,9 +117,10 @@ When hosted on GitHub, the `screenshots` Actions job validates references on `ma
 
 Run the relevant local validation whenever UI changes. Intentional updates still require inspection of every changed image. If a hosted runner image/font update causes rendering drift, inspect the comparisons before changing references; runner labels pin an OS family, not an immutable image.
 
-## October regression examples
+## Current coverage
 
-The existing alpha16 suites also cover a long task card at font scale 1.5 in
-light and dark themes, a populated Create task form with a missing-title error
-in dark mode, and long task details at font scale 1.5. The component and Tasks
-screen wrappers disable dynamic colors to keep reference colors deterministic.
+`core:designsystem` components and `core:ui` (`ConnectionStatusIndicator`, `DeviceFingerprint`)
+in light and dark; Home not paired at phone size, paired across `@FormFactorPreviews`, and
+paired/offline at font scale 1.5. References were regenerated on macOS after the Carom
+adoption and inspected. Add a screenshot suite to a feature module (apply the `screenshot`
+plugin as `feature/home/impl` does) when its screen stops being a placeholder.

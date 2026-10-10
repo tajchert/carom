@@ -1,5 +1,5 @@
 // =============================================================================
-// ANDROID SAMPLE PROJECT - ROOT BUILD FILE
+// CAROM ANDROID - ROOT BUILD FILE
 // =============================================================================
 // Configuration common to all sub-projects/modules.
 // Uses version catalog (gradle/libs.versions.toml) for dependency management.
@@ -65,8 +65,7 @@ plugins {
 // =============================================================================
 
 dependencies {
-    // `:core:testing` holds fakes, and `:samples:tasks-app` is a development
-    // tool. Measuring either would report on test scaffolding.
+    // `:core:testing` holds fakes; measuring it would report on test scaffolding.
     kover(projects.app)
     kover(projects.core.common)
     kover(projects.core.data)
@@ -74,11 +73,21 @@ dependencies {
     kover(projects.core.datastore)
     kover(projects.core.designsystem)
     kover(projects.core.domain)
+    kover(projects.core.hub)
     kover(projects.core.model)
-    kover(projects.core.network)
+    kover(projects.core.protocol)
+    kover(projects.core.security)
     kover(projects.core.ui)
-    kover(projects.feature.tasks.api)
-    kover(projects.feature.tasks.impl)
+    kover(projects.feature.home.api)
+    kover(projects.feature.home.impl)
+    kover(projects.feature.onboarding.api)
+    kover(projects.feature.onboarding.impl)
+    kover(projects.feature.pairing.api)
+    kover(projects.feature.pairing.impl)
+    kover(projects.feature.devices.api)
+    kover(projects.feature.devices.impl)
+    kover(projects.feature.settings.api)
+    kover(projects.feature.settings.impl)
 }
 
 kover {
