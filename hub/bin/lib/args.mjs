@@ -74,7 +74,8 @@ Options:
   --name <name>          Worker name (default: ${DEFAULT_NAME})
   --jurisdiction <j>     deploy: Durable Object jurisdiction, e.g. eu (cannot be changed later)
   --url <url>            info: query this Hub URL instead of a deployed one
-  --new-token            reset: also rotate the setup token (signs out every device)
+  --new-token            reset: also rotate the setup token (signs out every device);
+                         deploy: allow replacing the token of an existing Hub you have no saved state for
   -y, --yes              Skip confirmation prompts
   -h, --help             Show this help
   -v, --version          Show the version

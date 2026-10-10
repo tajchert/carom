@@ -11,16 +11,28 @@ npx carom-hub qr                      # reprint the setup QR (only while unclaim
 npx carom-hub reset [--new-token]     # erase all Hub data (asks you to type the hub name)
 ```
 
-Options: `--name <name>` (default `carom-hub`), `--jurisdiction <j>`, `--url <url>` (info), `--new-token`, `-y/--yes`.
+Options: `--name <name>` (default `carom-hub`), `--jurisdiction <j>`, `--url <url>` (info), `--new-token` (reset, or deploy over an existing Hub with no saved state), `-y/--yes`.
 
 ## How it works
 
-- Runs the package-local `wrangler` from the package root (where `wrangler.jsonc` lives).
+- Runs the package-local `wrangler` (spawned directly through node, no shell) from a temporary copy of
+  `wrangler.jsonc`, `package.json`, `tsconfig.json` and `src`, so it also works when the package directory is
+  read-only (for example a root-owned `npm i -g`). The copy is removed afterwards.
+- `wrangler deploy` runs with inherited stdio, so wrangler can ask you to pick an account or register a
+  workers.dev subdomain. The deployed URL is read from wrangler's output file (`WRANGLER_OUTPUT_FILE_PATH`,
+  ND-JSON `deploy` entries with `targets`).
+- `deploy` without saved state first checks whether a Worker with that name already has a `SETUP_TOKEN`. If it
+  does and the Hub is set up (or its state cannot be read), it refuses, because a new token would sign out every
+  device. Copy `~/.config/carom-hub/<name>.json` from the machine that deployed it, or start over on purpose with
+  `deploy --new-token` (use the same `--jurisdiction` as before).
 - Generates `SETUP_TOKEN` (32 random bytes, base64url) and passes it via a temporary `0600` secrets file
-  (`wrangler deploy --secrets-file`), deleted right after the deploy. The jurisdiction goes in as
+  (`wrangler deploy --secrets-file`), deleted right after the deploy (also on Ctrl-C, SIGTERM and exit). The jurisdiction goes in as
   `--var HUB_JURISDICTION:<value>`.
 - Saves `{hubUrl, setupToken, jurisdiction, deployedAt}` to `~/.config/carom-hub/<name>.json` (`0600`).
   Keep this file: it holds the setup token needed for `update` and `reset`.
+- `reset --new-token` rotates first and wipes second: it saves the new token to the state file (marked
+  `pendingReset`), redeploys with it, calls `/v1/reset` with the new token, then clears the flag. If any step
+  fails, run `carom-hub reset --new-token` again to resume; `update` redeploys the pending token meanwhile.
 - The setup QR encodes `carom://setup?v=1&h=<hub url>&t=<token>`. Show it only on your own screen.
 - The jurisdiction cannot be changed after the first deploy without a reset.
 

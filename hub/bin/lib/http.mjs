@@ -35,7 +35,7 @@ export async function postReset(fetchImpl, hubUrl, setupToken) {
   const body = await response.json().catch(() => null);
   const code = body?.error?.code;
   if (code === 'forbidden' || code === 'unauthorized') {
-    throw new CliError('The Hub rejected the saved setup token: it does not match the deployed SETUP_TOKEN secret.');
+    throw Object.assign(new CliError('The Hub rejected the saved setup token: it does not match the deployed SETUP_TOKEN secret.'), { rejected: true });
   }
   if (code === 'rate_limited') {
     throw new CliError('Too many failed reset attempts; the Hub locked this route for an hour. Try again later.');

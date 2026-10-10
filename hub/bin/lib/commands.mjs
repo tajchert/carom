@@ -20,7 +20,7 @@ export function help({ io }) {
 async function requireState(name) {
   const state = await readState(name);
   if (!state) {
-    throw new CliError(`No saved state for "${name}" in ~/.config/carom-hub. Run "carom-hub deploy --name ${name}" first.`);
+    throw new CliError(`No saved state for "${name}" in ~/.config/carom-hub. Copy that file from the machine that deployed the Hub, or run "carom-hub deploy --name ${name}" (it refuses to touch a Hub that already exists and is set up).`);
   }
   return state;
 }
@@ -38,7 +38,7 @@ Register one in the dashboard: Workers & Pages -> (right sidebar) Account detail
 Subdomain -> Change. Then run this command again.`;
 
 /** Deploys with the given token and saves state. Returns the saved state. */
-async function deployHub(deps, { name, setupToken, jurisdiction }) {
+async function deployHub(deps, { name, setupToken, jurisdiction, pendingReset = false }) {
   const { wrangler, io } = deps;
   await ensureLoggedIn(deps);
   const vars = jurisdiction ? { HUB_JURISDICTION: jurisdiction } : {};
@@ -46,16 +46,17 @@ async function deployHub(deps, { name, setupToken, jurisdiction }) {
     wrangler.deploy({ name, secretsFile, vars }),
   );
 
-  const hubUrl = detectWorkerUrl(result.output, name);
+  const output = result.output ?? '';
+  const hubUrl = detectWorkerUrl(`${(result.urls ?? []).join('\n')}\n${output}`, name);
   if (!hubUrl) {
-    if (needsWorkersSubdomain(result.output)) throw new CliError(SUBDOMAIN_HELP);
+    if (needsWorkersSubdomain(output)) throw new CliError(SUBDOMAIN_HELP);
     if (result.code !== 0) throw new CliError(`wrangler deploy failed (exit code ${result.code}). See its output above.`);
     throw new CliError('The deploy succeeded but no workers.dev URL was found in wrangler\'s output. Check the Worker in the Cloudflare dashboard.');
   }
   if (result.code !== 0) throw new CliError(`wrangler deploy failed (exit code ${result.code}). See its output above.`);
 
   // Saved before verification: the deployed secret must never exist without a local copy.
-  const state = { hubUrl, setupToken, jurisdiction, deployedAt: new Date().toISOString() };
+  const state = { hubUrl, setupToken, jurisdiction, deployedAt: new Date().toISOString(), ...(pendingReset && { pendingReset: true }) };
   await writeState(name, state);
   io.out(`Deployed: ${hubUrl}`);
   return state;
@@ -89,6 +90,28 @@ async function printSetup(deps, state, info) {
   io.out('The URI contains your setup token: do not share it or post it anywhere.');
 }
 
+/**
+ * No local state: if a Hub with this name is already deployed and set up (or we cannot tell),
+ * deploying would replace SETUP_TOKEN and sign out every device, so require --new-token.
+ */
+async function refuseToRotateExistingHub(deps, { name, newToken }) {
+  const { exists, hubUrl } = await deps.wrangler.findExistingHub(name);
+  if (!exists || newToken) return;
+  let setupDone = true; // unknown counts as set up
+  if (hubUrl) {
+    try {
+      setupDone = (await fetchInfo(deps.fetch, hubUrl)).setup_done !== false;
+    } catch { /* keep the conservative answer */ }
+  }
+  if (!setupDone) return; // nobody is paired yet, so a new token signs nobody out
+  throw new CliError(
+    `A Hub named "${name}" already exists on your Cloudflare account${hubUrl ? ` (${hubUrl})` : ''} and is set up, but there is no saved state for it here. ` +
+    `Deploying would replace its SETUP_TOKEN and sign out every device.\n` +
+    `To recover: copy ~/.config/carom-hub/${name}.json from the machine that deployed it, then use "carom-hub update".\n` +
+    `To start over on purpose (new token, re-pair all devices; pass the same --jurisdiction as before): carom-hub deploy --name ${name} --new-token`,
+  );
+}
+
 export async function deploy(deps, options) {
   const { io } = deps;
   const existing = await readState(options.name);
@@ -98,6 +121,7 @@ export async function deploy(deps, options) {
       `Use another --name, or run "carom-hub reset --new-token" and deploy under a new name.`,
     );
   }
+  if (!existing) await refuseToRotateExistingHub(deps, options);
   const jurisdiction = options.jurisdiction ?? existing?.jurisdiction ?? null;
   const setupToken = existing?.setupToken ?? generateSetupToken();
 
@@ -114,10 +138,14 @@ export async function deploy(deps, options) {
 
 export async function update(deps, options) {
   const existing = await requireState(options.name);
+  if (existing.pendingReset) {
+    deps.io.err(`Note: a "reset --new-token" was interrupted. Run "carom-hub reset --name ${options.name} --new-token" to finish it.`);
+  }
   const state = await deployHub(deps, {
     name: options.name,
     setupToken: existing.setupToken,
     jurisdiction: existing.jurisdiction ?? null,
+    pendingReset: existing.pendingReset,
   });
   const info = await verifyHub(deps, state.hubUrl);
   deps.io.out(`Updated ${state.hubUrl} (protocol ${info.protocol}, version ${info.version}).`);
@@ -156,20 +184,54 @@ export async function confirmReset({ prompt }, name, yes) {
   if (answer.trim() !== name) throw new CliError('Confirmation did not match. Nothing was changed.');
 }
 
+const RESET_ATTEMPTS = 5;
+const RESET_RETRY_MS = 2000;
+
+/** POST /v1/reset with the new token; right after a deploy an old instance may still answer "forbidden". */
+async function resetWithNewToken(deps, state) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await postReset(deps.fetch, state.hubUrl, state.setupToken);
+    } catch (error) {
+      if (!error.rejected || attempt >= RESET_ATTEMPTS) throw error;
+      await deps.sleep(RESET_RETRY_MS);
+    }
+  }
+}
+
 export async function reset(deps, options) {
   const { io } = deps;
   let state = await requireState(options.name);
   await confirmReset(deps, options.name, options.yes);
 
-  await postReset(deps.fetch, state.hubUrl, state.setupToken);
-  io.out('Hub data erased.');
-
-  if (options.newToken) {
-    state = await deployHub(deps, {
-      name: options.name,
-      setupToken: generateSetupToken(),
-      jurisdiction: state.jurisdiction ?? null,
-    });
+  if (!options.newToken && !state.pendingReset) {
+    await postReset(deps.fetch, state.hubUrl, state.setupToken);
+    io.out('Hub data erased.');
+  } else {
+    // Rotate first, wipe second: once the new secret is live the old (possibly leaked) token is dead.
+    // The new token is saved (pending) before anything else, so no step can leave it unrecorded.
+    const resume = `The new setup token is saved locally (pending). Run "carom-hub reset --name ${options.name} --new-token" again to finish.`;
+    await ensureLoggedIn(deps);
+    if (!state.pendingReset) {
+      state = { ...state, setupToken: generateSetupToken(), pendingReset: true };
+      await writeState(options.name, state);
+    }
+    try {
+      state = await deployHub(deps, {
+        name: options.name,
+        setupToken: state.setupToken,
+        jurisdiction: state.jurisdiction ?? null,
+        pendingReset: true,
+      });
+      await resetWithNewToken(deps, state);
+    } catch (error) {
+      if (error instanceof CliError) error.message = `${error.message}\n${resume}`;
+      throw error;
+    }
+    const { pendingReset, ...done } = state;
+    state = done;
+    await writeState(options.name, state);
+    io.out('Hub data erased.');
     io.out('Setup token rotated: every previously issued device token is now invalid.');
   }
   const result = await verifyHub(deps, state.hubUrl);

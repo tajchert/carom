@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, test } from 'node:test';
 import { confirmReset, deploy, info, qr, reset, update } from '../lib/commands.mjs';
 import { CliError } from '../lib/errors.mjs';
 import { readState, writeState } from '../lib/state.mjs';
-import { INFO, exists, fakeFetch, fakeWrangler, jsonResponse, makeDeps, useTempHome } from './helpers.mjs';
+import { readFileSync } from 'node:fs';
+import { statePath } from '../lib/state.mjs';
+import { INFO, SAMPLE_OUTPUT, exists, fakeFetch, fakeWrangler, jsonResponse, makeDeps, useTempHome } from './helpers.mjs';
 
 const URL_ = 'https://carom-hub.my-sub.workers.dev';
 const opts = (extra = {}) => ({ name: 'carom-hub', jurisdiction: null, url: null, yes: false, newToken: false, ...extra });
@@ -36,6 +38,34 @@ describe('deploy', () => {
     assert.ok(text.includes(`[QR:${uri}]`));
     assert.ok(text.includes('Set up new hub'));
     assert.ok(text.includes('cannot be changed later'));
+  });
+
+  test('without local state, refuses to rotate the token of an existing, set-up hub', async () => {
+    const wrangler = fakeWrangler({ existing: { exists: true, hubUrl: URL_ } });
+    const fetch = fakeFetch({ 'GET /v1/info': { ...INFO, setup_done: true } });
+    const deps = makeDeps({ wrangler, fetch });
+    await assert.rejects(deploy(deps, opts()), /already exists[\s\S]*sign out every device[\s\S]*--new-token/);
+    assert.equal(wrangler.calls.deploys.length, 0);
+    assert.equal(await readState('carom-hub'), null);
+  });
+
+  test('without local state, refuses when the existing hub URL cannot be determined', async () => {
+    const wrangler = fakeWrangler({ existing: { exists: true, hubUrl: null } });
+    await assert.rejects(deploy(makeDeps({ wrangler }), opts()), /already exists/);
+    assert.equal(wrangler.calls.deploys.length, 0);
+  });
+
+  test('without local state, --new-token overrides the existing-hub guard', async () => {
+    const wrangler = fakeWrangler({ existing: { exists: true, hubUrl: URL_ } });
+    const fetch = fakeFetch({ 'GET /v1/info': { ...INFO, setup_done: true } });
+    await deploy(makeDeps({ wrangler, fetch }), opts({ newToken: true }));
+    assert.equal(wrangler.calls.deploys.length, 1);
+  });
+
+  test('without local state, an existing but unclaimed hub may be redeployed', async () => {
+    const wrangler = fakeWrangler({ existing: { exists: true, hubUrl: URL_ } });
+    await deploy(makeDeps({ wrangler }), opts());
+    assert.equal(wrangler.calls.deploys.length, 1);
   });
 
   test('omits HUB_JURISDICTION when none is requested', async () => {
@@ -103,6 +133,12 @@ describe('deploy', () => {
     assert.equal(await readState('carom-hub'), null);
   });
 
+  test('takes the URL from the output-file targets', async () => {
+    const wrangler = fakeWrangler({ deployResult: { code: 0, urls: ['https://carom-hub.other.workers.dev'], output: '' } });
+    await deploy(makeDeps({ wrangler }), opts());
+    assert.equal((await readState('carom-hub')).hubUrl, 'https://carom-hub.other.workers.dev');
+  });
+
   test('explains how to register a workers.dev subdomain', async () => {
     const output = 'X [ERROR] You need to register a workers.dev subdomain before publishing to workers.dev';
     const wrangler = fakeWrangler({ deployResult: { code: 1, output } });
@@ -135,7 +171,7 @@ describe('deploy', () => {
 
 describe('update', () => {
   test('requires prior state', async () => {
-    await assert.rejects(update(makeDeps(), opts()), /Run "carom-hub deploy/);
+    await assert.rejects(update(makeDeps(), opts()), /Copy that file.*carom-hub deploy --name/);
   });
 
   test('redeploys with the same token and jurisdiction', async () => {
@@ -224,16 +260,75 @@ describe('reset', () => {
     assert.equal(deps.prompts.length, 0);
   });
 
-  test('--new-token resets with the old token, redeploys with a new one and saves it', async () => {
+  test('--new-token saves the new token (pending), deploys it, then resets with the NEW token', async () => {
     await writeState('carom-hub', saved);
-    const deps = makeDeps({ fetch: resetFetch() });
+    let stateAtDeploy;
+    const wrangler = fakeWrangler({ onDeploy: () => { stateAtDeploy = JSON.parse(readFileSync(statePath('carom-hub'), 'utf8')); } });
+    const deps = makeDeps({ wrangler, fetch: resetFetch() });
     await reset(deps, opts({ yes: true, newToken: true }));
-    const post = deps.fetch.requests.find((r) => r.key === 'POST /v1/reset');
-    assert.equal(post.body.setup_token, 'tok-123');
-    const newToken = deps.wrangler.calls.deploys[0].secrets.SETUP_TOKEN;
+    const newToken = wrangler.calls.deploys[0].secrets.SETUP_TOKEN;
     assert.notEqual(newToken, 'tok-123');
-    assert.equal((await readState('carom-hub')).setupToken, newToken);
+    // saved and marked pending before wrangler ran
+    assert.equal(stateAtDeploy.setupToken, newToken);
+    assert.equal(stateAtDeploy.pendingReset, true);
+    const post = deps.fetch.requests.find((r) => r.key === 'POST /v1/reset');
+    assert.equal(post.body.setup_token, newToken);
+    const final = await readState('carom-hub');
+    assert.equal(final.setupToken, newToken);
+    assert.equal(final.pendingReset, undefined);
     assert.ok(allOutput(deps).includes(`t=${newToken}`));
+  });
+
+  test('--new-token: a failed deploy never wipes the Hub and tells the user how to resume', async () => {
+    await writeState('carom-hub', saved);
+    const wrangler = fakeWrangler({ deployResult: { code: 1, output: 'X [ERROR] boom' } });
+    const deps = makeDeps({ wrangler, fetch: resetFetch() });
+    await assert.rejects(reset(deps, opts({ yes: true, newToken: true })), /reset --name carom-hub --new-token/);
+    assert.equal(deps.fetch.requests.some((r) => r.key === 'POST /v1/reset'), false);
+    const state = await readState('carom-hub');
+    assert.equal(state.setupToken, wrangler.calls.deploys[0].secrets.SETUP_TOKEN);
+    assert.equal(state.pendingReset, true);
+  });
+
+  test('--new-token: resume after a failed deploy reuses the pending token and finishes', async () => {
+    await writeState('carom-hub', saved);
+    const wrangler = fakeWrangler({ deployResult: (n) => (n === 1 ? { code: 1, output: 'boom' } : { code: 0, output: SAMPLE_OUTPUT }) });
+    await assert.rejects(reset(makeDeps({ wrangler, fetch: resetFetch() }), opts({ yes: true, newToken: true })));
+    const deps = makeDeps({ wrangler, fetch: resetFetch() });
+    await reset(deps, opts({ yes: true, newToken: true }));
+    assert.equal(wrangler.calls.deploys[1].secrets.SETUP_TOKEN, wrangler.calls.deploys[0].secrets.SETUP_TOKEN);
+    assert.equal(deps.fetch.requests.find((r) => r.key === 'POST /v1/reset').body.setup_token, wrangler.calls.deploys[0].secrets.SETUP_TOKEN);
+    assert.equal((await readState('carom-hub')).pendingReset, undefined);
+  });
+
+  test('--new-token: a failed /v1/reset keeps the pending flag and explains how to resume', async () => {
+    await writeState('carom-hub', saved);
+    const fetch = fakeFetch({ 'POST /v1/reset': () => jsonResponse({ error: { code: 'internal', message: 'x' } }, 500) });
+    const wrangler = fakeWrangler();
+    await assert.rejects(reset(makeDeps({ wrangler, fetch }), opts({ yes: true, newToken: true })), /--new-token" again/);
+    const state = await readState('carom-hub');
+    assert.equal(state.pendingReset, true);
+    assert.equal(state.setupToken, wrangler.calls.deploys[0].secrets.SETUP_TOKEN);
+  });
+
+  test('--new-token: retries /v1/reset while the old version still answers forbidden', async () => {
+    await writeState('carom-hub', saved);
+    let attempts = 0;
+    const fetch = fakeFetch({
+      'POST /v1/reset': () => (++attempts < 3 ? jsonResponse({ error: { code: 'forbidden', message: 'no' } }, 403) : jsonResponse({})),
+      'GET /v1/info': INFO,
+    });
+    await reset(makeDeps({ fetch }), opts({ yes: true, newToken: true }));
+    assert.equal(attempts, 3);
+  });
+
+  test('update on an interrupted rotation deploys the pending token', async () => {
+    await writeState('carom-hub', { ...saved, setupToken: 'pending-token', pendingReset: true });
+    const deps = makeDeps();
+    await update(deps, opts());
+    assert.equal(deps.wrangler.calls.deploys[0].secrets.SETUP_TOKEN, 'pending-token');
+    assert.ok(deps.err.join('\n').includes('--new-token'));
+    assert.equal((await readState('carom-hub')).pendingReset, true);
   });
 
   test('reports a rejected token', async () => {
@@ -243,6 +338,6 @@ describe('reset', () => {
   });
 
   test('requires saved state', async () => {
-    await assert.rejects(reset(makeDeps(), opts({ yes: true })), /Run "carom-hub deploy/);
+    await assert.rejects(reset(makeDeps(), opts({ yes: true })), /Copy that file.*carom-hub deploy --name/);
   });
 });
