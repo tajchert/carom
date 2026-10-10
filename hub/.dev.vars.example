@@ -1,0 +1,3 @@
+# Shared secret that authorizes POST /v1/setup and POST /v1/reset and keys every
+# device token. At least 32 characters. Generate one with: openssl rand -base64 32
+SETUP_TOKEN=

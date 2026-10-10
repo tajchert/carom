@@ -1,0 +1,24 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "carom-hub",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "HUB", "class_name": "Hub" }]
+  },
+  // Never rename or edit: Durable Object migrations are applied by tag.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub"] }],
+  "vars": {
+    // "" (no constraint) or "eu". Fixed for the life of a deployment: changing it
+    // points the Worker at a different, empty Durable Object.
+    "HUB_JURISDICTION": ""
+  },
+  // SETUP_TOKEN is a secret (see .dev.vars.example) and is never set here.
+  // Logs carry only route names, status codes and error kinds, never payloads or tokens.
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "traces": { "enabled": true }
+  }
+}
