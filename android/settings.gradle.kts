@@ -92,6 +92,8 @@ include(":feature:devices:api")
 include(":feature:devices:impl")
 include(":feature:settings:api")
 include(":feature:settings:impl")
+include(":feature:notifications:api")
+include(":feature:notifications:impl")
 
 // =============================================================================
 // Type-safe project accessors (e.g., projects.core.model)
