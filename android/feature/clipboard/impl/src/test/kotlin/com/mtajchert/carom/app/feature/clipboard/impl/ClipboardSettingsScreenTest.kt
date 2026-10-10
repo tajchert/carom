@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
 import org.junit.Assert.assertEquals
@@ -36,6 +37,7 @@ class ClipboardSettingsScreenTest {
                 onReceiveFromAll = { events += "all $it" },
                 onReceiveFrom = { id, on -> events += "from $id $on" },
                 onArrivalNotification = { events += "notify $it" },
+                onOngoingNotification = { events += "ongoing $it" },
             )
         }
     }
@@ -48,11 +50,12 @@ class ClipboardSettingsScreenTest {
         composeRule.onNodeWithText("Send clipboard to").assertIsDisplayed()
         composeRule.onNodeWithText("Receive clipboard from").assertIsDisplayed()
         composeRule.onNodeWithText("Send clipboard").performClick()
-        composeRule.onNodeWithText("Show a notification when a clipboard arrives").performClick()
-        composeRule.onNodeWithText("Any device").performClick()
+        composeRule.onNodeWithText("Show a notification when a clipboard arrives").performScrollTo().performClick()
+        composeRule.onNodeWithText("Keep a Carom notification with a Send clipboard button").performScrollTo().performClick()
+        composeRule.onNodeWithText("Any device").performScrollTo().performClick()
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
 
-        assertEquals(listOf("send", "notify false", "all true"), events)
+        assertEquals(listOf("send", "notify false", "ongoing true", "all true"), events)
         assertEquals(1, backs)
     }
 

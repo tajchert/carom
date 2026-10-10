@@ -79,7 +79,7 @@ class AppNavigationTest {
         composeRule.onNodeWithText("Forward only when the screen is locked").assertIsDisplayed()
         back()
         composeRule.onNodeWithText("Clipboard").performScrollTo().performClick()
-        composeRule.onNodeWithText("Show a notification when a clipboard arrives").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Show a notification when a clipboard arrives", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         back()
         composeRule.onNodeWithText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
     }
