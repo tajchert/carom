@@ -37,6 +37,14 @@ Done (foundation):
   with a 5-minute countdown, polls `GET /v1/pair/:id` every 2 s while visible, and asks
   "Add device <fingerprint>?". A foreground WebSocket can push candidates by binding
   `PairCandidateFeed` (pairing api); without one the screen only polls.
+- `feature:notifications`: phone -> desktop mirroring. `CaromListenerService` (declared in the
+  module's own manifest, merged into the app) applies the CLIENTS.md filters, per-app modes
+  (Forward / Hide content / Off, with a small deny list of system packages), the global pause and
+  "only when locked" switches, Android 15 redaction detection, MessagingStyle mapping, 4000-char
+  truncation and a 2 s per-key update throttle, then sends through `CaromSync.send`. Removals are
+  sent only for keys this listener connection forwarded. `notification.dismiss@1` cancels the
+  notification if it is still showing. The "Apps" screen (`NotificationAppsRoute`) lists apps
+  seen posting notifications.
 
 
 ### Fetching (docs/CLIENTS.md "Connection policy (phone)")
@@ -103,7 +111,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:ui`, `:core:designsystem` | Shared composables and the Carom theme |
 | `:core:common` | Dispatcher qualifiers, `Result` |
 | `:core:testing` | `FakeHub` (in-memory Hub), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
-| `:feature:{home,onboarding,pairing,devices,settings}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
+| `:feature:{home,onboarding,pairing,devices,settings,notifications}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
 | `:benchmark` | Startup Macrobenchmark, Baseline Profile generator, `StartupSmokeTest` |
 
 Rules: features depend on other features' **api** modules only and navigate through callbacks

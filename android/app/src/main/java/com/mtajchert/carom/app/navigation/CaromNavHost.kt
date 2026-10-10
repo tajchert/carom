@@ -14,6 +14,7 @@ import com.mtajchert.carom.app.feature.devices.api.DevicesRoute
 import com.mtajchert.carom.app.feature.devices.impl.navigation.devicesEntries
 import com.mtajchert.carom.app.feature.home.api.HomeRoute
 import com.mtajchert.carom.app.feature.home.impl.navigation.homeEntries
+import com.mtajchert.carom.app.feature.notifications.impl.navigation.notificationsEntries
 import com.mtajchert.carom.app.feature.onboarding.api.OnboardingRoute
 import com.mtajchert.carom.app.feature.onboarding.impl.navigation.onboardingEntries
 import com.mtajchert.carom.app.feature.pairing.api.PairingRoute
@@ -67,6 +68,7 @@ fun CaromNavHost(
             pairingEntries(onBack = back)
             devicesEntries(onBack = back)
             settingsEntries(onBack = back)
+            notificationsEntries(onBack = back)
         },
     )
 }

@@ -93,6 +93,14 @@ interface NotificationAppDao {
 
     @Query("UPDATE notification_apps SET mode = :mode WHERE package_name = :packageName")
     suspend fun setMode(packageName: String, mode: String)
+
+    /** Records an app on first sight; an existing row (and the user's mode) is kept. Returns -1 when it existed. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(item: NotificationAppEntity): Long
+
+    /** Refreshes the label and last post time without touching the user's mode. */
+    @Query("UPDATE notification_apps SET label = :label, last_posted_at = :lastPostedAt WHERE package_name = :packageName")
+    suspend fun touch(packageName: String, label: String, lastPostedAt: Long)
 }
 
 @Dao

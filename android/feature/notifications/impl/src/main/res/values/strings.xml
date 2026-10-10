@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown in the system's notification access list. -->
+    <string name="feature_notifications_listener_label">Carom notification forwarding</string>
+    <!-- Sent to the computer instead of the content for apps set to Hide content. -->
+    <string name="feature_notifications_hidden_text">New notification</string>
+
+    <string name="feature_notifications_apps_title">Apps</string>
+    <string name="feature_notifications_pause">Pause forwarding</string>
+    <string name="feature_notifications_only_locked">Forward only when the screen is locked</string>
+    <string name="feature_notifications_search">Search apps</string>
+    <string name="feature_notifications_clear_search">Clear search</string>
+    <string name="feature_notifications_mode_forward">Forward</string>
+    <string name="feature_notifications_mode_hide">Hide content</string>
+    <string name="feature_notifications_mode_off">Off</string>
+    <string name="feature_notifications_empty">No apps yet</string>
+    <string name="feature_notifications_empty_description">Apps appear here after they post a notification.</string>
+    <string name="feature_notifications_no_results">No apps match your search.</string>
+    <string name="feature_notifications_access_missing">Carom can\'t read notifications yet. Allow notification access to forward them to your computer.</string>
+    <string name="feature_notifications_access_action">Allow notification access</string>
+</resources>
