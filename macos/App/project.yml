@@ -1,0 +1,109 @@
+# XcodeGen spec for the Carom menu-bar app. Regenerate with `xcodegen generate` in this folder
+# and commit the resulting Carom.xcodeproj together with this file.
+name: Carom
+
+options:
+  bundleIdPrefix: com.mtajchert.carom
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+
+packages:
+  CaromKit:
+    path: ../CaromKit
+
+targets:
+  Carom:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Resources
+    dependencies:
+      - package: CaromKit
+        product: CaromProtocol
+      - package: CaromKit
+        product: CaromHub
+      - package: CaromKit
+        product: CaromStore
+      - package: CaromKit
+        product: CaromSync
+      # - package: CaromKit
+      #   product: CaromDesktop   # enable at integration, then delete Sources/Desktop/CaromDesktopShim.swift
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Carom
+        CFBundleName: Carom
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIconName: AppIcon
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+        NSHumanReadableCopyright: Copyright © 2026 Michal Tajchert. Licensed under GPL-3.0.
+        NSPrincipalClass: NSApplication
+    entitlements:
+      path: Carom.entitlements
+      # Hardened runtime, not sandboxed (Developer ID distribution later). The data protection
+      # keychain needs `keychain-access-groups: [$(AppIdentifierPrefix)com.mtajchert.carom.mac]`,
+      # which on macOS requires a provisioning profile. Add it once builds use one; until then
+      # SecretStoreFactory falls back to the login keychain (see macos/README.md).
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_NAME: Carom
+        PRODUCT_BUNDLE_IDENTIFIER: com.mtajchert.carom.mac
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        COMBINE_HIDPI_IMAGES: YES
+        # Not sandboxed for now (Developer ID distribution later); the code stays sandbox-clean.
+        ENABLE_APP_SANDBOX: NO
+
+  CaromTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Carom
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mtajchert.carom.mac.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Carom.app/Contents/MacOS/Carom
+        BUNDLE_LOADER: $(TEST_HOST)
+
+schemes:
+  Carom:
+    build:
+      targets:
+        Carom: all
+        CaromTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - CaromTests
+    archive:
+      config: Release
