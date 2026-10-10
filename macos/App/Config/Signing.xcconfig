@@ -1,0 +1,17 @@
+// Signing for local builds: automatic signing, team LNYRY7V366.
+//
+// Debug builds are signed to run locally (ad hoc) unless overridden, so a fresh checkout builds
+// on any Mac without a matching certificate. To sign with your Apple Development certificate
+// (needed for a stable Keychain identity and, later, the data protection keychain), create
+// Config/Signing.local.xcconfig (git-ignored), for example:
+//
+//     DEVELOPMENT_TEAM = LNYRY7V366
+//     CODE_SIGN_IDENTITY = Apple Development
+//
+// Values can also be passed on the command line: xcodebuild ... DEVELOPMENT_TEAM=<id>.
+DEVELOPMENT_TEAM = LNYRY7V366
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_IDENTITY[config=Release] = Apple Development
+
+#include? "Signing.local.xcconfig"

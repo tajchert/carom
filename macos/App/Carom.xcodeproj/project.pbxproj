@@ -1,0 +1,658 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02EA04BDC4CC53860EEBC40C /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBF6543738A79BB2AA2C1A5B /* GeneralSettings.swift */; };
+		042D7874A99A4181C4A3E932 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00C2DAF91C96F5F1456E822 /* MenuBarView.swift */; };
+		045E95A647892F8EF74ADED5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73EBD0F3E832BE4D36BB1D7 /* SettingsView.swift */; };
+		119327C7336DFC788A483426 /* Banner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E867D8EAD523ADCAFDD4D3CA /* Banner.swift */; };
+		1CD0B044CFF75CE9DA67BFB5 /* CaromSync in Frameworks */ = {isa = PBXBuildFile; productRef = 6FCD4A8FE5B9E9A83D3E4421 /* CaromSync */; };
+		202D6F70B33CCE806EDA74C2 /* Activity.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA9E27C379CE0C0C2DF67310 /* Activity.swift */; };
+		27A674F787FD4A0A6BD66906 /* UserMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05E857E705339F4800EDCFFF /* UserMessages.swift */; };
+		2DAF3451102E36B44D4EAC7D /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43523F8D934E0F28AAC18A3A /* AppModelTests.swift */; };
+		3C6B934326E4769A97295CF8 /* SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC17FECB47D69C41C37D387F /* SyncService.swift */; };
+		4212C9209DAC00E1095B27DB /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67EE5C0B38E4B0DAD9BBEF9 /* Preferences.swift */; };
+		4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764FF7D9B3588A42EB29E9D1 /* ClipboardSettings.swift */; };
+		48302A9E76E5038A917FB6F7 /* Fakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5925FB86143CAF9160A7600B /* Fakes.swift */; };
+		50AF71BAAE5726B883191D73 /* ConnectionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC2B0024E1E98FFADECAD21A /* ConnectionObserver.swift */; };
+		5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */; };
+		72F2107312AE605A0A048D7F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */; };
+		90D3082BD4F9EF70011C69F6 /* CaromHub in Frameworks */ = {isa = PBXBuildFile; productRef = CE8BAFA1AE1113A6718F4CAC /* CaromHub */; };
+		9D1A5F81F5BAD2143A6387A4 /* AboutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694429B750CC3936EB02DD96 /* AboutSettings.swift */; };
+		AA566AB94F206C4496389039 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C2F71FAD4D652965D6C999 /* AppModel.swift */; };
+		B3515C5ADC7D64B562ECD784 /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E50DA0F17F21B1530485899 /* QRCode.swift */; };
+		B488786EC1F7A8125990109D /* CaromStore in Frameworks */ = {isa = PBXBuildFile; productRef = 1B93479E4FC0F068D4A655C7 /* CaromStore */; };
+		B7CBE75A5CBC52F6A7728986 /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A074715E16C0C1B190933201 /* NotificationSettings.swift */; };
+		C34DA6179ACA172EFCEC2C1B /* DevicesSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44506BB20FD507A392B8A4B7 /* DevicesSettings.swift */; };
+		C8FBCFE71970F29ADB07F99E /* CaromProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = D13BF381F57689665DAA957D /* CaromProtocol */; };
+		CA489319C112D7CB1735806B /* AddDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F405C283C16A225ED8ADA433 /* AddDeviceView.swift */; };
+		CCB9365897E9EF0606503788 /* SecretStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 464AB2B89633C765DE33745D /* SecretStoreFactory.swift */; };
+		CF593BF9A8011666C8B26475 /* ReceivePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2917B35E7F6A61EB49867CD3 /* ReceivePolicy.swift */; };
+		CF75AA1C59B24001C33A038A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2850A9A4E3F1764CECEB2AD4 /* Assets.xcassets */; };
+		D19371FBF63DCB3E3A6DF427 /* CaromDesktopShim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33AB1FF222222157520BE967 /* CaromDesktopShim.swift */; };
+		D59509899BEEA17C42DB12D6 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D08CDEE1E0A38EAA3D7C8F /* Components.swift */; };
+		DB8EE498A7B47FA5AB398CC5 /* InertSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */; };
+		DF9F21CCE145B11D83CA2EC3 /* PolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */; };
+		F156648ABB732A08006DA18B /* SystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5D313AFB7071023901B4A49 /* SystemMonitor.swift */; };
+		F97360303AE0CA205E2576CA /* CaromApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F1C8311CBD1D199D6081A0 /* CaromApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3205728D6222CEBA4EE1D022 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3122EF66F42EFD6D7FBFC87F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 64393777E517CDA8E1D42384;
+			remoteInfo = Carom;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		05E857E705339F4800EDCFFF /* UserMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserMessages.swift; sourceTree = "<group>"; };
+		15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InertSyncService.swift; sourceTree = "<group>"; };
+		2850A9A4E3F1764CECEB2AD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2917B35E7F6A61EB49867CD3 /* ReceivePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceivePolicy.swift; sourceTree = "<group>"; };
+		33AB1FF222222157520BE967 /* CaromDesktopShim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaromDesktopShim.swift; sourceTree = "<group>"; };
+		376753980E52FC24DC3B9407 /* CaromKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CaromKit; path = ../CaromKit; sourceTree = SOURCE_ROOT; };
+		3E50DA0F17F21B1530485899 /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
+		43523F8D934E0F28AAC18A3A /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
+		44506BB20FD507A392B8A4B7 /* DevicesSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesSettings.swift; sourceTree = "<group>"; };
+		464AB2B89633C765DE33745D /* SecretStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretStoreFactory.swift; sourceTree = "<group>"; };
+		47C2F71FAD4D652965D6C999 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		53F65A156E307723D31435C5 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		5925FB86143CAF9160A7600B /* Fakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fakes.swift; sourceTree = "<group>"; };
+		694429B750CC3936EB02DD96 /* AboutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettings.swift; sourceTree = "<group>"; };
+		764FF7D9B3588A42EB29E9D1 /* ClipboardSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardSettings.swift; sourceTree = "<group>"; };
+		A00C2DAF91C96F5F1456E822 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		A074715E16C0C1B190933201 /* NotificationSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettings.swift; sourceTree = "<group>"; };
+		A5D313AFB7071023901B4A49 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
+		AA9085169BBFDC7B19051941 /* Carom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Carom.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9E27C379CE0C0C2DF67310 /* Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Activity.swift; sourceTree = "<group>"; };
+		C3D08CDEE1E0A38EAA3D7C8F /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		D3F1C8311CBD1D199D6081A0 /* CaromApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaromApp.swift; sourceTree = "<group>"; };
+		D67EE5C0B38E4B0DAD9BBEF9 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
+		D73EBD0F3E832BE4D36BB1D7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D9A4D950118740775CC3C36A /* CaromTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CaromTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC2B0024E1E98FFADECAD21A /* ConnectionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionObserver.swift; sourceTree = "<group>"; };
+		E867D8EAD523ADCAFDD4D3CA /* Banner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Banner.swift; sourceTree = "<group>"; };
+		EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyTests.swift; sourceTree = "<group>"; };
+		F405C283C16A225ED8ADA433 /* AddDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceView.swift; sourceTree = "<group>"; };
+		F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		FBF6543738A79BB2AA2C1A5B /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
+		FC17FECB47D69C41C37D387F /* SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncService.swift; sourceTree = "<group>"; };
+		FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopPorts.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		243998297A78B936AC815A44 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C8FBCFE71970F29ADB07F99E /* CaromProtocol in Frameworks */,
+				90D3082BD4F9EF70011C69F6 /* CaromHub in Frameworks */,
+				B488786EC1F7A8125990109D /* CaromStore in Frameworks */,
+				1CD0B044CFF75CE9DA67BFB5 /* CaromSync in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		032F0ACB34AF5FBCD914C462 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				43523F8D934E0F28AAC18A3A /* AppModelTests.swift */,
+				5925FB86143CAF9160A7600B /* Fakes.swift */,
+				EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		17E3BEB4F79BD6B99C613AD9 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				DC2B0024E1E98FFADECAD21A /* ConnectionObserver.swift */,
+				FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */,
+				15E113F6C9EBE2409B1E6304 /* InertSyncService.swift */,
+				3E50DA0F17F21B1530485899 /* QRCode.swift */,
+				464AB2B89633C765DE33745D /* SecretStoreFactory.swift */,
+				FC17FECB47D69C41C37D387F /* SyncService.swift */,
+				A5D313AFB7071023901B4A49 /* SystemMonitor.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		448CFFD2DA53F80CBCDB64D7 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				53F65A156E307723D31435C5 /* Signing.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		4AA575B25E694E80A3396A6A /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BB78DE8AC5B377FFE9278425 /* App */,
+				927BD87A2832C59023A90579 /* Desktop */,
+				4E004F50ABA3AC9CD16495FE /* Model */,
+				17E3BEB4F79BD6B99C613AD9 /* Services */,
+				A67623B715BB39DA4A578974 /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		4E004F50ABA3AC9CD16495FE /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				BA9E27C379CE0C0C2DF67310 /* Activity.swift */,
+				47C2F71FAD4D652965D6C999 /* AppModel.swift */,
+				E867D8EAD523ADCAFDD4D3CA /* Banner.swift */,
+				D67EE5C0B38E4B0DAD9BBEF9 /* Preferences.swift */,
+				2917B35E7F6A61EB49867CD3 /* ReceivePolicy.swift */,
+				05E857E705339F4800EDCFFF /* UserMessages.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		5DCBF955B77C45478159554C = {
+			isa = PBXGroup;
+			children = (
+				448CFFD2DA53F80CBCDB64D7 /* Config */,
+				DEB39736B7ADECC43595FC5B /* Packages */,
+				F94E9F2B31227CE491949EBF /* Resources */,
+				4AA575B25E694E80A3396A6A /* Sources */,
+				032F0ACB34AF5FBCD914C462 /* Tests */,
+				B72AC1034150361D825F0657 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		927BD87A2832C59023A90579 /* Desktop */ = {
+			isa = PBXGroup;
+			children = (
+				33AB1FF222222157520BE967 /* CaromDesktopShim.swift */,
+			);
+			path = Desktop;
+			sourceTree = "<group>";
+		};
+		A67623B715BB39DA4A578974 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F405C283C16A225ED8ADA433 /* AddDeviceView.swift */,
+				C3D08CDEE1E0A38EAA3D7C8F /* Components.swift */,
+				A00C2DAF91C96F5F1456E822 /* MenuBarView.swift */,
+				F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */,
+				D9AAD3DBB43DCC06FDB46F0F /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		B72AC1034150361D825F0657 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA9085169BBFDC7B19051941 /* Carom.app */,
+				D9A4D950118740775CC3C36A /* CaromTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BB78DE8AC5B377FFE9278425 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				D3F1C8311CBD1D199D6081A0 /* CaromApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D9AAD3DBB43DCC06FDB46F0F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				694429B750CC3936EB02DD96 /* AboutSettings.swift */,
+				764FF7D9B3588A42EB29E9D1 /* ClipboardSettings.swift */,
+				44506BB20FD507A392B8A4B7 /* DevicesSettings.swift */,
+				FBF6543738A79BB2AA2C1A5B /* GeneralSettings.swift */,
+				A074715E16C0C1B190933201 /* NotificationSettings.swift */,
+				D73EBD0F3E832BE4D36BB1D7 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		DEB39736B7ADECC43595FC5B /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				376753980E52FC24DC3B9407 /* CaromKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		F94E9F2B31227CE491949EBF /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2850A9A4E3F1764CECEB2AD4 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		64393777E517CDA8E1D42384 /* Carom */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CAFBFF8981030A4FA7F733C /* Build configuration list for PBXNativeTarget "Carom" */;
+			buildPhases = (
+				3DE3A3B776BAEE94DF19381F /* Sources */,
+				DE9C23063EFC587DBBC3FFF9 /* Resources */,
+				243998297A78B936AC815A44 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Carom;
+			packageProductDependencies = (
+				D13BF381F57689665DAA957D /* CaromProtocol */,
+				CE8BAFA1AE1113A6718F4CAC /* CaromHub */,
+				1B93479E4FC0F068D4A655C7 /* CaromStore */,
+				6FCD4A8FE5B9E9A83D3E4421 /* CaromSync */,
+			);
+			productName = Carom;
+			productReference = AA9085169BBFDC7B19051941 /* Carom.app */;
+			productType = "com.apple.product-type.application";
+		};
+		6677A300787E4BD0B1DC48DF /* CaromTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E2827690FAC92D9E15C1593B /* Build configuration list for PBXNativeTarget "CaromTests" */;
+			buildPhases = (
+				A6AA04858EC10AA6E73F22A8 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3E60945B308145DF8FFEBB3E /* PBXTargetDependency */,
+			);
+			name = CaromTests;
+			packageProductDependencies = (
+			);
+			productName = CaromTests;
+			productReference = D9A4D950118740775CC3C36A /* CaromTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3122EF66F42EFD6D7FBFC87F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					64393777E517CDA8E1D42384 = {
+						DevelopmentTeam = LNYRY7V366;
+						ProvisioningStyle = Automatic;
+					};
+					6677A300787E4BD0B1DC48DF = {
+						DevelopmentTeam = LNYRY7V366;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 0D448B30D195162DA9225E60 /* Build configuration list for PBXProject "Carom" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 5DCBF955B77C45478159554C;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6D93A7FFDDE2696D80F6C105 /* XCLocalSwiftPackageReference "../CaromKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B72AC1034150361D825F0657 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				64393777E517CDA8E1D42384 /* Carom */,
+				6677A300787E4BD0B1DC48DF /* CaromTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DE9C23063EFC587DBBC3FFF9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CF75AA1C59B24001C33A038A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3DE3A3B776BAEE94DF19381F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9D1A5F81F5BAD2143A6387A4 /* AboutSettings.swift in Sources */,
+				202D6F70B33CCE806EDA74C2 /* Activity.swift in Sources */,
+				CA489319C112D7CB1735806B /* AddDeviceView.swift in Sources */,
+				AA566AB94F206C4496389039 /* AppModel.swift in Sources */,
+				119327C7336DFC788A483426 /* Banner.swift in Sources */,
+				F97360303AE0CA205E2576CA /* CaromApp.swift in Sources */,
+				D19371FBF63DCB3E3A6DF427 /* CaromDesktopShim.swift in Sources */,
+				4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */,
+				D59509899BEEA17C42DB12D6 /* Components.swift in Sources */,
+				50AF71BAAE5726B883191D73 /* ConnectionObserver.swift in Sources */,
+				5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */,
+				C34DA6179ACA172EFCEC2C1B /* DevicesSettings.swift in Sources */,
+				02EA04BDC4CC53860EEBC40C /* GeneralSettings.swift in Sources */,
+				DB8EE498A7B47FA5AB398CC5 /* InertSyncService.swift in Sources */,
+				042D7874A99A4181C4A3E932 /* MenuBarView.swift in Sources */,
+				B7CBE75A5CBC52F6A7728986 /* NotificationSettings.swift in Sources */,
+				72F2107312AE605A0A048D7F /* OnboardingView.swift in Sources */,
+				4212C9209DAC00E1095B27DB /* Preferences.swift in Sources */,
+				B3515C5ADC7D64B562ECD784 /* QRCode.swift in Sources */,
+				CF593BF9A8011666C8B26475 /* ReceivePolicy.swift in Sources */,
+				CCB9365897E9EF0606503788 /* SecretStoreFactory.swift in Sources */,
+				045E95A647892F8EF74ADED5 /* SettingsView.swift in Sources */,
+				3C6B934326E4769A97295CF8 /* SyncService.swift in Sources */,
+				F156648ABB732A08006DA18B /* SystemMonitor.swift in Sources */,
+				27A674F787FD4A0A6BD66906 /* UserMessages.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6AA04858EC10AA6E73F22A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2DAF3451102E36B44D4EAC7D /* AppModelTests.swift in Sources */,
+				48302A9E76E5038A917FB6F7 /* Fakes.swift in Sources */,
+				DF9F21CCE145B11D83CA2EC3 /* PolicyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3E60945B308145DF8FFEBB3E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 64393777E517CDA8E1D42384 /* Carom */;
+			targetProxy = 3205728D6222CEBA4EE1D022 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0E84B0FD1672B8433CC141A3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Carom.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.mtajchert.carom.mac;
+				PRODUCT_NAME = Carom;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		8A98D821333DA6BBB62E2B84 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.mtajchert.carom.mac.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Carom.app/Contents/MacOS/Carom";
+			};
+			name = Debug;
+		};
+		92EA736AE35921C61CEAF40E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 53F65A156E307723D31435C5 /* Signing.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		932044D3CBA7E5544F2F4B2C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 53F65A156E307723D31435C5 /* Signing.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		C1B5109CF44DBC0356AF0F98 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Carom.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.mtajchert.carom.mac;
+				PRODUCT_NAME = Carom;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FA38DF7A9D9E42B70B086116 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.mtajchert.carom.mac.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Carom.app/Contents/MacOS/Carom";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0CAFBFF8981030A4FA7F733C /* Build configuration list for PBXNativeTarget "Carom" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1B5109CF44DBC0356AF0F98 /* Debug */,
+				0E84B0FD1672B8433CC141A3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		0D448B30D195162DA9225E60 /* Build configuration list for PBXProject "Carom" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				932044D3CBA7E5544F2F4B2C /* Debug */,
+				92EA736AE35921C61CEAF40E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E2827690FAC92D9E15C1593B /* Build configuration list for PBXNativeTarget "CaromTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A98D821333DA6BBB62E2B84 /* Debug */,
+				FA38DF7A9D9E42B70B086116 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6D93A7FFDDE2696D80F6C105 /* XCLocalSwiftPackageReference "../CaromKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../CaromKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1B93479E4FC0F068D4A655C7 /* CaromStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CaromStore;
+		};
+		6FCD4A8FE5B9E9A83D3E4421 /* CaromSync */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CaromSync;
+		};
+		CE8BAFA1AE1113A6718F4CAC /* CaromHub */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CaromHub;
+		};
+		D13BF381F57689665DAA957D /* CaromProtocol */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CaromProtocol;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3122EF66F42EFD6D7FBFC87F /* Project object */;
+}

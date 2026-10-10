@@ -1,0 +1,69 @@
+import AppKit
+import Carbon.HIToolbox
+#if canImport(CaromDesktop)
+import CaromDesktop
+#endif
+
+// Narrow seams over the CaromDesktop services so AppModel can be unit-tested with fakes.
+
+@MainActor
+protocol NotificationPresenting: AnyObject {
+    var onAction: ((NotificationAction) -> Void)? { get set }
+    func requestAuthorization() async -> Bool
+    func present(_ notification: PresentedNotification, showPhoneName: Bool) async
+    func withdraw(phoneId: String, key: String)
+    func withdrawAll(phoneId: String)
+}
+
+@MainActor
+protocol ClipboardWatching: AnyObject {
+    var onCopy: ((ClipboardItem) -> Void)? { get set }
+    var accessBehavior: PasteboardAccess { get }
+    func start()
+    func stop()
+    func write(text: String, sensitive: Bool)
+    func readCurrent() -> ClipboardItem?
+}
+
+@MainActor
+protocol HotkeyRegistering: AnyObject {
+    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) throws
+    func unregister()
+}
+
+@MainActor
+protocol LoginItemControlling {
+    var isEnabled: Bool { get }
+    func setEnabled(_ enabled: Bool) throws
+}
+
+extension NotificationPresenter: NotificationPresenting {}
+extension ClipboardWatcher: ClipboardWatching {}
+extension HotkeyManager: HotkeyRegistering {}
+
+struct SystemLoginItem: LoginItemControlling {
+    var isEnabled: Bool { LoginItem.isEnabled }
+    func setEnabled(_ enabled: Bool) throws { try LoginItem.setEnabled(enabled) }
+}
+
+/// The global "send clipboard" shortcut: ⌃⌥⌘C.
+enum SendHotkey {
+    static let keyCode = UInt32(kVK_ANSI_C)
+    static let modifiers = UInt32(controlKey | optionKey | cmdKey)
+    static let display = "⌃⌥⌘C"
+}
+
+/// The concrete CaromDesktop services.
+@MainActor
+struct DesktopServices {
+    var presenter: any NotificationPresenting
+    var clipboard: any ClipboardWatching
+    var hotkey: any HotkeyRegistering
+    var loginItem: any LoginItemControlling
+
+    static func live() -> DesktopServices {
+        DesktopServices(presenter: NotificationPresenter(center: .current()),
+                        clipboard: ClipboardWatcher(pasteboard: .general, interval: .milliseconds(500)),
+                        hotkey: HotkeyManager(), loginItem: SystemLoginItem())
+    }
+}
