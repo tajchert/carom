@@ -7,7 +7,8 @@ the apps do with it, so both platforms behave the same way. When the two disagre
 
 - **Simple:** pairing is one QR scan. Sensible defaults mean a new user never opens settings.
 - **Battery first (phone):** no long-running service of our own. Work happens when the system
-  wakes us (notification listener callback, push, user action), and then we stop.
+  wakes us (notification listener callback, user action), and then we stop. There is no push
+  service and no periodic polling.
 - **Universal:** no Hub URL is baked into a build. It always comes from a setup or pair URI.
 - **Private:** keys never leave the device, are never backed up, and are never logged. Notification
   and clipboard content are never logged either.
@@ -77,16 +78,15 @@ shown on both screens.
 - Mac: always-on WebSocket. Protocol ping every 30 s. A watchdog drops the socket after 75 s
   with no frame or pong. Disconnect on sleep and reconnect on wake or network change, with
   jittered backoff of 1 to 60 s. Never wait for a close handshake (SPEC §7).
-- Phone: no persistent socket. It fetches with `GET /v1/messages` when:
-  - a push arrives,
-  - the app comes to the foreground (a WebSocket is allowed while the UI is visible),
+- Phone: no persistent socket, no push and no periodic polling (SPEC §9). It fetches with
+  `GET /v1/messages` only when it is already awake:
+  - when the app comes to the foreground (a WebSocket is open while the UI is visible),
   - after a successful send (piggyback, at most once every 15 s, and skipped while a socket is live), and
   - after the Quick Settings tile or share actions.
 
-**Push (phone)**
-- Register with UnifiedPush using the VAPID key from `/v1/info`, then `PUT /v1/devices/self/push`.
-  Re-register whenever the endpoint changes.
-- If no distributor is available, show this in settings and rely on the other fetch triggers.
+  Messages sent to the phone (clipboard from the desktop, dismiss requests) therefore arrive
+  when the phone next opens Carom or sends something. Desktop UIs say this where it matters,
+  for example "Arrives when Carom is opened on <phone>" next to "Send clipboard to".
 
 **Revoking (any device can revoke any device)**
 1. `DELETE /v1/devices/:id`.
@@ -195,7 +195,7 @@ unchecked.
 
 ## Device settings screen
 
-The screen lists every device: name, kind, last seen, and push yes/no (from the directory).
+The screen lists every device: name, kind and last seen (from the directory).
 Actions:
 
 - **Rename:** this device only.

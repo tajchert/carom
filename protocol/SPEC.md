@@ -358,7 +358,7 @@ Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with 
 
 | Method + path | Auth | Request → Response |
 |---|---|---|
-| `GET /v1/info` | none | → `{name:"carom-hub", protocol:1, version, setup_done, vapid_public_key, jurisdiction}`. `jurisdiction` is `"eu"` or `null`. `vapid_public_key` is b64 of the uncompressed P-256 point. |
+| `GET /v1/info` | none | → `{name:"carom-hub", protocol:1, version, setup_done, jurisdiction}`. `jurisdiction` is `"eu"` or `null`. |
 | `POST /v1/setup` | none | `{setup_token, sign_pub, kx_pub}` → `{device_id, token}`. Only works once. |
 | `PUT /v1/keyring` | device | `{kv, by, boxes, sig}` → `{}`, or 409 with `{kv: newest}` if `kv` is not newest+1 |
 | `GET /v1/keyring?have=N` | device | → `{versions:[{kv, by, sig, boxes:{id:{epk,ct}}}]}` with every box of each newer version |
@@ -369,10 +369,8 @@ Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with 
 | `POST /v1/pair/:pair_id/welcome` | offerer | `{box}` → `{}`. Activates the candidate. |
 | `POST /v1/pair/:pair_id/reject` | offerer | → `{}`. Deletes the candidate. |
 | `GET /v1/pair/:pair_id/welcome` | candidate (pending or just activated) | → `{box}`, or 404 `not_found` while waiting. After the welcome is posted, the pairing stays readable for another 5 minutes. |
-| `GET /v1/devices` | device | → `{devices:[{id, sign_pub, kx_pub, created_at, last_seen, has_push, record?}]}` |
+| `GET /v1/devices` | device | → `{devices:[{id, sign_pub, kx_pub, created_at, last_seen, record?}]}` |
 | `PUT /v1/devices/self/record` | device | `{record}` → `{}` |
-| `PUT /v1/devices/self/push` | device | `{endpoint, p256dh, auth}` → `{}` |
-| `DELETE /v1/devices/self/push` | device | → `{}` |
 | `DELETE /v1/devices/:id` | device | → `{}`. Revokes the device. `self` is allowed. |
 | `POST /v1/messages` | device | `{envelope}` → `{seq, duplicate}` |
 | `GET /v1/messages?limit=N` | device | → `{messages:[{seq, envelope}], more}` (unacknowledged, in `seq` order, N ≤ 200) |
@@ -421,10 +419,7 @@ Rate limits are enforced inside the Hub, which is single-threaded and so counts 
 
 - `/v1/setup` and `/v1/reset`: after 10 failures in an hour, the route is locked for an hour.
 - `/v1/pair/accept`: one accept per `pair_id`, and at most 5 open offers at a time.
-- Push sends: at most one per recipient per message (see §9).
 
-Push endpoints MUST be `https:` URLs on the default port, with a DNS hostname: not an IP literal, not
-`localhost`, and not the Hub's own host (compared case-insensitively, ignoring a trailing dot).
 
 ## 7. WebSocket
 
@@ -505,23 +500,16 @@ carom://pair?v=1&h=<urlenc hub url>&c=<pair_id>&s=<b64 pair_secret>
 
 The QR code is the trust channel. It must only be shown on screen and never logged.
 
-## 9. Web Push wake-up
+## 9. Delivery to phones (no push)
 
-For a recipient with a push subscription and no live socket, the Hub sends a Web Push
-(RFC 8030) with:
+The Hub never wakes a device. Nothing is pushed through FCM, Web Push or any other
+push service. Messages wait in the Hub until the recipient fetches them, either over a WebSocket
+or with `GET /v1/messages`, or until their TTL expires.
 
-- VAPID authentication (RFC 8292, ES256, `sub` = the Hub URL; JWT `exp` 12 h, cached per
-  push-service origin).
-- An RFC 8291 `aes128gcm` encrypted payload `{"t":"wake"}`. This is never empty, because some
-  distributors drop empty pushes.
-- `Urgency: high` and `TTL: 86400`.
-
-The Hub creates its VAPID P-256 key pair on first use and stores it in SQLite.
-
-To save battery, the Hub sends at most one push per device until that device next fetches
-(`GET /v1/messages` or a WebSocket connect), with a re-push allowed after 5 minutes.
-
-When woken, a device calls `GET /v1/messages`, handles the messages, then sends `POST /v1/acks`.
+Desktops keep a WebSocket open, so they receive messages within moments. Phones fetch only
+when they are already awake for another reason (see `docs/CLIENTS.md`). So messages sent to a
+phone, such as clipboard items or dismiss requests, arrive when the phone next opens Carom or
+sends something. Senders SHOULD pick TTLs with this in mind.
 
 ## 10. Retention
 
