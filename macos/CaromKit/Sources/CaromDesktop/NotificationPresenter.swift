@@ -112,6 +112,17 @@ public final class NotificationPresenter: NSObject, UNUserNotificationCenterDele
         (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
     }
 
+    /// Whether notifications may be shown: true or false once the user decided, nil before
+    /// asking. Never prompts.
+    public func authorizationState() async -> Bool? {
+        switch await center.notificationSettings().authorizationStatus {
+        case .notDetermined: return nil
+        case .denied: return false
+        case .authorized, .provisional, .ephemeral: return true
+        @unknown default: return nil
+        }
+    }
+
     public func present(_ n: PresentedNotification, showPhoneName: Bool) async {
         let spec = NotificationContentSpec.make(n, showPhoneName: showPhoneName)
         let content = UNMutableNotificationContent()

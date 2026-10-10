@@ -115,7 +115,12 @@ final class FakePresenter: NotificationPresenting {
     var withdrawnAll: [String] = []
     var authorization = true
 
-    func requestAuthorization() async -> Bool { authorization }
+    var state: Bool?
+    func requestAuthorization() async -> Bool {
+        state = authorization
+        return authorization
+    }
+    func authorizationState() async -> Bool? { state }
     func present(_ notification: PresentedNotification, showPhoneName: Bool) async {
         presented.append((notification, showPhoneName))
     }

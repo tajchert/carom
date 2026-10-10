@@ -113,7 +113,10 @@ struct AppModelTests {
     @Test func removedWithdraws() async {
         let h = Harness()
         await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.count == 1)
         await h.model.dispatch(.notificationRemoved(NotificationRemoved(key: "k1")), msgId: "m2", sender: pixel)
+        #expect(h.model.activity.notifications.isEmpty, "a removed notification leaves the menu too")
         #expect(h.presenter.withdrawn.count == 1)
         #expect(h.presenter.withdrawn.first?.0 == phoneA && h.presenter.withdrawn.first?.1 == "k1")
     }

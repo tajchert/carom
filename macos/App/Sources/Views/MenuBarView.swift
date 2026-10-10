@@ -229,7 +229,7 @@ private struct NotificationRow: View {
                             .foregroundStyle(.tertiary)
                     }
                     Spacer()
-                    Text(item.date, style: .time)
+                    Text(item.date.formatted(date: .omitted, time: .shortened))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

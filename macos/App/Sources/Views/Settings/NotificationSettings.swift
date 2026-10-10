@@ -17,6 +17,14 @@ struct NotificationSettings: View {
                             Link("Open System Settings", destination: Links.notificationSettings)
                         }
                     }
+                } else if model.notificationsAllowed == nil {
+                    Section {
+                        HStack {
+                            Label("Carom can't show notifications yet.", systemImage: "bell.badge")
+                            Spacer()
+                            Button("Allow") { Task { await model.requestNotificationPermission() } }
+                        }
+                    }
                 }
 
                 Section {

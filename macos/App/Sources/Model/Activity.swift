@@ -57,6 +57,11 @@ struct RecentActivity: Equatable, Sendable {
         if clips.count > Self.clipLimit { clips.removeLast(clips.count - Self.clipLimit) }
     }
 
+    /// The phone removed it (`notification.removed@1`), so it leaves the menu too.
+    mutating func removeNotification(phoneId: String, key: String) {
+        notifications.removeAll { $0.phoneId == phoneId && $0.key == key }
+    }
+
     mutating func removeNotifications(phoneId: String) {
         notifications.removeAll { $0.phoneId == phoneId }
     }

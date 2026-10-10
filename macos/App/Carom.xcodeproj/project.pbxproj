@@ -20,6 +20,7 @@
 		4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764FF7D9B3588A42EB29E9D1 /* ClipboardSettings.swift */; };
 		48302A9E76E5038A917FB6F7 /* Fakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5925FB86143CAF9160A7600B /* Fakes.swift */; };
 		5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */; };
+		72C14863FE8D68CA8D2DB587 /* DebugLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44A69EB8E70E0B1409F77C2 /* DebugLaunch.swift */; };
 		72F2107312AE605A0A048D7F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */; };
 		90D3082BD4F9EF70011C69F6 /* CaromHub in Frameworks */ = {isa = PBXBuildFile; productRef = CE8BAFA1AE1113A6718F4CAC /* CaromHub */; };
 		9D1A5F81F5BAD2143A6387A4 /* AboutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694429B750CC3936EB02DD96 /* AboutSettings.swift */; };
@@ -81,6 +82,7 @@
 		E867D8EAD523ADCAFDD4D3CA /* Banner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Banner.swift; sourceTree = "<group>"; };
 		EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyTests.swift; sourceTree = "<group>"; };
 		F405C283C16A225ED8ADA433 /* AddDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceView.swift; sourceTree = "<group>"; };
+		F44A69EB8E70E0B1409F77C2 /* DebugLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLaunch.swift; sourceTree = "<group>"; };
 		F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		FBF6543738A79BB2AA2C1A5B /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
 		FC17FECB47D69C41C37D387F /* SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncService.swift; sourceTree = "<group>"; };
@@ -196,6 +198,7 @@
 			isa = PBXGroup;
 			children = (
 				D3F1C8311CBD1D199D6081A0 /* CaromApp.swift */,
+				F44A69EB8E70E0B1409F77C2 /* DebugLaunch.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -340,6 +343,7 @@
 				F97360303AE0CA205E2576CA /* CaromApp.swift in Sources */,
 				4614F18F5770AEF82C20DB8F /* ClipboardSettings.swift in Sources */,
 				D59509899BEEA17C42DB12D6 /* Components.swift in Sources */,
+				72C14863FE8D68CA8D2DB587 /* DebugLaunch.swift in Sources */,
 				5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */,
 				C34DA6179ACA172EFCEC2C1B /* DevicesSettings.swift in Sources */,
 				02EA04BDC4CC53860EEBC40C /* GeneralSettings.swift in Sources */,

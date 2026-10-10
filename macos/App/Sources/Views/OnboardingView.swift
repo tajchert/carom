@@ -49,6 +49,13 @@ struct OnboardingView: View {
             if model.phase == .onboarding, model.deviceId != nil { step = .name }
             if model.phase == .ready { step = .done }
         }
+        .onChange(of: model.phase) { _, phase in
+            // Set up elsewhere while this window was open (for example a scripted Debug launch):
+            // don't leave it on Welcome.
+            if phase == .ready, step == .welcome || step == .connect(.setup) || step == .connect(.join) {
+                step = .done
+            }
+        }
     }
 }
 

@@ -11,8 +11,12 @@ struct CaromApp: App {
             // The unit tests build their own models with fakes; keep the host app inert.
             model = AppModel(sync: InertSyncService(), desktop: .live(), options: .init(systemHooks: false))
         } else {
-            model = AppModel.live()
-            Task { await model.start() }
+            let launch = LaunchOptions.current
+            model = AppModel.live(launch: launch)
+            Task {
+                await model.start()
+                await DebugLaunch.run(model, launch)
+            }
         }
         _model = State(initialValue: model)
     }
@@ -46,6 +50,16 @@ struct CaromApp: App {
             SettingsView()
                 .environment(model)
         }
+
+        #if DEBUG
+        // `-caromShowWindows menu`: the popover content in a normal window, for screenshots
+        // (the status item can be hidden behind the notch).
+        Window("Carom Menu (Debug)", id: AppWindow.debugMenu.rawValue) {
+            MenuBarView()
+                .environment(model)
+        }
+        .windowResizability(.contentSize)
+        #endif
     }
 }
 
@@ -67,11 +81,17 @@ struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
+    @Environment(\.openSettings) private var openSettings
+
     var body: some View {
         Image(systemName: symbol)
             .onChange(of: model.windowRequest) { _, request in
                 guard let request else { return }
-                openWindow(id: request.window.rawValue)
+                if request.window == .settings {
+                    openSettings()
+                } else {
+                    openWindow(id: request.window.rawValue)
+                }
                 AppEnvironment.activate()
             }
             .accessibilityLabel("Carom")

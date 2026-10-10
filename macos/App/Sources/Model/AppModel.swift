@@ -38,6 +38,10 @@ enum ConnectionState: Equatable, Sendable {
 enum AppWindow: String, Sendable {
     case onboarding
     case addDevice = "add-device"
+    /// The Settings scene (opened with `openSettings`, not `openWindow`).
+    case settings
+    /// Debug builds: the popover content in a window (`-caromShowWindows menu`).
+    case debugMenu = "debug-menu"
 }
 
 /// Asks the menu-bar label (which is always on screen) to open a window.
@@ -71,6 +75,10 @@ final class AppModel {
         var outboxInterval: Duration = .seconds(30)
         var copySuppression: TimeInterval = 2
         var now: @MainActor () -> Date = { Date() }
+        /// Debug builds only (`-caromAutoApprove`): approve a verified pairing candidate.
+        var autoApprove = false
+        /// Debug builds only (`-caromEventLog`): receives event names and message types.
+        var trace: (@MainActor (String) -> Void)?
     }
 
     // MARK: State read by the views
@@ -117,6 +125,7 @@ final class AppModel {
     @ObservationIgnored private var statusTask: Task<Void, Never>?
     @ObservationIgnored private var suppressCopiesUntil = Date.distantPast
     @ObservationIgnored private var watcherRunning = false
+    @ObservationIgnored private var sawNetworkPath = false
 
     init(sync: any SyncService, desktop: DesktopServices, options: Options = Options()) {
         self.sync = sync
@@ -129,16 +138,26 @@ final class AppModel {
 
     /// The production graph: Keychain secrets, a JSON state file in Application Support and the
     /// URLSession Hub client.
-    static func live() -> AppModel {
+    static func live(launch: LaunchOptions = .current) -> AppModel {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
         var config = SyncConfiguration(deviceName: defaultDeviceName)
         config.appVersion = version
-        let state: any StateStore = (try? JSONFileStateStore.applicationSupport(appFolder: "Carom"))
-            ?? JSONFileStateStore(url: URL.applicationSupportDirectory.appending(path: "Carom/state.json"))
-        let engine = SyncEngine(configuration: config, secrets: SecretStoreFactory.make(), state: state,
-                                hub: HubClient.factory())
-        return AppModel(sync: engine, desktop: .live())
+        let folder = launch.appFolder
+        let state: any StateStore = (try? JSONFileStateStore.applicationSupport(appFolder: folder))
+            ?? JSONFileStateStore(url: URL.applicationSupportDirectory.appending(path: "\(folder)/state.json"))
+        let engine = SyncEngine(configuration: config, secrets: SecretStoreFactory.make(service: launch.keychainService),
+                                state: state, hub: HubClient.factory())
+        var options = Options()
+        options.autoApprove = launch.autoApprove
+        if let path = launch.eventLog {
+            let log = DebugEventLog(path: path)
+            options.trace = { log.write($0) }
+        }
+        return AppModel(sync: engine, desktop: .live(), options: options)
     }
+
+    /// Debug event trace: names and types only, never content.
+    func trace(_ line: String) { options.trace?(line) }
 
     static var defaultDeviceName: String { Host.current().localizedName ?? "Mac" }
 
@@ -198,6 +217,8 @@ final class AppModel {
         }
         launchAtLogin = loginItem.isEnabled
         pasteboardAccess = clipboard.accessBehavior
+        notificationsAllowed = await presenter.authorizationState()
+        trace("notifications allowed=\(notificationsAllowed.map { String($0) } ?? "undecided")")
         await reloadState(loadPreferences: true)
         if await sync.isConfigured, preferences.onboardingComplete {
             await goReady()
@@ -209,6 +230,7 @@ final class AppModel {
 
     private func goReady() async {
         phase = .ready
+        trace("phase ready")
         await startRealtime()
         if options.systemHooks, monitor == nil {
             monitor = SystemMonitor(onSleep: { [weak self] in self?.systemWillSleep() },
@@ -283,6 +305,7 @@ final class AppModel {
 
     /// The engine's socket state, combined with what the app knows (sleep, no network, 401).
     func realtimeChanged(_ state: RealtimeState) {
+        trace("realtime \(state)")
         guard phase == .ready, connection != .stopped else { return }
         switch state {
         case .connected:
@@ -335,6 +358,11 @@ final class AppModel {
     }
 
     func networkChanged(_ up: Bool) {
+        // The path observer reports the current state once at start. A usable network then is
+        // not news: forwarding it would make the socket drop the connection it just opened.
+        let first = !sawNetworkPath
+        sawNetworkPath = true
+        if first, up { return }
         guard phase == .ready, connection != .stopped else { return }
         if up {
             if connection == .noNetwork { connection = .connecting }
@@ -364,6 +392,7 @@ final class AppModel {
     // MARK: Incoming messages (SyncHandler)
 
     func receive(_ message: IncomingMessage) async {
+        trace("message \(message.message.type.rawValue)")
         await dispatch(message.message, msgId: message.msgId, sender: message.sender)
     }
 
@@ -387,11 +416,15 @@ final class AppModel {
                                                   appName: n.app.name, title: n.title, text: text, key: n.key,
                                                   msgId: msgId)
             await presenter.present(presented, showPhoneName: phones.count > 1)
+            trace("notification presented")
         case .notificationRemoved(let r):
             presenter.withdraw(phoneId: sender.id, key: r.key)
+            activity.removeNotification(phoneId: sender.id, key: r.key)
+            trace("notification withdrawn")
         case .clipboardSet(let c):
             guard !preferences.paused, receives(.clipboard, from: sender.id) else { return }
             clipboard.write(text: c.text, sensitive: c.sensitive)
+            trace("clipboard written")
             activity.add(RecentClip(direction: .received(from: sender.name), text: c.text, sensitive: c.sensitive,
                                     date: options.now()))
         case .deviceStatus(let s):
@@ -403,6 +436,7 @@ final class AppModel {
 
     /// Engine events (SyncHandler).
     func handle(event: SyncEvent) async {
+        trace("event \(Self.traceName(event))")
         switch event {
         case .directoryChanged:
             receiveRules = await sync.receiveRules
@@ -475,6 +509,7 @@ final class AppModel {
     /// The menu button and ⌃⌥⌘C: send what is on the clipboard now.
     func sendClipboardNow() async {
         guard phase == .ready else { return }
+        trace("clipboard send requested")
         guard let item = clipboard.readCurrent() else {
             showStatus(UserMessages.nothingToSend)
             return
@@ -497,6 +532,7 @@ final class AppModel {
             showStatus(UserMessages.describe(error))
             return
         }
+        trace("clipboard send \(Self.traceName(outcome))")
         let names = targets.filter { only?.contains($0.record.id) ?? true }.map(\.record.name)
         switch outcome {
         case .sent, .superseded:
@@ -607,6 +643,7 @@ final class AppModel {
     /// Called when the app quits: releases the global hotkey and stops the watcher and socket.
     func shutdown() {
         hotkey.unregister()
+        trace("shutdown hotkey unregistered")
         hotkeyAvailable = false
         clipboard.stop()
         watcherRunning = false
@@ -724,7 +761,9 @@ final class AppModel {
         guard case .showing(let invite) = pairing, invite.pairId == candidate.pairId else { return }
         pairingTask?.cancel()
         pairing = .confirming(invite, candidate)
+        trace("pairing candidate")
         request(.addDevice)
+        if options.autoApprove { Task { await approveCandidate() } }
     }
 
     func approveCandidate() async {
@@ -733,6 +772,7 @@ final class AppModel {
         do {
             try await sync.approvePairing(pairId: candidate.pairId)
             pairing = .added(fingerprint: candidate.fingerprint)
+            trace("pairing approved")
         } catch {
             pairing = .failed(UserMessages.describe(error))
         }
@@ -777,6 +817,34 @@ final class AppModel {
     }
 
     func request(_ window: AppWindow) { windowRequest = WindowRequest(window: window) }
+}
+
+extension AppModel {
+    static func traceName(_ outcome: SendOutcome) -> String {
+        switch outcome {
+        case .sent: "sent"
+        case .superseded: "superseded"
+        case .queued: "queued"
+        case .noRecipients: "noRecipients"
+        case .suppressedEcho: "suppressedEcho"
+        case .dropped(let code): "dropped \(code)"
+        }
+    }
+
+    /// The event's case name, without its values (they can carry device names).
+    static func traceName(_ event: SyncEvent) -> String {
+        switch event {
+        case .directoryChanged: "directoryChanged"
+        case .deviceRemoved: "deviceRemoved"
+        case .keyRotated(let kv): "keyRotated kv=\(kv)"
+        case .pairingCandidate: "pairingCandidate"
+        case .pairingRejected(_, let reason): "pairingRejected \(reason.rawValue)"
+        case .messageDropped(let e): "messageDropped \(e.rawValue)"
+        case .sendDropped(let code): "sendDropped \(code)"
+        case .revoked: "revoked"
+        case .tokenRejected: "tokenRejected"
+        }
+    }
 }
 
 /// An error whose message is already user-facing.

@@ -9,6 +9,7 @@ import CaromDesktop
 protocol NotificationPresenting: AnyObject {
     var onAction: ((NotificationAction) -> Void)? { get set }
     func requestAuthorization() async -> Bool
+    func authorizationState() async -> Bool?
     func present(_ notification: PresentedNotification, showPhoneName: Bool) async
     func withdraw(phoneId: String, key: String)
     func withdrawAll(phoneId: String)
