@@ -4,7 +4,7 @@
 //
 // Builders percent-encode every byte outside the RFC 3986 unreserved set (uppercase hex).
 // Parsers are strict: exact parameter set, no duplicates, valid percent-escapes, and '+'
-// or '=' must be percent-encoded inside values.
+// must be percent-encoded inside values. pair_id is exactly 22 b64url characters (b64 of 16 bytes).
 
 import { b64decodeLength, b64encode } from './b64.ts';
 import { fromUtf8, utf8, type Bytes } from './bytes.ts';
@@ -14,8 +14,8 @@ export type QrPayload =
   | { kind: 'pair'; hub: string; pairId: string; pairSecret: Bytes };
 
 const MIN_SETUP_TOKEN = 32;
-const PAIR_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const RAW_VALUE_RE = /^(?:[A-Za-z0-9\-._~!$'()*,;:@/?]|%[0-9A-Fa-f]{2})*$/;
+const PAIR_ID_RE = /^[A-Za-z0-9_-]{22}$/;
+const RAW_VALUE_RE = /^(?:[A-Za-z0-9\-._~!$'()*,;:@/?=]|%[0-9A-Fa-f]{2})*$/;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 

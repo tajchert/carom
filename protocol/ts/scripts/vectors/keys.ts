@@ -100,7 +100,7 @@ export function boxVectors(): VectorFile {
   };
 }
 
-const PAIR_ID = 'p_4f8e2c1a9b7d';
+const PAIR_ID = 'AAECAwQFBgcICQoLDA0ODw';
 
 export function pairingVectors(): VectorFile {
   const pairSecret = seed('pair/secret');
@@ -113,12 +113,12 @@ export function pairingVectors(): VectorFile {
   const otherAccept = buildPairAccept(PAIR_ID, pairSecret, OUTSIDER);
   const candidateCases: Array<{ name: string; pair_secret_hex: string; candidate: Record<string, string>; expected: string }> = [
     { name: 'valid', pair_secret_hex: hex(pairSecret), candidate, expected: 'ok' },
-    {
-      name: 'valid without pop (the Hub does not relay it)',
+    ...(['pop'] as const).map((k) => ({
+      name: 'pop missing',
       pair_secret_hex: hex(pairSecret),
-      candidate: { device_id: candidate.device_id, sign_pub: candidate.sign_pub, kx_pub: candidate.kx_pub, mac: candidate.mac },
-      expected: 'ok',
-    },
+      candidate: Object.fromEntries(Object.entries(candidate).filter(([key]) => key !== k)),
+      expected: 'bad_shape',
+    })),
     { name: 'wrong pair secret', pair_secret_hex: hex(seed('pair/other-secret')), candidate, expected: 'bad_mac' },
     { name: 'kx_pub substituted by the Hub', pair_secret_hex: hex(pairSecret), candidate: { ...candidate, kx_pub: b64(OUTSIDER.kxPub) }, expected: 'bad_mac' },
     {
@@ -142,7 +142,7 @@ export function pairingVectors(): VectorFile {
   const welcomeOpenCases = [
     { name: 'valid', pair_id: PAIR_ID, self_id: joiner.deviceId, pair_secret_hex: hex(pairSecret), box, expected: 'ok' },
     { name: 'wrong pair secret', pair_id: PAIR_ID, self_id: joiner.deviceId, pair_secret_hex: hex(seed('pair/other-secret')), box, expected: 'decrypt_failed' },
-    { name: 'wrong pair_id', pair_id: 'p_other', self_id: joiner.deviceId, pair_secret_hex: hex(pairSecret), box, expected: 'decrypt_failed' },
+    { name: 'wrong pair_id', pair_id: 'AAECAwQFBgcICQoLDA0ODx', self_id: joiner.deviceId, pair_secret_hex: hex(pairSecret), box, expected: 'decrypt_failed' },
     { name: 'wrong candidate id in aad', pair_id: PAIR_ID, self_id: LAPTOP.deviceId, pair_secret_hex: hex(pairSecret), box, expected: 'decrypt_failed' },
   ];
   for (const c of welcomeOpenCases) {
@@ -152,7 +152,7 @@ export function pairingVectors(): VectorFile {
 
   return {
     description:
-      'Pairing (SPEC §8). k_pair = HKDF(ikm = pair_secret, salt = "", info = "carom/v1/pair", L = 32). request_input = lp("carom/v1/pair-req") || lp(pair_id) || lp(sign_pub) || lp(kx_pub) with raw 32-byte keys; mac = HMAC-SHA256(k_pair, request_input) (all 32 bytes); pop = Ed25519(sign_sk, request_input). Candidate check order: shape (bad_shape), mac (bad_mac), pop when present (bad_pop), device_id(sign_pub) == device_id (device_id_mismatch). Welcome: Box with psk = k_pair, aad = lp("carom/v1/welcome") || lp(pair_id) || lp(B.id), plaintext = welcome JSON; opening errors are decrypt_failed or bad_welcome. ' +
+      'Pairing (SPEC §8). k_pair = HKDF(ikm = pair_secret, salt = "", info = "carom/v1/pair", L = 32). request_input = lp("carom/v1/pair-req") || lp(pair_id) || lp(sign_pub) || lp(kx_pub) with raw 32-byte keys; mac = HMAC-SHA256(k_pair, request_input) (all 32 bytes); pop = Ed25519(sign_sk, request_input). Candidate check order: shape (bad_shape), mac (bad_mac), pop, required (bad_shape when missing, bad_pop when invalid), device_id(sign_pub) == device_id (device_id_mismatch). Welcome: Box with psk = k_pair, aad = lp("carom/v1/welcome") || lp(pair_id) || lp(B.id), plaintext = welcome JSON; opening errors are decrypt_failed or bad_welcome. ' +
       SIG_NOTE,
     pair_id: PAIR_ID,
     pair_secret_hex: hex(pairSecret),

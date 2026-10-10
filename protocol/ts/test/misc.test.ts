@@ -42,14 +42,23 @@ describe('QR URIs', () => {
   it('round-trips setup and pair payloads', () => {
     const token = 'tok+en/with=odd&chars ' + 'x'.repeat(32);
     expect(parseQrUri(buildSetupUri(hub, token))).toEqual({ kind: 'setup', hub, setupToken: token });
-    expect(parseQrUri(buildPairUri(hub, 'abc_-1', secret))).toEqual({ kind: 'pair', hub, pairId: 'abc_-1', pairSecret: secret });
+    expect(parseQrUri(buildPairUri(hub, 'abc_-1abc_-1abc_-1abcd', secret))).toEqual({ kind: 'pair', hub, pairId: 'abc_-1abc_-1abc_-1abcd', pairSecret: secret });
+  });
+
+  it('accepts a raw "=" in a value but rejects a raw "+"', () => {
+    const t = 'abcdefghijklmnopqrstuvwxyz01234=6789';
+    expect(parseQrUri(`carom://setup?v=1&h=https%3A%2F%2Fhub.example.com&t=${t}`)).toEqual({ kind: 'setup', hub: 'https://hub.example.com', setupToken: t });
+    expect(parseQrUri(`carom://setup?v=1&h=https%3A%2F%2Fhub.example.com&t=${t.replace('=', '+')}`)).toBeNull();
   });
 
   it('builders validate their inputs', () => {
     expect(() => buildSetupUri('http://hub.example.com', 'x'.repeat(32))).toThrow(RangeError);
     expect(() => buildSetupUri(hub, 'short')).toThrow(RangeError);
     expect(() => buildPairUri(hub, 'bad id', secret)).toThrow(RangeError);
-    expect(() => buildPairUri(hub, 'ok', new Uint8Array(16))).toThrow(RangeError);
+    expect(() => buildPairUri(hub, 'abc', secret)).toThrow(RangeError);
+    expect(() => buildPairUri(hub, 'A'.repeat(23), secret)).toThrow(RangeError);
+    expect(() => buildPairUri(hub, 'A'.repeat(21), secret)).toThrow(RangeError);
+    expect(() => buildPairUri(hub, 'A'.repeat(22), new Uint8Array(16))).toThrow(RangeError);
     expect(() => buildPairUri('ftp://x', 'ok', secret)).toThrow(RangeError);
   });
 

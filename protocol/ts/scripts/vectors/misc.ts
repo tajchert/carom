@@ -70,52 +70,57 @@ export function qrVectors(): VectorFile {
   const hub = 'https://carom-hub.example.workers.dev';
   const secret = seed('qr/pair-secret');
   const s = b64(secret);
+  const pid = 'AAECAwQFBgcICQoLDA0ODw';
   const setupToken = 'Sx9+/=&é token with spaces 0123456789';
   const build = [
     { kind: 'setup', hub, setup_token: 'abcdefghijklmnopqrstuvwxyz0123456789', uri: buildSetupUri(hub, 'abcdefghijklmnopqrstuvwxyz0123456789') },
     { kind: 'setup', hub: 'https://hub.example.com:8443/carom', setup_token: setupToken, uri: buildSetupUri('https://hub.example.com:8443/carom', setupToken) },
-    { kind: 'pair', hub, pair_id: 'p_4f8e2c1a9b7d', pair_secret_hex: hex(secret), uri: buildPairUri(hub, 'p_4f8e2c1a9b7d', secret) },
-    { kind: 'pair', hub: 'http://localhost:8787', pair_id: '0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b', pair_secret_hex: hex(secret), uri: buildPairUri('http://localhost:8787', '0192a4b1-7c3d-7e5f-8a9b-0c1d2e3f4a5b', secret) },
+    { kind: 'pair', hub, pair_id: 'AAECAwQFBgcICQoLDA0ODw', pair_secret_hex: hex(secret), uri: buildPairUri(hub, 'AAECAwQFBgcICQoLDA0ODw', secret) },
+    { kind: 'pair', hub: 'http://localhost:8787', pair_id: 'AAECAwQFBgcICQoLDA0ODx', pair_secret_hex: hex(secret), uri: buildPairUri('http://localhost:8787', 'AAECAwQFBgcICQoLDA0ODx', secret) },
   ];
   const enc = 'https%3A%2F%2Fcarom-hub.example.workers.dev';
   const valid = [
     ...build.map((b) => b.uri),
-    `  carom://pair?v=1&h=${enc}&c=abc&s=${s}\n`,
-    `carom://pair?s=${s}&c=abc&h=${enc}&v=1`,
-    `carom://pair?v=1&h=https://carom-hub.example.workers.dev&c=abc&s=${s}`,
+    `  carom://pair?v=1&h=${enc}&c=${pid}&s=${s}\n`,
+    `carom://pair?s=${s}&c=${pid}&h=${enc}&v=1`,
+    `carom://pair?v=1&h=https://carom-hub.example.workers.dev&c=${pid}&s=${s}`,
     `carom://setup?v=1&h=${enc.toLowerCase()}&t=%61bcdefghijklmnopqrstuvwxyz0123456789`,
+    `carom://setup?v=1&h=${enc}&t=abcdefghijklmnopqrstuvwxyz01234=6789`,
   ];
   const invalid: Array<[string, string]> = [
-    [`carom://pair?v=2&h=${enc}&c=abc&s=${s}`, 'unsupported version'],
-    [`carom://pair?h=${enc}&c=abc&s=${s}`, 'missing v'],
-    [`carom://pair?v=1&h=${enc}&c=abc`, 'missing s'],
-    [`carom://pair?v=1&v=1&h=${enc}&c=abc&s=${s}`, 'duplicate parameter'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}&x=1`, 'unknown parameter'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}&`, 'empty parameter'],
-    [`CAROM://pair?v=1&h=${enc}&c=abc&s=${s}`, 'scheme is case-sensitive'],
-    [`https://pair?v=1&h=${enc}&c=abc&s=${s}`, 'wrong scheme'],
-    [`carom://join?v=1&h=${enc}&c=abc&s=${s}`, 'unknown kind'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}#frag`, 'fragment (becomes part of s)'],
-    [`carom://pair?v=1&h=http%3A%2F%2Fcarom-hub.example.workers.dev&c=abc&s=${s}`, 'http hub on a non-loopback host'],
-    [`carom://pair?v=1&h=https%3A%2F%2Fuser%3Apw%40hub.example.com&c=abc&s=${s}`, 'credentials in the hub url'],
-    [`carom://pair?v=1&h=https%3A%2F%2Fhub.example.com%2F%3Fq%3D1&c=abc&s=${s}`, 'query in the hub url'],
-    [`carom://pair?v=1&h=not-a-url&c=abc&s=${s}`, 'hub is not a url'],
-    [`carom://pair?v=1&h=${enc}&c=a%2Fb&s=${s}`, 'pair_id with a character outside [A-Za-z0-9_-]'],
+    [`carom://pair?v=2&h=${enc}&c=${pid}&s=${s}`, 'unsupported version'],
+    [`carom://pair?h=${enc}&c=${pid}&s=${s}`, 'missing v'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}`, 'missing s'],
+    [`carom://pair?v=1&v=1&h=${enc}&c=${pid}&s=${s}`, 'duplicate parameter'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s}&x=1`, 'unknown parameter'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s}&`, 'empty parameter'],
+    [`CAROM://pair?v=1&h=${enc}&c=${pid}&s=${s}`, 'scheme is case-sensitive'],
+    [`https://pair?v=1&h=${enc}&c=${pid}&s=${s}`, 'wrong scheme'],
+    [`carom://join?v=1&h=${enc}&c=${pid}&s=${s}`, 'unknown kind'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s}#frag`, 'fragment (becomes part of s)'],
+    [`carom://pair?v=1&h=http%3A%2F%2Fcarom-hub.example.workers.dev&c=${pid}&s=${s}`, 'http hub on a non-loopback host'],
+    [`carom://pair?v=1&h=https%3A%2F%2Fuser%3Apw%40hub.example.com&c=${pid}&s=${s}`, 'credentials in the hub url'],
+    [`carom://pair?v=1&h=https%3A%2F%2Fhub.example.com%2F%3Fq%3D1&c=${pid}&s=${s}`, 'query in the hub url'],
+    [`carom://pair?v=1&h=not-a-url&c=${pid}&s=${s}`, 'hub is not a url'],
+    [`carom://pair?v=1&h=${enc}&c=${pid.slice(0, 20)}%2Fb&s=${s}`, 'pair_id with a character outside [A-Za-z0-9_-]'],
     [`carom://pair?v=1&h=${enc}&c=&s=${s}`, 'empty pair_id'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${b64(new Uint8Array(31))}`, 'pair secret 31 bytes'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}%3D`, 'padded pair secret'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s.slice(0, -1)}+`, 'raw + in a value'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}%2`, 'truncated percent escape'],
-    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}%ZZ`, 'invalid percent escape'],
+    [`carom://pair?v=1&h=${enc}&c=${pid.slice(0, 21)}&s=${s}`, 'pair_id 21 characters'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}A&s=${s}`, 'pair_id 23 characters'],
+    [`carom://pair?v=1&h=${enc}&c=abc&s=${s}`, 'pair_id is not 22 characters'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${b64(new Uint8Array(31))}`, 'pair secret 31 bytes'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s}%3D`, 'padded pair secret'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s.slice(0, -1)}+`, 'raw + in a value'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s}%2`, 'truncated percent escape'],
+    [`carom://pair?v=1&h=${enc}&c=${pid}&s=${s}%ZZ`, 'invalid percent escape'],
     [`carom://setup?v=1&h=${enc}&t=short-token`, 'setup token shorter than 32 characters'],
     [`carom://setup?v=1&h=${enc}&t=%FF${'a'.repeat(32)}`, 'setup token is not valid UTF-8'],
-    [`carom://setup?v=1&h=${enc}&t=${'a'.repeat(32)}&c=abc`, 'pair parameter in a setup uri'],
+    [`carom://setup?v=1&h=${enc}&t=${'a'.repeat(32)}&c=${pid}`, 'pair parameter in a setup uri'],
   ];
   for (const uri of valid) if (parseQrUri(uri) === null) throw new Error(`qr rejected: ${uri}`);
   for (const [uri] of invalid) if (parseQrUri(uri) !== null) throw new Error(`qr accepted: ${uri}`);
   return {
     description:
-      'QR / pasted URIs (SPEC §8). Builders percent-encode every UTF-8 byte outside A-Z a-z 0-9 - . _ ~ with uppercase hex, in the parameter order v, h, t (setup) or v, h, c, s (pair). Parsers trim surrounding whitespace and are strict: scheme and kind are case-sensitive, the parameter set must be exact (any order, no duplicates, no unknowns), v must be "1"; values may contain percent-escapes (either hex case) and the raw characters A-Za-z0-9-._~!$\'()*,;:@/? only, so a raw "+" or "=" is invalid and "+" never means space; decoded values must be valid UTF-8. h must be an https URL (http only for localhost, 127.0.0.1 and [::1]) without credentials, query or fragment. t must be at least 32 characters without control characters. c matches [A-Za-z0-9_-]{1,64}. s is the canonical b64 of exactly 32 bytes.',
+      'QR / pasted URIs (SPEC §8). Builders percent-encode every UTF-8 byte outside A-Z a-z 0-9 - . _ ~ with uppercase hex, in the parameter order v, h, t (setup) or v, h, c, s (pair). Parsers trim surrounding whitespace and are strict: scheme and kind are case-sensitive, the parameter set must be exact (any order, no duplicates, no unknowns), v must be "1"; values may contain percent-escapes (either hex case) and the raw characters A-Za-z0-9-._~!$\'()*,;:@/?= only, so a raw "+" (or any other character outside that set, e.g. "#", space, non-ASCII) is invalid, a raw "=" inside a value is allowed, and "+" never means space; decoded values must be valid UTF-8. h must be an https URL (http only for localhost, 127.0.0.1 and [::1]) without credentials, query or fragment. t must be at least 32 characters without control characters. c matches [A-Za-z0-9_-]{22} (b64 of 16 bytes). s is the canonical b64 of exactly 32 bytes.',
     build,
     parse_valid: valid.map((uri) => {
       const p = parseQrUri(uri)!;

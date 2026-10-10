@@ -53,8 +53,8 @@ export interface PairCandidate {
   sign_pub: string;
   kx_pub: string;
   mac: string;
-  /** Verified when present. The SPEC §6 candidate shape does not include it; the Hub checks it at accept. */
-  pop?: string;
+  /** Required (SPEC §6, §8 step 3): b64 of the 64-byte proof of possession. */
+  pop: string;
 }
 
 export type CandidateError = 'bad_shape' | 'bad_mac' | 'bad_pop' | 'device_id_mismatch';
@@ -70,13 +70,13 @@ export function verifyPairCandidate(pairId: string, pairSecret: Bytes, candidate
   const signPub = b64decodeLength(c.sign_pub, 32);
   const kxPub = b64decodeLength(c.kx_pub, 32);
   const mac = b64decodeLength(c.mac, 32);
-  const pop = c.pop === undefined ? undefined : b64decodeLength(c.pop, 64);
+  const pop = b64decodeLength(c.pop, 64);
   if (signPub === null || kxPub === null || mac === null || pop === null || typeof c.device_id !== 'string') {
     return { ok: false, error: 'bad_shape' };
   }
   const expected = pairRequestMac(pairKey(pairSecret), pairId, signPub, kxPub);
   if (!equalBytes(mac, expected)) return { ok: false, error: 'bad_mac' };
-  if (pop !== undefined && !verifyPairPop(pairId, signPub, kxPub, pop)) return { ok: false, error: 'bad_pop' };
+  if (!verifyPairPop(pairId, signPub, kxPub, pop)) return { ok: false, error: 'bad_pop' };
   if (!deviceIdMatches(c.device_id, signPub)) return { ok: false, error: 'device_id_mismatch' };
   return { ok: true, deviceId: c.device_id, signPub, kxPub };
 }

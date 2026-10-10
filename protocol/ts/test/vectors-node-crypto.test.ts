@@ -316,11 +316,14 @@ describe('node:crypto cross-check of vectors', () => {
         const sp = strictB64(cand.sign_pub);
         const kp = strictB64(cand.kx_pub);
         const mac = strictB64(cand.mac);
-        if (!sp || sp.length !== 32 || !kp || kp.length !== 32 || !mac || mac.length !== 32) return 'bad_shape';
+        const pop = typeof cand.pop === 'string' ? strictB64(cand.pop) : null;
+        if (!sp || sp.length !== 32 || !kp || kp.length !== 32 || !mac || mac.length !== 32 || !pop || pop.length !== 64) {
+          return 'bad_shape';
+        }
         const k = hkdf(hx(c.pair_secret_hex), Buffer.alloc(0), 'carom/v1/pair');
         const inp = cat(lp('carom/v1/pair-req'), lp(v.pair_id), lp(sp), lp(kp));
         if (!hmac(k, inp).equals(mac)) return 'bad_mac';
-        if (cand.pop !== undefined && !edVerify(sp, inp, ub(cand.pop))) return 'bad_pop';
+        if (!edVerify(sp, inp, pop)) return 'bad_pop';
         if (deviceId(sp) !== cand.device_id) return 'device_id_mismatch';
         return 'ok';
       })();
