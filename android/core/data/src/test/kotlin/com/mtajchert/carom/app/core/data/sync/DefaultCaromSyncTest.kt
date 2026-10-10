@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.core.data.sync
 
+import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.hub.HubErrorCode
 import com.mtajchert.carom.app.core.hub.HubException
 import com.mtajchert.carom.app.core.hub.HubMessage
@@ -253,7 +254,8 @@ class DefaultCaromSyncTest {
         val phone = h.setUp()
         val mac = h.join(phone, "Mac")
         val macId = mac.id
-        mac.sync.revoke(macId)
+        // An older or buggy client deletes itself without the rekey SPEC §5.4 asks for.
+        mac.rawClient().revoke(HubClient.SELF)
         phone.sync.refreshDirectory()
         h.clock.advance(DefaultCaromSync.REMOVAL_GRACE_MS)
         phone.sync.refreshDirectory()
