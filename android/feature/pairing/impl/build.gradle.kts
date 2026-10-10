@@ -4,11 +4,14 @@
 // Pairing: invite another device with a QR code (the inviting side).
 // Screens, ViewModels and the navigation entry contribution. Depends on its
 // own api module, core modules and other features' api modules only.
+//
+// The QR code is encoded with zxing core and drawn as a bitmap.
 // =============================================================================
 
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.screenshot)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kover)
@@ -17,6 +20,7 @@ plugins {
 android {
     namespace = "com.mtajchert.carom.app.feature.pairing.impl"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
@@ -57,6 +61,10 @@ dependencies {
     implementation(projects.core.ui)
     implementation(projects.core.common)
 
+    // QR encoding
+    implementation(libs.zxing.core)
+    implementation(libs.kotlinx.coroutines.android)
+
     // Compose BOM
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
@@ -81,4 +89,6 @@ dependencies {
     testImplementation(composeBom)
     testImplementation(libs.bundles.testing.robolectric)
     testImplementation(libs.androidx.compose.ui.test.manifest)
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
 }
