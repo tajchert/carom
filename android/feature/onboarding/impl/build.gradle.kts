@@ -4,11 +4,15 @@
 // Onboarding: welcome, set up a new Hub or join, name, permissions.
 // Screens, ViewModels and the navigation entry contribution. Depends on its
 // own api module, core modules and other features' api modules only.
+//
+// The QR scanner uses CameraX (preview + image analysis) and zxing core to
+// decode; the camera permission is requested only on the scan step.
 // =============================================================================
 
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.screenshot)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kover)
@@ -17,6 +21,7 @@ plugins {
 android {
     namespace = "com.mtajchert.carom.app.feature.onboarding.impl"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
@@ -57,6 +62,13 @@ dependencies {
     implementation(projects.core.ui)
     implementation(projects.core.common)
 
+    // QR scanning: CameraX preview + analysis, zxing core to decode
+    implementation(libs.bundles.camerax)
+    implementation(libs.zxing.core)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
+
     // Compose BOM
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
@@ -81,4 +93,6 @@ dependencies {
     testImplementation(composeBom)
     testImplementation(libs.bundles.testing.robolectric)
     testImplementation(libs.androidx.compose.ui.test.manifest)
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
 }

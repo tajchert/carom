@@ -1,6 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Welcome -->
     <string name="feature_onboarding_title">Welcome to Carom</string>
-    <string name="feature_onboarding_body">Carom sends notifications and your clipboard between your own devices, through a Hub that you run.</string>
-    <string name="feature_onboarding_next">Next: scan or paste the carom://setup code from your Hub, or a carom://pair code from a paired device.</string>
+    <string name="feature_onboarding_body">Carom sends notifications and your clipboard between your own devices. Everything is end-to-end encrypted.</string>
+    <string name="feature_onboarding_hub_note">It runs through your own Hub: a free Cloudflare Worker you set up once with npx carom-hub deploy.</string>
+    <string name="feature_onboarding_get_started">Get started</string>
+
+    <!-- Connect -->
+    <string name="feature_onboarding_connect_title">Connect to your Hub</string>
+    <string name="feature_onboarding_connect_body">Is this your first device with Carom?</string>
+    <string name="feature_onboarding_connect_setup">Set up a new hub</string>
+    <string name="feature_onboarding_connect_setup_body">This is my first device. I have the code from npx carom-hub deploy.</string>
+    <string name="feature_onboarding_connect_join">Join with a code</string>
+    <string name="feature_onboarding_connect_join_body">Carom already runs on another device. It will show me a code.</string>
+
+    <!-- Scan -->
+    <string name="feature_onboarding_scan_setup_title">Scan your setup code</string>
+    <string name="feature_onboarding_scan_setup_body">Run npx carom-hub deploy on your computer. It shows a code that starts with carom://setup.</string>
+    <string name="feature_onboarding_scan_join_title">Scan the code on your other device</string>
+    <string name="feature_onboarding_scan_join_body">On a paired device, open Add device. Then scan the code it shows.</string>
+    <string name="feature_onboarding_camera_rationale">Carom uses the camera only to read the code, and only on this screen.</string>
+    <string name="feature_onboarding_camera_allow">Allow camera</string>
+    <string name="feature_onboarding_camera_denied">Camera access is off. Turn it on in Settings, or paste the code below.</string>
+    <string name="feature_onboarding_open_settings">Open settings</string>
+    <string name="feature_onboarding_camera_description">Camera view for scanning the code</string>
+    <string name="feature_onboarding_or_paste">or paste the code</string>
+    <string name="feature_onboarding_paste_label">Code</string>
+    <string name="feature_onboarding_paste_placeholder">carom://…</string>
+    <string name="feature_onboarding_paste_from_clipboard">Paste from clipboard</string>
+    <string name="feature_onboarding_invalid_code">That isn\'t a Carom code. Use the code that starts with carom://.</string>
+    <string name="feature_onboarding_clipboard_empty">The clipboard has no text. Copy the code first.</string>
+    <string name="feature_onboarding_continue">Continue</string>
+
+    <!-- Working -->
+    <string name="feature_onboarding_working_setup">Setting up your Hub…</string>
+    <string name="feature_onboarding_working_join">Connecting to your Hub…</string>
+    <string name="feature_onboarding_cancel">Cancel</string>
+
+    <!-- Waiting for approval (joining) -->
+    <string name="feature_onboarding_approval_title">Approve on your other device</string>
+    <string name="feature_onboarding_approval_body">Your other device asks whether to add this one. Check that it shows the same code.</string>
+    <string name="feature_onboarding_fingerprint_label">This device</string>
+    <string name="feature_onboarding_approval_waiting">Waiting for approval…</string>
+
+    <!-- Errors: cause and fix -->
+    <string name="feature_onboarding_try_again">Try again</string>
+    <string name="feature_onboarding_error_unreachable_title">Can\'t reach your Hub</string>
+    <string name="feature_onboarding_error_unreachable_body">Check your internet connection and try again.</string>
+    <string name="feature_onboarding_error_already_set_up_title">This Hub is already set up</string>
+    <string name="feature_onboarding_error_already_set_up_body">Join instead: on a device that is already paired, open Add device and scan its code.</string>
+    <string name="feature_onboarding_error_refused_setup_title">The setup code was refused</string>
+    <string name="feature_onboarding_error_refused_setup_body">Your Hub didn\'t accept this code. Copy the newest code from npx carom-hub deploy and try again.</string>
+    <string name="feature_onboarding_error_refused_join_title">Your Hub said no</string>
+    <string name="feature_onboarding_error_refused_join_body">The other device didn\'t add this one, or the Hub refused it. Show a new code on your other device and scan it again.</string>
+    <string name="feature_onboarding_error_expired_title">The code expired</string>
+    <string name="feature_onboarding_error_expired_body">Codes work for 5 minutes and for one device. Show a new code on your other device and scan it.</string>
+    <string name="feature_onboarding_error_verification_title">This code didn\'t check out</string>
+    <string name="feature_onboarding_error_verification_body">Carom stopped before anything was shared. Show a new code on your other device and scan it again.</string>
+    <string name="feature_onboarding_error_hub_title">Something went wrong</string>
+    <string name="feature_onboarding_error_hub_body">Your Hub returned an error. Try again in a moment.</string>
+
+    <!-- Name -->
+    <string name="feature_onboarding_name_title">Name this device</string>
+    <string name="feature_onboarding_name_body">Your other devices show this name.</string>
+    <string name="feature_onboarding_name_label">Device name</string>
+
+    <!-- Permissions -->
+    <string name="feature_onboarding_permissions_title">Allow access</string>
+    <string name="feature_onboarding_permissions_body">Carom needs these to forward notifications. You can change them later in Settings.</string>
+    <string name="feature_onboarding_listener_title">Notification access</string>
+    <string name="feature_onboarding_listener_body">Lets Carom read notifications so it can forward them to your other devices.</string>
+    <string name="feature_onboarding_restricted_hint">Switch greyed out? Open App info, tap ⋮, then Allow restricted settings. Android asks for this when an app comes from outside an app store.</string>
+    <string name="feature_onboarding_open_app_info">Open App info</string>
+    <string name="feature_onboarding_post_title">Notifications from Carom</string>
+    <string name="feature_onboarding_post_body">Lets Carom tell you when a clipboard item arrives from another device.</string>
+    <string name="feature_onboarding_battery_title">Unrestricted battery use</string>
+    <string name="feature_onboarding_battery_body">Carom uses little battery and works without this. On some phones it helps notifications go out without delay. Find Carom in the list and choose Don\'t optimise.</string>
+    <string name="feature_onboarding_optional">Optional</string>
+    <string name="feature_onboarding_allow">Allow</string>
+    <string name="feature_onboarding_allowed">Allowed</string>
+
+    <!-- Done -->
+    <string name="feature_onboarding_done_title">You\'re all set</string>
+    <string name="feature_onboarding_done_body">Carom now syncs notifications and your clipboard. Add more devices from the home screen.</string>
+    <string name="feature_onboarding_open_carom">Open Carom</string>
 </resources>
