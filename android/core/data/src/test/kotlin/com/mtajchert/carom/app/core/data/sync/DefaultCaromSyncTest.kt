@@ -68,12 +68,13 @@ class DefaultCaromSyncTest {
     }
 
     @Test
-    fun `a receive rule set on the phone is published and survives republishing`() = runTest {
+    fun `a stored receive rule is published and survives republishing`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()
         val mac = h.join(phone, "Mac")
 
-        assertTrue(phone.sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Only(listOf(phone.id))))
+        phone.receive = mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Only(listOf(phone.id)))
+        assertTrue(phone.sync.publishOwnRecord())
         mac.sync.refreshDirectory()
         // The Mac is not in the allowed list, so the phone gets nothing from it.
         assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("x")))
@@ -82,7 +83,8 @@ class DefaultCaromSyncTest {
         mac.sync.refreshDirectory()
         assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("y")))
 
-        assertTrue(phone.sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Everyone))
+        phone.receive = mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone)
+        assertTrue(phone.sync.publishOwnRecord())
         mac.sync.refreshDirectory()
         assertTrue(mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("z")) is SendResult.Sent)
     }

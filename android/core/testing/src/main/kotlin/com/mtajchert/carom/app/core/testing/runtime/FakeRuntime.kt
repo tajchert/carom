@@ -30,10 +30,15 @@ class FakeNotificationAccess(var granted: Boolean = true) : NotificationAccess {
     override fun isGranted(): Boolean = granted
 }
 
-class FakeReceiveRulesStore(var rules: Map<String, ReceiveRule>? = null) : ReceiveRulesStore {
-    override suspend fun receiveRules(): Map<String, ReceiveRule>? = rules
+class FakeReceiveRulesStore(initial: Map<String, ReceiveRule>? = null) : ReceiveRulesStore {
+    override val rules = MutableStateFlow(initial)
+    var writes = 0
+        private set
+
+    override suspend fun receiveRules(): Map<String, ReceiveRule>? = rules.value
     override suspend fun setReceiveRules(rules: Map<String, ReceiveRule>) {
-        this.rules = rules
+        writes++
+        this.rules.value = rules
     }
 }
 

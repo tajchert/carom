@@ -5,9 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mtajchert.carom.app.core.data.repository.SessionRepository
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
-import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.DirectoryEntry
 import com.mtajchert.carom.app.core.data.sync.DirectoryStore
+import com.mtajchert.carom.app.core.data.sync.ReceiveRulesStore
+import com.mtajchert.carom.app.core.domain.SetReceiveRuleUseCase
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.ReceiveRule
@@ -43,21 +44,27 @@ class ClipboardSettingsViewModel @Inject constructor(
     session: SessionRepository,
     private val preferences: UserPreferencesRepository,
     private val targets: ClipboardSendTargets,
-    private val sync: CaromSync,
+    rulesStore: ReceiveRulesStore,
+    private val setReceiveRule: SetReceiveRuleUseCase,
 ) : ViewModel() {
     private val failed = MutableStateFlow(false)
 
+    private val directoryAndRules = combine(directory.observe(), rulesStore.rules) { entries, rules -> entries to rules }
+
     val uiState: StateFlow<ClipboardSettingsState> = combine(
-        directory.observe(),
+        directoryAndRules,
         session.session,
         preferences.userPreferences,
         targets.selected,
         failed,
-    ) { entries, sessionState, prefs, selected, receiveFailed ->
+    ) { (entries, storedRules), sessionState, prefs, selected, receiveFailed ->
         val me = (sessionState as? SessionState.Paired)?.deviceId
         val others = entries.filter { it.id != me && it.record != null }
         val self = entries.firstOrNull { it.id == me }?.record
-        val rule = self?.receive?.get(MessageTypes.CLIPBOARD_SET) ?: ReceiveRule.Everyone
+        // The same source as the Devices matrix: the user's stored rules, else the published record.
+        // A missing type means "do not send me this" (SPEC §5.1).
+        val receive = storedRules ?: self?.receive
+        val rule = if (receive == null) ReceiveRule.Everyone else receive[MessageTypes.CLIPBOARD_SET] ?: ReceiveRule.Only(emptyList())
         val eligible = others.filter { it.canReceiveFrom(me) }
         ClipboardSettingsState(
             sendTo = eligible.map { ClipboardDeviceRow(it.id, it.record!!.name, selected == null || it.id in selected) },
@@ -96,7 +103,7 @@ class ClipboardSettingsViewModel @Inject constructor(
     private fun publish(rule: ReceiveRule) {
         viewModelScope.launch {
             failed.update { false }
-            if (!sync.setReceiveRule(MessageTypes.CLIPBOARD_SET, rule)) failed.update { true }
+            if (!setReceiveRule.setRule(MessageTypes.CLIPBOARD_SET, rule)) failed.update { true }
         }
     }
 

@@ -1,6 +1,8 @@
 package com.mtajchert.carom.app.core.domain
 
 import com.mtajchert.carom.app.core.data.sync.DirectoryEntry
+import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfile
+import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.model.PushState
@@ -35,6 +37,7 @@ class DeviceSettingsTest {
     private val directory = InMemoryDirectoryStore()
     private val rules = FakeReceiveRulesStore()
     private val sync = FakeCaromSync()
+    private val profile = LocalDeviceProfileProvider { LocalDeviceProfile("Pixel", DeviceKind.PHONE, "android", "1.0.0") }
 
     private fun record(id: String, name: String, kind: DeviceKind, receive: Map<String, ReceiveRule>, caps: List<String> = receive.keys.toList()) =
         DeviceRecord(id, name, kind, "android", "1.0.0", "AAAA", "AAAA", caps, receive, 1)
@@ -55,7 +58,7 @@ class DeviceSettingsTest {
     @Test
     fun `the matrix lists receivable types against the other trusted devices`() = runTest {
         setUpDirectory(mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone, MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Only(listOf(mac))))
-        val matrix = ObserveReceiveMatrixUseCase(directory, vault)().first()
+        val matrix = ObserveReceiveMatrixUseCase(directory, vault, rules)().first()
         assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET), matrix.types)
         assertEquals(listOf("Mac", "Laptop"), matrix.senders.map { it.name })
         assertTrue(matrix.isAllowed(MessageTypes.CLIPBOARD_SET, laptop))
@@ -66,21 +69,21 @@ class DeviceSettingsTest {
     @Test
     fun `turning one sender off turns star into a list and republishes`() = runTest {
         setUpDirectory(mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone))
-        val set = SetReceiveRuleUseCase(directory, vault, rules, sync)
+        val set = SetReceiveRuleUseCase(directory, vault, rules, profile, sync)
         assertTrue(set(MessageTypes.CLIPBOARD_SET, mac, allow = false))
-        assertEquals(ReceiveRule.Only(listOf(laptop)), rules.rules!![MessageTypes.CLIPBOARD_SET])
+        assertEquals(ReceiveRule.Only(listOf(laptop)), rules.rules.value!![MessageTypes.CLIPBOARD_SET])
         assertEquals(1, sync.published)
     }
 
     @Test
     fun `allowing every known sender goes back to star, allowing none removes the type`() = runTest {
         setUpDirectory(mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Only(listOf(laptop))))
-        val set = SetReceiveRuleUseCase(directory, vault, rules, sync)
+        val set = SetReceiveRuleUseCase(directory, vault, rules, profile, sync)
         set(MessageTypes.CLIPBOARD_SET, mac, allow = true)
-        assertEquals(ReceiveRule.Everyone, rules.rules!![MessageTypes.CLIPBOARD_SET])
+        assertEquals(ReceiveRule.Everyone, rules.rules.value!![MessageTypes.CLIPBOARD_SET])
         set(MessageTypes.CLIPBOARD_SET, mac, allow = false)
         set(MessageTypes.CLIPBOARD_SET, laptop, allow = false)
-        assertFalse(MessageTypes.CLIPBOARD_SET in rules.rules!!)
+        assertFalse(MessageTypes.CLIPBOARD_SET in rules.rules.value!!)
     }
 
     @Test
@@ -118,5 +121,32 @@ class DeviceSettingsTest {
         assertEquals(ConnectionStatus.REJECTED, home.connection)
         assertEquals(PushState.NO_DISTRIBUTOR, home.push)
         assertEquals(42L, home.lastSyncAt)
+    }
+
+    @Test
+    fun `the clipboard setting and the matrix share one stored rule set and publish once per change`() = runTest {
+        setUpDirectory(mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone, MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone))
+        val set = SetReceiveRuleUseCase(directory, vault, rules, profile, sync)
+        assertTrue(set.setRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Only(listOf(laptop))))
+        assertEquals(1, sync.published)
+        // The matrix sees the clipboard choice at once, even before the record is republished.
+        val matrix = ObserveReceiveMatrixUseCase(directory, vault, rules)().first()
+        assertFalse(matrix.isAllowed(MessageTypes.CLIPBOARD_SET, mac))
+        assertTrue(matrix.isAllowed(MessageTypes.CLIPBOARD_SET, laptop))
+        // A matrix change keeps the clipboard choice and the other types.
+        assertTrue(set(MessageTypes.NOTIFICATION_DISMISS, mac, allow = false))
+        assertEquals(2, sync.published)
+        assertEquals(
+            mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Only(listOf(laptop)), MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Only(listOf(laptop))),
+            rules.rules.value,
+        )
+    }
+
+    @Test
+    fun `an empty receive list removes the type`() = runTest {
+        setUpDirectory(mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone))
+        val set = SetReceiveRuleUseCase(directory, vault, rules, profile, sync)
+        set.setRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Only(emptyList()))
+        assertFalse(MessageTypes.CLIPBOARD_SET in rules.rules.value!!)
     }
 }
