@@ -37,7 +37,8 @@ import java.io.IOException
  * tested against each other on the JVM. It checks auth, `from`, active recipients (409), msg_id
  * duplicates, the collapse rule, cumulative acks, the keyring kv rule and pairing states.
  *
- * Not modelled: rate limits, push, WebSockets, TTL expiry and signature checks.
+ * Push subscriptions are stored (`has_push`, [pushOf]); sending pushes is not.
+ * Not modelled: rate limits, push delivery, WebSockets, TTL expiry and signature checks.
  */
 class FakeHub(
     val setupToken: String = "fake-setup-token-0123456789abcdef-0123",
@@ -54,7 +55,11 @@ class FakeHub(
         val createdAt: Long,
         var record: JsonElement? = null,
         var cursor: Long = 0,
+        var push: PushSubscription? = null,
     )
+
+    /** A `PUT /v1/devices/self/push` body. */
+    data class PushSubscription(val endpoint: String, val p256dh: String, val auth: String)
 
     private class Pairing(val id: String, val offerer: String, var state: String = "waiting") {
         var candidate: JsonObject? = null
@@ -81,6 +86,7 @@ class FakeHub(
     val activeDeviceIds: List<String> get() = devices.values.filter { it.active }.map { it.id }
     val keyringVersions: List<KeyringVersion> get() = keyring.toList()
     fun recordOf(id: String): JsonElement? = devices[id]?.record
+    fun pushOf(id: String): PushSubscription? = devices[id]?.push
     fun pendingFor(id: String): Int = devices[id]?.let { d -> messages.count { id in it.to && it.seq > d.cursor } } ?: 0
 
     val factory: HubClientFactory = object : HubClientFactory {
@@ -192,7 +198,7 @@ class FakeHub(
         override suspend fun devices(): List<HubDevice> {
             caller("GET /v1/devices")
             return devices.values.filter { it.active }.map {
-                HubDevice(it.id, it.signPub, it.kxPub, it.createdAt, it.createdAt, false, it.record)
+                HubDevice(it.id, it.signPub, it.kxPub, it.createdAt, it.createdAt, it.push != null, it.record)
             }
         }
 
@@ -203,11 +209,11 @@ class FakeHub(
         }
 
         override suspend fun putPush(endpoint: String, p256dh: String, auth: String) {
-            caller("PUT /v1/devices/self/push")
+            caller("PUT /v1/devices/self/push").push = PushSubscription(endpoint, p256dh, auth)
         }
 
         override suspend fun deletePush() {
-            caller("DELETE /v1/devices/self/push")
+            caller("DELETE /v1/devices/self/push").push = null
         }
 
         override suspend fun revoke(deviceId: String) {

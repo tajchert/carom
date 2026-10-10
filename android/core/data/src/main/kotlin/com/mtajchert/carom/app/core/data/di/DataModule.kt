@@ -10,6 +10,13 @@ import com.mtajchert.carom.app.core.data.repository.DeviceRepository
 import com.mtajchert.carom.app.core.data.repository.RecentItemsRepository
 import com.mtajchert.carom.app.core.data.repository.SessionRepository
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.data.runtime.AndroidNotificationAccess
+import com.mtajchert.carom.app.core.data.runtime.CancelWorkOnWipe
+import com.mtajchert.carom.app.core.data.runtime.LiveConnectionState
+import com.mtajchert.carom.app.core.data.runtime.LiveHubConnection
+import com.mtajchert.carom.app.core.data.runtime.NotificationAccess
+import com.mtajchert.carom.app.core.data.runtime.PiggybackFetch
+import com.mtajchert.carom.app.core.data.runtime.SyncStartHook
 import com.mtajchert.carom.app.core.data.sync.AndroidDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.DataStoreSyncStateStore
@@ -26,13 +33,17 @@ import com.mtajchert.carom.app.core.data.sync.LogcatSyncLog
 import com.mtajchert.carom.app.core.data.sync.NoticeSink
 import com.mtajchert.carom.app.core.data.sync.OutboxStore
 import com.mtajchert.carom.app.core.data.sync.PreferencesStateWiper
+import com.mtajchert.carom.app.core.data.sync.ReceiveRulesStore
 import com.mtajchert.carom.app.core.data.sync.RecentItemNoticeSink
 import com.mtajchert.carom.app.core.data.sync.RoomDirectoryStore
 import com.mtajchert.carom.app.core.data.sync.RoomOutboxStore
 import com.mtajchert.carom.app.core.data.sync.RoomSeenMessageStore
 import com.mtajchert.carom.app.core.data.sync.SeenMessageStore
+import com.mtajchert.carom.app.core.data.sync.SentListener
 import com.mtajchert.carom.app.core.data.sync.SyncLog
 import com.mtajchert.carom.app.core.data.sync.SyncStateStore
+import com.mtajchert.carom.app.core.data.sync.SyncStatusRepository
+import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.data.work.WorkManagerSyncScheduler
 import com.mtajchert.carom.app.core.hub.HubClientFactory
@@ -40,6 +51,7 @@ import com.mtajchert.carom.app.core.security.SecretVault
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
+import dagger.multibindings.IntoSet
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -82,6 +94,28 @@ abstract class DataModule {
     internal abstract fun bindsEnrollmentStore(impl: DataStoreSyncStateStore): EnrollmentStore
 
     @Binds
+    internal abstract fun bindsSyncStatusRepository(impl: DataStoreSyncStateStore): SyncStatusRepository
+
+    @Binds
+    internal abstract fun bindsReceiveRulesStore(impl: DataStoreSyncStateStore): ReceiveRulesStore
+
+    @Binds
+    internal abstract fun bindsLiveHubConnection(impl: LiveConnectionState): LiveHubConnection
+
+    @Binds
+    internal abstract fun bindsNotificationAccess(impl: AndroidNotificationAccess): NotificationAccess
+
+    @Binds
+    internal abstract fun bindsSentListener(impl: PiggybackFetch): SentListener
+
+    @Binds @IntoSet
+    internal abstract fun bindsCancelWorkOnWipe(impl: CancelWorkOnWipe): WipeHook
+
+    /** Contributed by `:core:push` (wake-up registration); empty without it. */
+    @Multibinds
+    internal abstract fun syncStartHooks(): Set<SyncStartHook>
+
+    @Binds
     internal abstract fun bindsNoticeSink(impl: RecentItemNoticeSink): NoticeSink
 
     @Binds
@@ -118,6 +152,8 @@ abstract class DataModule {
             notices: NoticeSink,
             wiper: LocalStateWiper,
             log: SyncLog,
+            wipeHooks: Set<@JvmSuppressWildcards WipeHook>,
+            sentListener: SentListener,
         ): CaromSync = DefaultCaromSync(
             vault = vault,
             hubProvider = hubProvider,
@@ -130,6 +166,8 @@ abstract class DataModule {
             notices = notices,
             localStateWiper = wiper,
             log = log,
+            wipeHooks = wipeHooks,
+            sentListener = sentListener,
         )
 
         @Provides

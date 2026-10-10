@@ -5,9 +5,12 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.mtajchert.carom.app.core.data.sync.CaromSync
@@ -40,26 +43,70 @@ class OutboxWorker @AssistedInject constructor(
     }
 }
 
-/** Schedules background sync work. Later agents add push- and tile-triggered fetches here. */
+/** Schedules background sync work (docs/CLIENTS.md "Connection policy (phone)"). */
 interface SyncWorkScheduler {
     /** Ensures the outbox is flushed once the network is available, after [delayMs]. */
     fun scheduleOutboxFlush(delayMs: Long = 0)
+
+    /**
+     * One `GET /v1/messages` round once the network is available. [expedited] is for push
+     * wake-ups, which should be handled right away; piggyback fetches after a send are not.
+     */
+    fun scheduleFetch(expedited: Boolean = false)
+
+    /** The 15-minute fallback poll, used only while push is unavailable. */
+    fun setPeriodicFetch(enabled: Boolean)
+
+    /** Cancels every scheduled sync job (wipe). */
+    fun cancelAll()
 }
 
 @Singleton
 class WorkManagerSyncScheduler @Inject constructor(
     private val workManager: WorkManager,
 ) : SyncWorkScheduler {
+    private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
     override fun scheduleOutboxFlush(delayMs: Long) {
         val request = OneTimeWorkRequestBuilder<OutboxWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(network)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
             .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .addTag(TAG)
             .build()
         workManager.enqueueUniqueWork(OutboxWorker.UNIQUE_NAME, ExistingWorkPolicy.REPLACE, request)
     }
 
+    override fun scheduleFetch(expedited: Boolean) {
+        val builder = OneTimeWorkRequestBuilder<FetchWorker>()
+            .setConstraints(network)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
+            .addTag(TAG)
+        if (expedited) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        // A fetch that has not started yet already covers this request; a running one may have
+        // finished its last page, so a new request is appended behind it.
+        workManager.enqueueUniqueWork(FetchWorker.UNIQUE_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, builder.build())
+    }
+
+    override fun setPeriodicFetch(enabled: Boolean) {
+        if (!enabled) {
+            workManager.cancelUniqueWork(FetchWorker.PERIODIC_NAME)
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<FetchWorker>(PERIODIC_MINUTES, TimeUnit.MINUTES)
+            .setConstraints(network)
+            .addTag(TAG)
+            .build()
+        workManager.enqueueUniquePeriodicWork(FetchWorker.PERIODIC_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    override fun cancelAll() {
+        workManager.cancelAllWorkByTag(TAG)
+    }
+
     private companion object {
         const val BACKOFF_SECONDS = 30L
+        const val PERIODIC_MINUTES = 15L
+        const val TAG = "carom-sync"
     }
 }

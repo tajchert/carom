@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.core.data.sync
 
+import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.QrPayload
@@ -43,6 +44,11 @@ class TestDevice(val name: String, val kind: DeviceKind, val hub: FakeHub, val c
     val handlers = MessageTypes.ALL.associateWith { RecordingHandler(it) }
     var wipedLocalState = false
 
+    /** Runs as this device's [WipeHook]; sees whether the vault still had its keys. */
+    var beforeWipe: suspend (HubClient?) -> Unit = {}
+    val wipeHookSawKeys = mutableListOf<Boolean>()
+    var sentCount = 0
+
     private val hubProvider = HubProvider {
         state.enrollment?.let { (url, _, _) -> hub.factory.client(url) { vault.load().deviceToken } }
     }
@@ -59,11 +65,23 @@ class TestDevice(val name: String, val kind: DeviceKind, val hub: FakeHub, val c
         notices = state,
         localStateWiper = { wipedLocalState = true; state.enrollment = null },
         clock = clock,
+        wipeHooks = setOf(
+            WipeHook { client ->
+                wipeHookSawKeys += vault.load().isComplete
+                beforeWipe(client)
+            },
+        ),
+        sentListener = { sentCount++ },
     )
 
     val enrollment = Enrollment(vault, hub.factory, hubProvider, state, sync, clock)
 
     val id: String get() = requireNotNull(vault.contents.value?.identity).deviceId
+
+    /** A raw Hub client with this device's token, for scripting what a hostile or buggy peer does. */
+    fun rawClient(): HubClient = hub.factory.client(hub.url) { vault.load().deviceToken }
+
+    fun trusted(): Set<String> = directory.current.filter { it.trusted }.map { it.id }.toSet()
 
     fun received(type: String): List<Received> = handlers.getValue(type).received
 }

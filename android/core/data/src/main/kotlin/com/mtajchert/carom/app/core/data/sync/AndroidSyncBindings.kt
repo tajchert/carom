@@ -29,9 +29,10 @@ class EnrolledHubProvider @Inject constructor(
     }
 }
 
-/** This phone's record fields: the user's device name (or the model) and the app version. */
+/** This phone's record fields: the user's device name (or the model), the app version and receive rules. */
 class AndroidDeviceProfileProvider @Inject constructor(
     private val preferences: UserPreferencesDataSource,
+    private val receiveRules: ReceiveRulesStore,
     @param:Named(APP_VERSION) private val appVersion: String,
 ) : LocalDeviceProfileProvider {
     override suspend fun profile(): LocalDeviceProfile = LocalDeviceProfile(
@@ -39,6 +40,7 @@ class AndroidDeviceProfileProvider @Inject constructor(
         kind = DeviceKind.PHONE,
         platform = "android",
         appVersion = appVersion,
+        receive = receiveRules.receiveRules(),
     )
 
     companion object {

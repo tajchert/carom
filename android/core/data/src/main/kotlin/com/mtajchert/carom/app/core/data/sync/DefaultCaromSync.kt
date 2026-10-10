@@ -1,12 +1,14 @@
 package com.mtajchert.carom.app.core.data.sync
 
 import com.mtajchert.carom.app.core.hub.HubClient
+import com.mtajchert.carom.app.core.hub.HubDevice
 import com.mtajchert.carom.app.core.hub.HubErrorCode
 import com.mtajchert.carom.app.core.hub.HubException
 import com.mtajchert.carom.app.core.hub.HubMessage
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.protocol.B64
 import com.mtajchert.carom.app.core.protocol.Collapse
+import com.mtajchert.carom.app.core.protocol.DeviceIds
 import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import com.mtajchert.carom.app.core.protocol.Envelope
 import com.mtajchert.carom.app.core.protocol.Envelopes
@@ -38,7 +40,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 
 /** Wipes local, non-secret state (preferences, caches) after a revocation. */
 fun interface LocalStateWiper {
@@ -51,6 +52,13 @@ fun interface LocalStateWiper {
  *
  * Three locks keep work ordered without risking deadlock (none is taken while holding a later one):
  * outbox posting, receiving, then directory/keyring.
+ *
+ * SPEC behaviours implemented here, beyond plain send/receive:
+ * - §3.3: one directory + keyring refresh before dropping for `unknown_kv` or an untrusted sender.
+ * - §5.3: transitional trust for `kv − 1` records of devices boxed in the newest verified version.
+ * - §5.4: removal notices ("<revoker> removed <device>", or "removed (no rekey)" after 2 minutes)
+ *   and the `401` latch: syncing stops until the user pairs again ([onRevoked] wipes).
+ * - §5.5: keyring versions verified as a chain, in order; our record republished under each new key.
  */
 class DefaultCaromSync(
     private val vault: SecretVault,
@@ -67,6 +75,8 @@ class DefaultCaromSync(
     private val ids: UuidV7Generator = UuidV7Generator(clock = clock::now),
     private val rng: Rng = SecureRng,
     private val log: SyncLog = SyncLog.NONE,
+    private val wipeHooks: Set<WipeHook> = emptySet(),
+    private val sentListener: SentListener = SentListener.NONE,
 ) : CaromSync {
 
     private val outboxLock = Mutex()
@@ -76,6 +86,9 @@ class DefaultCaromSync(
     private val statusFlow = MutableStateFlow(ConnectionStatus.IDLE)
     override val status: StateFlow<ConnectionStatus> = statusFlow.asStateFlow()
 
+    /** Devices this device revoked in this process; their removal needs no notice here. */
+    private val revokedHere = mutableSetOf<String>()
+
     /** Types this device handles; also its `caps`. Ordered like [MessageTypes.ALL] for stable records. */
     private val knownTypes: List<String> = handlers.map { it.type }.distinct().sortedBy { type ->
         MessageTypes.ALL.indexOf(type).let { if (it < 0) Int.MAX_VALUE else it }
@@ -84,14 +97,22 @@ class DefaultCaromSync(
     /** Identity, current key and client, or null when this device is not paired. */
     private class Session(val contents: VaultContents, val identity: Identity, val key: StoredGroupKey, val client: HubClient)
 
+    /** The session, or null when this device is not paired or the Hub refused it (SPEC §5.4 `401`). */
     private suspend fun session(): Session? {
         val contents = vault.load()
         val identity = contents.identity ?: return null
         val key = contents.currentKey ?: return null
         if (contents.deviceToken == null) return null
+        if (syncState.isRejected()) {
+            statusFlow.value = ConnectionStatus.REJECTED
+            return null
+        }
         val client = hubProvider.client() ?: return null
         return Session(contents, identity, key, client)
     }
+
+    /** True when [session] returned null because of the `401` latch rather than a missing pairing. */
+    private suspend fun rejected(): Boolean = vault.load().isComplete && syncState.isRejected()
 
     // -------------------------------------------------------------------------
     // Sending
@@ -127,7 +148,10 @@ class DefaultCaromSync(
         )
         outbox.put(item)
         return when (val result = attempt(s, item)) {
-            is Attempt.Sent -> SendResult.Sent(msgId)
+            is Attempt.Sent -> {
+                sentListener.onSent()
+                SendResult.Sent(msgId)
+            }
             is Attempt.Retry -> SendResult.Queued(msgId)
             is Attempt.Dropped -> SendResult.Dropped(msgId, result.code)
         }
@@ -146,6 +170,7 @@ class DefaultCaromSync(
                 is Attempt.Dropped -> dropped++
             }
         }
+        if (sent > 0) sentListener.onSent()
         FlushResult(sent, dropped, retry, outbox.nextAttemptAt(clock.now()))
     }
 
@@ -179,14 +204,17 @@ class DefaultCaromSync(
                         val remaining = item.recipients.filter { it !in e.full }
                         item = reseal(s, item, remaining) ?: return drop(item, e.code.code)
                     }
-                    e.isRetryable -> return retry(item, e.code.code)
+                    e.isRetryable -> {
+                        failed(e)
+                        return retry(item, e.code.code)
+                    }
                     else -> {
-                        if (e.code == HubErrorCode.UNAUTHORIZED) statusFlow.value = ConnectionStatus.REJECTED
+                        failed(e)
                         return drop(item, e.code.code)
                     }
                 }
             } catch (e: HubException) {
-                statusFlow.value = ConnectionStatus.OFFLINE
+                failed(e)
                 return retry(item, "network")
             }
         }
@@ -243,7 +271,7 @@ class DefaultCaromSync(
     // -------------------------------------------------------------------------
 
     override suspend fun fetchMessages(): FetchResult = receiveLock.withLock {
-        val s = session() ?: return FetchResult.NotPaired
+        val s = session() ?: return if (rejected()) FetchResult.Failed(retryable = false) else FetchResult.NotPaired
         statusFlow.value = ConnectionStatus.SYNCING
         var handled = 0
         var dropped = 0
@@ -259,22 +287,32 @@ class DefaultCaromSync(
                 outcome.maxSeq?.let { s.client.ack(it) }
                 if (!page.more) break
             }
-            finishFetch()
+            finishFetch(s)
             FetchResult.Fetched(handled, dropped)
         } catch (e: HubException) {
             FetchResult.Failed(retryable = failed(e))
         }
     }
 
-    private suspend fun finishFetch() {
+    private suspend fun finishFetch(s: Session) {
         val now = clock.now()
         seen.prune(now - Protocol.Limits.SEEN_RETENTION_MS)
         outbox.prune(now)
+        syncState.setLastSyncAt(now)
         statusFlow.value = ConnectionStatus.IDLE
+        // A removal seen earlier may now be past its grace period: check the keyring once, then flag it.
+        if (syncState.pendingRemovals().any { now - it.detectedAt >= REMOVAL_GRACE_MS }) {
+            directoryLock.withLock {
+                checkKeyringLocked(s)
+                flagUnexplainedRemovals()
+            }
+        }
     }
 
     override suspend fun process(messages: List<HubMessage>): Long? = receiveLock.withLock {
-        processLocked(messages).maxSeq
+        val outcome = processLocked(messages)
+        if (outcome.maxSeq != null) syncState.setLastSyncAt(clock.now())
+        outcome.maxSeq
     }
 
     private class ProcessOutcome(val maxSeq: Long?, val handled: Int, val dropped: Int)
@@ -282,16 +320,14 @@ class DefaultCaromSync(
     private suspend fun processLocked(messages: List<HubMessage>): ProcessOutcome {
         if (messages.isEmpty()) return ProcessOutcome(null, 0, 0)
         val maxSeq = messages.maxOf { it.seq }
-        if (session() == null) return ProcessOutcome(null, 0, 0) // not paired: do not ack
+        if (session() == null) return ProcessOutcome(null, 0, 0) // not paired or refused: do not ack
         val sorted = messages.sortedBy { it.seq }
 
         val firstPass = sorted.map { it to receiveOne(it) }
         var retried: List<Pair<HubMessage, Outcome<*, ReceiveError>>> = emptyList()
-        val unknownSender = firstPass.filter { (_, r) ->
-            r is Outcome.Err && (r.error == ReceiveError.UNTRUSTED_SENDER || r.error == ReceiveError.UNKNOWN_KV)
-        }
+        val unknownSender = firstPass.filter { (_, r) -> r is Outcome.Err && r.error in REFRESH_FIRST }
         if (unknownSender.isNotEmpty()) {
-            // A device that just joined, or a new key: refresh once and retry those messages.
+            // SPEC §3.3 rule 4: refresh the directory and the keyring once, then re-check.
             session()?.let { s -> directoryLock.withLock { refreshDirectoryLocked(s, checkKeyring = true) } }
             retried = unknownSender.map { (m, _) -> m to receiveOne(m) }
         }
@@ -336,11 +372,11 @@ class DefaultCaromSync(
     }
 
     // -------------------------------------------------------------------------
-    // Directory, keyring, rekey, revoke
+    // Directory and trust (SPEC §5.3, §5.4)
     // -------------------------------------------------------------------------
 
     override suspend fun refreshDirectory(): DirectoryResult = directoryLock.withLock {
-        val s = session() ?: return DirectoryResult.NotPaired
+        val s = session() ?: return if (rejected()) DirectoryResult.Failed(retryable = false) else DirectoryResult.NotPaired
         refreshDirectoryLocked(s, checkKeyring = true)
     }
 
@@ -350,72 +386,196 @@ class DefaultCaromSync(
         } catch (e: HubException) {
             return DirectoryResult.Failed(retryable = failed(e))
         }
-        val key = vault.load().currentKey ?: return DirectoryResult.NotPaired
-        val previous = directory.all().associateBy { it.id }
+        val contents = vault.load()
+        val key = contents.currentKey ?: return DirectoryResult.NotPaired
+        val trust = TrustContext(
+            key = key,
+            previousKey = contents.keysByKv[key.kv - 1],
+            // Transitional trust only follows the newest verified version, and only for the current key.
+            boxedInCurrent = syncState.verifiedKeyring()?.takeIf { it.kv == key.kv }?.members.orEmpty(),
+        )
+        val previous = directory.all()
+        val previousById = previous.associateBy { it.id }
         val entries = devices.map { d ->
-            val prev = previous[d.id]
-            val record: DeviceRecord? = d.record?.let { raw ->
-                when (val opened = Records.open(raw, key.key, key.kv, prev?.record?.updated)) {
-                    is Outcome.Ok -> opened.value.takeIf { it.id == d.id }
-                    is Outcome.Err -> {
-                        if (opened.error != OpenRecordError.OLD_KV) log.log("record_rejected", "${opened.error.code} ${d.id}")
-                        // A rollback keeps what we already trust under this key.
-                        prev?.record?.takeIf { opened.error == OpenRecordError.ROLLBACK && prev.recordKv == key.kv }
-                    }
-                }
-            }
-            DirectoryEntry(d.id, d.signPub, d.kxPub, d.createdAt, d.lastSeen, d.hasPush, record, record?.let { key.kv })
+            val prev = previousById[d.id]
+            val (record, kv) = openRecord(d, trust, prev) ?: (null to null)
+            DirectoryEntry(d.id, d.signPub, d.kxPub, d.createdAt, d.lastSeen, d.hasPush, record, kv)
         }
         val presentIds = entries.map { it.id }.toSet()
-        val removed = previous.values.filter { it.trusted && it.id !in presentIds && it.id != s.identity.deviceId }
+        val removed = previous.filter { it.trusted && it.id !in presentIds && it.id != s.identity.deviceId }
         directory.replace(entries)
-        for (gone in removed) notices.notice(NoticeText.DeviceRemoved(gone.record?.name ?: gone.id, gone.id))
+        if (removed.isNotEmpty()) noteRemovals(removed, previous)
 
-        if (checkKeyring) checkKeyringLocked(s)
+        // The pre-refresh cache still knows the keys of devices that rekeyed and then left.
+        if (checkKeyring) checkKeyringLocked(s, previous)
+        flagUnexplainedRemovals()
+        retryPendingRekey(s)
+        val currentKv = vault.load().currentKey?.kv
         val self = directory.all().firstOrNull { it.id == s.identity.deviceId }
-        if (self?.record == null) publishOwnRecordLocked()
+        if (self?.record == null || self.recordKv != currentKv) publishOwnRecordLocked()
         statusFlow.value = ConnectionStatus.IDLE
         val all = directory.all()
         return DirectoryResult.Refreshed(all.count { it.trusted }, all.count { !it.trusted }, removed.map { it.id })
     }
 
+    private class TrustContext(val key: StoredGroupKey, val previousKey: ByteArray?, val boxedInCurrent: Set<String>)
+
+    /**
+     * Opens [d]'s record under the current key, or under `kv − 1` when the newest verified keyring
+     * version boxed the device (transitional trust). Returns the record and the kv it was sealed under.
+     */
+    private fun openRecord(d: HubDevice, trust: TrustContext, prev: DirectoryEntry?): Pair<DeviceRecord, Long>? {
+        val raw = d.record ?: return null
+        val lastUpdated = prev?.record?.updated
+        val previousKv = trust.key.kv - 1
+        val transitional = trust.previousKey != null && d.id in trust.boxedInCurrent
+        // On a rollback we keep what we already trust, if it is still trusted under the current key.
+        val keep: Pair<DeviceRecord, Long>? = prev?.record?.let { record ->
+            prev.recordKv?.takeIf { it == trust.key.kv || (it == previousKv && transitional) }?.let { record to it }
+        }
+        val current = Records.open(raw, trust.key.key, trust.key.kv, lastUpdated)
+        if (current is Outcome.Ok) return current.value.takeIf { it.id == d.id }?.let { it to trust.key.kv }
+        val error = (current as Outcome.Err).error
+        if (error == OpenRecordError.ROLLBACK) return keep
+        if (error == OpenRecordError.OLD_KV && transitional) {
+            when (val old = Records.open(raw, trust.previousKey!!, previousKv, lastUpdated)) {
+                is Outcome.Ok -> return old.value.takeIf { it.id == d.id }?.let { it to previousKv }
+                is Outcome.Err -> {
+                    if (old.error == OpenRecordError.ROLLBACK) return keep
+                    log.log("record_rejected", "${old.error.code} ${d.id}")
+                }
+            }
+            return null
+        }
+        if (error != OpenRecordError.OLD_KV) log.log("record_rejected", "${error.code} ${d.id}")
+        return null
+    }
+
+    /**
+     * Trusted devices that vanished from the directory. Explained right away when the newest verified
+     * keyring version already dropped them; otherwise kept pending for [REMOVAL_GRACE_MS].
+     */
+    private suspend fun noteRemovals(removed: List<DirectoryEntry>, previous: List<DirectoryEntry>) {
+        val keyring = syncState.verifiedKeyring()
+        val pending = syncState.pendingRemovals().toMutableList()
+        val now = clock.now()
+        for (gone in removed) {
+            if (gone.id in revokedHere) continue
+            val name = gone.record?.name ?: DeviceIds.fingerprint(gone.id)
+            if (keyring != null && gone.id !in keyring.members && keyring.kv > (gone.recordKv ?: 0)) {
+                notices.notice(NoticeText.DeviceRemoved(name, gone.id, nameOf(keyring.by, previous), keyring.by))
+            } else if (pending.none { it.deviceId == gone.id }) {
+                pending += PendingRemoval(gone.id, name, now)
+            }
+        }
+        syncState.setPendingRemovals(pending)
+    }
+
+    /** A newly verified version explains every pending removal it does not box. */
+    private suspend fun explainRemovals(version: VerifiedKeyring, signers: List<DirectoryEntry>) {
+        val pending = syncState.pendingRemovals()
+        if (pending.isEmpty()) return
+        val (explained, still) = pending.partition { it.deviceId !in version.members }
+        for (p in explained) {
+            notices.notice(NoticeText.DeviceRemoved(p.deviceName, p.deviceId, nameOf(version.by, signers), version.by))
+        }
+        syncState.setPendingRemovals(still)
+    }
+
+    /** SPEC §5.4: a device that disappeared with no rekey within 2 minutes is flagged. */
+    private suspend fun flagUnexplainedRemovals() {
+        val pending = syncState.pendingRemovals()
+        if (pending.isEmpty()) return
+        val now = clock.now()
+        val (late, waiting) = pending.partition { now - it.detectedAt >= REMOVAL_GRACE_MS }
+        for (p in late) notices.notice(NoticeText.DeviceRemovedNoRekey(p.deviceName, p.deviceId))
+        if (late.isNotEmpty()) syncState.setPendingRemovals(waiting)
+    }
+
+    private suspend fun nameOf(id: String, extra: List<DirectoryEntry>): String {
+        vault.load().identity?.takeIf { it.deviceId == id }?.let { return profileProvider.profile().name }
+        return (directory.all() + extra).firstNotNullOfOrNull { e -> e.record?.name?.takeIf { e.id == id } }
+            ?: DeviceIds.fingerprint(id)
+    }
+
+    // -------------------------------------------------------------------------
+    // Keyring and rekey (SPEC §5.5)
+    // -------------------------------------------------------------------------
+
     override suspend fun checkKeyring(): KeyringResult = directoryLock.withLock {
-        val s = session() ?: return KeyringResult.NotPaired
+        val s = session() ?: return if (rejected()) KeyringResult.Failed(retryable = false) else KeyringResult.NotPaired
         checkKeyringLocked(s)
     }
 
-    private suspend fun checkKeyringLocked(s: Session): KeyringResult {
+    /**
+     * Fetches every version newer than our key and verifies them as a chain, in order: the writer of
+     * kv n+1 must be boxed in version n (for the first new version, a trusted member under our key).
+     * Stops at the first version that fails; later versions cannot be verified without it.
+     *
+     * @param extraSigners directory entries from before the latest refresh, whose `sign_pub` may be
+     *   needed for a writer that has since left.
+     */
+    private suspend fun checkKeyringLocked(s: Session, extraSigners: List<DirectoryEntry> = emptyList()): KeyringResult {
         val current = vault.load().currentKey ?: return KeyringResult.NotPaired
-        val versions = try {
+        val raw = try {
             s.client.keyring(have = current.kv)
         } catch (e: HubException) {
             return KeyringResult.Failed(retryable = failed(e))
         }
-        if (versions.isEmpty()) return KeyringResult.UpToDate
-        // Members under the previous key (SPEC §5.5 step 1), plus this device.
-        val members = directory.all().mapNotNull { e -> e.record?.let { e.id to B64.decode(it.signPub) } }.toMap() +
-            (s.identity.deviceId to s.identity.signPub)
+        if (raw.isEmpty()) return KeyringResult.UpToDate
+        val versions = raw.mapNotNull { json -> Rekey.parse(json)?.let { it to json } }.sortedBy { it.first.kv }
+        val entries = directory.all()
+        val signers = extraSigners + entries
+        // Any (id, sign_pub) pair that matches device_id(sign_pub) identifies its device (SPEC §2.2).
+        val signPubs = HashMap<String, ByteArray>()
+        for (e in signers) {
+            val pub = B64.decodeOrNull(e.record?.signPub ?: e.signPub) ?: continue
+            if (DeviceIds.matches(e.id, pub)) signPubs[e.id] = pub
+        }
+        signPubs[s.identity.deviceId] = s.identity.signPub
+
+        var allowed: Set<String> = syncState.verifiedKeyring()?.takeIf { it.kv == current.kv }?.members
+            ?: (signers.filter { it.trusted && (it.recordKv ?: 0) >= current.kv - 1 }.map { it.id } + s.identity.deviceId).toSet()
+        var expected = current.kv + 1
         val newKvs = mutableListOf<Long>()
-        val ordered = versions.sortedBy { (it as? JsonObject)?.get("kv")?.let { kv -> (kv as? JsonPrimitive)?.content?.toLongOrNull() } ?: 0 }
-        for (version in ordered) {
-            when (val opened = Rekey.open(version, s.identity.deviceId, s.identity.kxSk, members)) {
+        for ((version, json) in versions) {
+            if (version.kv < expected) continue
+            if (version.kv != expected) {
+                log.log("keyring_rejected", "gap kv=${version.kv}")
+                break
+            }
+            val signer = signPubs[version.by]?.takeIf { version.by in allowed }
+            if (signer == null) {
+                log.log("keyring_rejected", "untrusted_signer kv=${version.kv}")
+                break
+            }
+            when (val opened = Rekey.open(json, s.identity.deviceId, s.identity.kxSk, mapOf(version.by to signer))) {
                 is Outcome.Ok -> {
                     val now = clock.now()
                     vault.update { it.withGroupKey(opened.value.kv, opened.value.key, now).prunedGroupKeys(now) }
-                    newKvs += opened.value.kv
+                    val verified = VerifiedKeyring(version.kv, version.by, version.boxes.keys)
+                    syncState.setVerifiedKeyring(verified)
+                    explainRemovals(verified, signers)
+                    newKvs += version.kv
                 }
-                is Outcome.Err -> log.log("keyring_rejected", opened.error.code)
+                is Outcome.Err -> {
+                    log.log("keyring_rejected", "${opened.error.code} kv=${version.kv}")
+                    break
+                }
             }
+            allowed = version.boxes.keys
+            expected++
         }
         if (newKvs.isEmpty()) return KeyringResult.UpToDate
-        // Step 4: republish under K', then re-open everyone's records under the new key.
+        log.log("keyring_updated", "kv=${newKvs.last()}")
+        // Step 4: republish under the newest key, then re-open everyone's records under it.
         publishOwnRecordLocked()
         refreshDirectoryLocked(s, checkKeyring = false)
         return KeyringResult.Updated(newKvs)
     }
 
     override suspend fun rekey(excluding: Set<String>): RekeyResult = directoryLock.withLock {
-        val s = session() ?: return RekeyResult.NotPaired
+        val s = session() ?: return if (rejected()) RekeyResult.Failed(retryable = false) else RekeyResult.NotPaired
         rekeyLocked(s, excluding)
     }
 
@@ -441,30 +601,69 @@ class DefaultCaromSync(
         }
         val now = clock.now()
         vault.update { it.withGroupKey(kv, newKey, now).prunedGroupKeys(now) }
+        val verified = VerifiedKeyring(kv, s.identity.deviceId, members.map { it.id }.toSet())
+        syncState.setVerifiedKeyring(verified)
+        explainRemovals(verified, emptyList())
         publishOwnRecordLocked()
         log.log("rekeyed", "kv=$kv")
         return RekeyResult.Rekeyed(kv)
     }
 
+    /** Retries a rekey this device owes after a revocation, until a newer key exists without those devices. */
+    private suspend fun retryPendingRekey(s: Session) {
+        val pending = syncState.pendingRekey() ?: return
+        val current = vault.load().currentKey ?: return
+        val newest = syncState.verifiedKeyring()
+        if (current.kv > pending.kvAtRevoke && newest?.kv == current.kv && pending.excluding.none { it in newest.members }) {
+            syncState.setPendingRekey(null)
+            return
+        }
+        when (rekeyLocked(s, pending.excluding)) {
+            is RekeyResult.Rekeyed -> syncState.setPendingRekey(null)
+            else -> Unit // Conflict: re-checked on the next refresh against the version that won.
+        }
+    }
+
     override suspend fun revoke(deviceId: String): RevokeResult = directoryLock.withLock {
+        val selfId = vault.load().identity?.deviceId ?: return RevokeResult.NotPaired
+        val self = deviceId == selfId || deviceId == HubClient.SELF
+        if (rejected()) {
+            // The Hub no longer accepts us (SPEC §5.4); only leaving is still possible, locally.
+            if (!self) return RevokeResult.Failed(retryable = false)
+            wipeLocked(runHooks = true)
+            return RevokeResult.RevokedSelf
+        }
         val s = session() ?: return RevokeResult.NotPaired
-        val self = deviceId == s.identity.deviceId
+        if (self) {
+            // Remove the push subscription while the token still works.
+            runWipeHooks(s.client)
+            try {
+                s.client.revoke(HubClient.SELF)
+            } catch (e: HubException) {
+                if (!(e is HubException.Http && e.code == HubErrorCode.UNAUTHORIZED)) {
+                    return RevokeResult.Failed(retryable = failed(e))
+                }
+            }
+            wipeLocked(runHooks = false)
+            return RevokeResult.RevokedSelf
+        }
         try {
-            s.client.revoke(if (self) HubClient.SELF else deviceId)
+            s.client.revoke(deviceId)
         } catch (e: HubException) {
             return RevokeResult.Failed(retryable = failed(e))
         }
-        if (self) {
-            wipeLocked()
-            return RevokeResult.RevokedSelf
-        }
+        revokedHere += deviceId
+        val pending = syncState.pendingRekey()
+        syncState.setPendingRekey(
+            PendingRekey(
+                kvAtRevoke = minOf(pending?.kvAtRevoke ?: Long.MAX_VALUE, s.key.kv),
+                excluding = pending?.excluding.orEmpty() + deviceId,
+            ),
+        )
+        // The refresh performs the pending rekey. If another device won the race (409) with a version
+        // that still boxed the revoked device, the refresh that follows learning it rekeys again.
         refreshDirectoryLocked(s, checkKeyring = true)
-        var result = rekeyLocked(s, excluding = setOf(deviceId))
-        if (result == RekeyResult.Conflict) {
-            // Someone rekeyed concurrently; rekey once more so the revoked device is surely excluded.
-            result = rekeyLocked(s, excluding = setOf(deviceId))
-        }
-        return if (result is RekeyResult.Rekeyed) RevokeResult.Revoked else RevokeResult.RevokedRekeyPending
+        return if (syncState.pendingRekey() == null) RevokeResult.Revoked else RevokeResult.RevokedRekeyPending
     }
 
     override suspend fun publishOwnRecord(): Boolean = directoryLock.withLock { publishOwnRecordLocked() }
@@ -499,22 +698,39 @@ class DefaultCaromSync(
         }
     }
 
-    override suspend fun onRevoked() = directoryLock.withLock { wipeLocked() }
+    override suspend fun onRevoked() = directoryLock.withLock { wipeLocked(runHooks = true) }
 
-    private suspend fun wipeLocked() {
+    private suspend fun runWipeHooks(client: HubClient?) {
+        for (hook in wipeHooks) {
+            try {
+                hook.beforeWipe(client)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.log("wipe_hook_failed", e.javaClass.simpleName)
+            }
+        }
+    }
+
+    private suspend fun wipeLocked(runHooks: Boolean) {
+        if (runHooks) runWipeHooks(hubProvider.client())
         vault.wipe()
         outbox.clear()
         seen.clear()
         directory.clear()
+        syncState.clear()
         localStateWiper.wipe()
+        revokedHere.clear()
         statusFlow.value = ConnectionStatus.NOT_SET_UP
         log.log("wiped", null)
     }
 
     /** Records the failure in [status]; returns whether it is worth retrying. */
-    private fun failed(e: HubException): Boolean = when (e) {
+    private suspend fun failed(e: HubException): Boolean = when (e) {
         is HubException.Http -> {
-            if (e.code == HubErrorCode.UNAUTHORIZED || e.code == HubErrorCode.FORBIDDEN) {
+            if (e.code == HubErrorCode.UNAUTHORIZED) {
+                // SPEC §5.4: revoked, or the Hub was reset. Stop syncing until the user pairs again.
+                syncState.setRejected(true)
                 statusFlow.value = ConnectionStatus.REJECTED
             } else if (e.isRetryable) {
                 statusFlow.value = ConnectionStatus.OFFLINE
@@ -529,11 +745,16 @@ class DefaultCaromSync(
         }
     }
 
-    private companion object {
-        const val FLUSH_BATCH = 50
-        const val MAX_FETCH_PAGES = 50
-        const val MAX_RESEALS = 3
-        const val RETRY_BASE_MS = 15_000L
-        const val RETRY_MAX_MS = 30 * 60_000L
+    companion object {
+        private const val FLUSH_BATCH = 50
+        private const val MAX_FETCH_PAGES = 50
+        private const val MAX_RESEALS = 3
+        private const val RETRY_BASE_MS = 15_000L
+        private const val RETRY_MAX_MS = 30 * 60_000L
+
+        /** SPEC §5.4: how long a vanished device may wait for the rekey that explains it. */
+        const val REMOVAL_GRACE_MS = 2 * 60_000L
+
+        private val REFRESH_FIRST = setOf(ReceiveError.UNTRUSTED_SENDER, ReceiveError.UNKNOWN_KV)
     }
 }

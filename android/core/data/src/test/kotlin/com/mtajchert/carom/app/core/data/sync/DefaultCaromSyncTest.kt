@@ -201,7 +201,9 @@ class DefaultCaromSyncTest {
         val macId = mac.id
         mac.sync.revoke(macId)
         phone.sync.refreshDirectory()
-        assertEquals(listOf(NoticeText.DeviceRemoved("Mac", macId)), phone.state.notices)
+        h.clock.advance(DefaultCaromSync.REMOVAL_GRACE_MS)
+        phone.sync.refreshDirectory()
+        assertEquals(listOf(NoticeText.DeviceRemovedNoRekey("Mac", macId)), phone.state.notices)
     }
 
     @Test

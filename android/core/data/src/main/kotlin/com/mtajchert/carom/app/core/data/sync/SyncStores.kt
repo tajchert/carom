@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.core.data.sync
 
+import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import kotlinx.coroutines.flow.Flow
 
@@ -73,21 +74,80 @@ interface DirectoryStore {
     suspend fun clear()
 }
 
-/** Visible notices such as "<name> was removed" (docs/CLIENTS.md, SPEC §5.4). */
+/** Visible notices (docs/CLIENTS.md, SPEC §5.4). */
 fun interface NoticeSink {
     suspend fun notice(text: NoticeText)
 }
 
 /** A notice to show; resolved to user-facing text in the UI layer. */
 sealed interface NoticeText {
-    /** A device disappeared from the directory (with or without a rekey). */
-    data class DeviceRemoved(val deviceName: String, val deviceId: String) : NoticeText
+    /** "<revoker> removed <device>": the keyring version written by [revokerId] dropped the device. */
+    data class DeviceRemoved(
+        val deviceName: String,
+        val deviceId: String,
+        val revokerName: String,
+        val revokerId: String,
+    ) : NoticeText
+
+    /** The device disappeared from the directory and no rekey followed within 2 minutes. */
+    data class DeviceRemovedNoRekey(val deviceName: String, val deviceId: String) : NoticeText
 }
 
-/** Small persisted engine state. */
+/**
+ * The newest keyring version this device verified (SPEC §5.5): who wrote it and which devices it
+ * boxed the key for. Drives transitional trust (SPEC §5.3), the next chain step and removal notices.
+ */
+data class VerifiedKeyring(val kv: Long, val by: String, val members: Set<String>)
+
+/** A trusted device that vanished from the directory before a rekey explained it (SPEC §5.4). */
+data class PendingRemoval(val deviceId: String, val deviceName: String, val detectedAt: Long)
+
+/**
+ * This device revoked [excluding] while the group key was [kvAtRevoke], but its rekey has not
+ * succeeded yet. Retried on every directory refresh until a newer key exists without them.
+ */
+data class PendingRekey(val kvAtRevoke: Long, val excluding: Set<String>)
+
+/** Small persisted engine state. Wiped together with the keys ([clear]). */
 interface SyncStateStore {
     suspend fun lastClipboardTs(): Long?
     suspend fun setLastClipboardTs(ts: Long)
+
+    suspend fun verifiedKeyring(): VerifiedKeyring?
+    suspend fun setVerifiedKeyring(value: VerifiedKeyring)
+
+    suspend fun pendingRemovals(): List<PendingRemoval>
+    suspend fun setPendingRemovals(value: List<PendingRemoval>)
+
+    suspend fun pendingRekey(): PendingRekey?
+    suspend fun setPendingRekey(value: PendingRekey?)
+
+    /** True after the Hub answered `401` (SPEC §5.4): syncing stops until the user pairs again. */
+    suspend fun isRejected(): Boolean
+    suspend fun setRejected(rejected: Boolean)
+
+    /** When messages were last fetched or received successfully. */
+    suspend fun setLastSyncAt(at: Long)
+
+    /** Forgets everything above (wipe). */
+    suspend fun clear()
+}
+
+/**
+ * Runs right before this device's secrets are wiped (revocation, "Leave hub", "Pair again"),
+ * while [client] may still hold a working token. Implementations must not throw.
+ */
+fun interface WipeHook {
+    suspend fun beforeWipe(client: HubClient?)
+}
+
+/** Called after a message was posted, so the app can fetch replies (docs/CLIENTS.md piggyback). */
+fun interface SentListener {
+    fun onSent()
+
+    companion object {
+        val NONE = SentListener { }
+    }
 }
 
 /** Log sink for the sync engine. Only codes and ids are ever passed in, never content or keys. */
