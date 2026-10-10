@@ -21,10 +21,19 @@ Done (foundation):
 - `core:data`: the `CaromSync` engine (directory, outbox send pipeline, SPEC §3.3 receive
   pipeline, keyring/rekey, revocation) and `Enrollment` (setup, join, invite), tested against an
   in-memory Hub; WorkManager + Hilt worker factory; `OutboxWorker`.
-- App shell: Home (start destination, connection status) and wired placeholder screens for
-  onboarding, pairing, devices and settings.
+- App shell: Home (connection status) and wired placeholder screens for devices and settings.
+- Onboarding (`feature:onboarding`): shown at start when there are no keys or Hub (and again after
+  a revocation). Welcome, set up a new Hub or join, CameraX + zxing QR scanner (camera permission
+  asked on that step only) or paste, progress and cause-and-fix errors, the joining device's
+  fingerprint while it waits for approval, "Name this device", permissions (notification access
+  deep link with the Android 13+ restricted-settings hint, `POST_NOTIFICATIONS`, optional battery
+  exemption), done.
+- Pairing (`feature:pairing`, `PairingRoute`): "Add device" shows the QR code and a copyable URI
+  with a 5-minute countdown, polls `GET /v1/pair/:id` every 2 s while visible, and asks
+  "Add device <fingerprint>?". A foreground WebSocket can push candidates by binding
+  `PairCandidateFeed` (pairing api); without one the screen only polls.
 
-Not done yet: onboarding and pairing UI (camera/QR), the notification listener, clipboard
+Not done yet: the notification listener, clipboard
 share target/tile, UnifiedPush, foreground WebSocket, message handlers. The libraries they
 need are already in `gradle/libs.versions.toml` and every module is already registered in
 `settings.gradle.kts`, so feature work does not touch those files.

@@ -45,7 +45,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val darkTheme = uiState.shouldUseDarkTheme(isSystemInDarkTheme())
             CaromTheme(darkTheme = darkTheme, dynamicColor = uiState.shouldUseDynamicColor()) {
-                CaromNavHost()
+                // The splash screen covers Loading; the start destination is chosen once loaded.
+                (uiState as? MainActivityUiState.Success)?.let { CaromNavHost(needsOnboarding = it.needsOnboarding) }
             }
         }
     }
