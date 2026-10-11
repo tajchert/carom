@@ -585,7 +585,8 @@ public actor SyncEngine {
                                           ttlS: B.type.defaultTtlS, plaintext: plaintext, groupKey: key.key,
                                           kv: key.kv, signSk: s.signSk, random: random)
         state.outbox.append(OutboxItem(envelope: envelope, createdAt: now, nextAttemptAt: now,
-                                       notificationKey: (body as? NotificationPosted)?.key))
+                                       notificationKey: (body as? NotificationPosted)?.key,
+                                       messageType: B.type.rawValue, mediaSession: (body as? MediaState)?.session))
         persist()
         return await deliver(msgId: msgId)
     }
@@ -617,7 +618,8 @@ public actor SyncEngine {
                 removeFromOutbox(msgId)
                 state.sent[msgId] = MessageRef(peers: item.envelope.to,
                                                expiresAt: item.expiresAt + Carom.Limits.clockSkewMs,
-                                               key: item.notificationKey)
+                                               key: item.notificationKey, type: item.messageType,
+                                               session: item.mediaSession)
                 persist()
                 if result.superseded { return .superseded }
                 return .sent(seq: result.seq ?? 0, duplicate: result.duplicate)
@@ -729,7 +731,8 @@ public actor SyncEngine {
         let context = ReceiveContext(
             selfId: selfId, directory: trustedSignPubs(), keys: s.keysByVersion, now: now, seen: Set(state.seen.keys),
             knownTypes: Set(config.caps), lastClipboardTs: state.lastClipboardTs,
-            originalRecipients: state.sent.mapValues(\.peers), originalKeys: state.sent.compactMapValues(\.key))
+            originalRecipients: state.sent.mapValues(\.peers), originalKeys: state.sent.compactMapValues(\.key),
+            originalTypes: state.sent.compactMapValues(\.type), originalSessions: state.sent.compactMapValues(\.session))
         switch Receiver.receive(envelope, context: context) {
         case .success(let r):
             state.seen[r.envelope.msgId] = now + Carom.Limits.seenRetentionMs
