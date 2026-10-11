@@ -18,4 +18,7 @@
     <string name="feature_notifications_no_results">No apps match your search.</string>
     <string name="feature_notifications_access_missing">Carom can\'t read notifications yet. Allow notification access to forward them to your computer.</string>
     <string name="feature_notifications_access_action">Allow notification access</string>
+
+    <!-- Shown by Android in its association dialog. -->
+    <string name="feature_notifications_codes_association_name">Carom</string>
 </resources>
