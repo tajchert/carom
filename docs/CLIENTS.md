@@ -232,9 +232,9 @@ Focus.
 - **Copy code**, when a code is found, then the app's own buttons, then **Reply**. Reply opens an
   inline field with the app's suggested replies as chips.
 - **Dismiss on phone** sends `notification.dismiss@1` with `reply_to`.
-- Clicking the card body sends `tap` ("Open on phone"). The phone opens the app. Carom cannot open
-  the app's link on the Mac.
-- App buttons, Reply and tap appear only for a phone whose `caps` include `notification.action@1`.
+- The Mac doesn't offer "Open on phone": Android blocks the background activity start, even when
+  Carom opts in, and reports no error. The phone still handles a `tap` from other clients.
+- App buttons and Reply appear only for a phone whose `caps` include `notification.action@1`.
 - A button shows "Sending…", then "Sent", "Phone is asleep — will send when it wakes",
   "Notification is gone" or "App changed its buttons".
 - **Copy text.**

@@ -54,10 +54,6 @@ public struct LiveUpdateCardView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if posted.canOpen == true, item.phoneAcceptsActions { perform(.tap) }
-        }
     }
 
     private var header: some View {

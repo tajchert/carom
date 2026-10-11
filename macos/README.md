@@ -310,8 +310,8 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
   calls and Live Updates stay until handled or removed; one app's group collapses into
   "App · N new". The native notification is posted at the passive level, so it lands in
   Notification Center without a second banner. The panel takes the keyboard only while a reply
-  field is open. During a Focus only the native notification posts. The app's buttons, Reply and
-  Open on phone (`notification.action@1`) appear only for phones whose caps include it; a card
+  field is open. During a Focus only the native notification posts. The app's buttons and Reply
+  (`notification.action@1`) appear only for phones whose caps include it; a card
   shows "Sending…", then the phone's result, or "Phone is asleep — will send when it wakes" after
   30 s. When the phone re-posts a conversation with the user's own reply appended (newest
   message without a sender), the card changes in place without a sound and still fades.

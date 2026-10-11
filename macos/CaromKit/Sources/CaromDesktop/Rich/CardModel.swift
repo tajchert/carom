@@ -129,9 +129,6 @@ extension CardItem {
         return posted.actions?.first { $0.reply != nil }
     }
 
-    /// Clicking the card body opens the notification on the phone.
-    public var canTap: Bool { phoneAcceptsActions && posted.canOpen == true }
-
     /// Android's group alert behaviour: with `summary` only the summary alerts, with `children`
     /// only the children do.
     public var alertsByGroupRule: Bool {

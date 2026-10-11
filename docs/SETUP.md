@@ -128,9 +128,9 @@ Actions work only while the phone is listening. If you click a button when the p
 Mac shows "Phone is asleep — will send when it wakes". The action waits for up to 10 minutes. It
 runs when the phone next listens, or is dropped if the notification is gone by then.
 
-Two things to know:
-- **Open on phone** starts the app on the phone. Android 14 and later can block that when the
-  phone is locked or the screen is off. The Mac then says the action failed or was blocked.
+Good to know:
+- There is no **Open on phone**. Android blocks apps from starting other apps in the background,
+  so it can't be done reliably.
 - Some apps drop the text of a reply sent this way. Carom can't tell, so the Mac still shows "Sent".
 
 Android 16 shows **Live Updates** from apps that support them (a ride, a delivery, a timer). Carom

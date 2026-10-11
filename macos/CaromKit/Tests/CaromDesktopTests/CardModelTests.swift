@@ -40,9 +40,8 @@ import Testing
         let on = Fixture.card(p, actions: true)
         #expect(on.phoneButtons.map(\.title) == ["Mark as read"])
         #expect(on.replyAction?.index == 1)
-        #expect(on.canTap)
         let off = Fixture.card(p, actions: false)
-        #expect(off.phoneButtons.isEmpty && off.replyAction == nil && !off.canTap)
+        #expect(off.phoneButtons.isEmpty && off.replyAction == nil)
     }
 
     @Test func atMostThreePlainButtons() {

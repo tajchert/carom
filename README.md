@@ -41,7 +41,7 @@ other. Think Pushbullet, but you own the server and nobody (including that serve
 | | |
 |---|---|
 | **Rich notifications → Mac** | The whole notification, close to how it looks on the phone: app and large icons, colours, big pictures, conversations with avatars, inbox and progress styles, and grouped stacks. Removed on the phone means removed on the Mac. A quiet copy also goes to Notification Center, and Focus is respected |
-| **Act from the Mac** | The app's own buttons, **Reply** inline (with suggested replies), **Open on phone**, **Dismiss on phone**, and **Copy text** |
+| **Act from the Mac** | The app's own buttons, **Reply** inline (with suggested replies), **Dismiss on phone**, and **Copy text** |
 | **Live Updates and progress** | Android 16 Live Updates, progress bars and timers update in place, with an optional menu-bar chip |
 | **Media controls** | A Now Playing card with play/pause, previous, next and seek |
 | **Calls** | An incoming-call card with **Answer** and **Decline**. Audio stays on the phone |

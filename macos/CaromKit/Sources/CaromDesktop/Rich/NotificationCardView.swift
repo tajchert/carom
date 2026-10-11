@@ -49,15 +49,12 @@ struct NotificationCardView: View {
         .foregroundStyle(ink.primary)
         .background { CardBackground(fill: style.fill) }
         .contentShape(RoundedRectangle(cornerRadius: CardMetrics.corner, style: .continuous))
-        .onTapGesture { if item.canTap { perform(.tap) } }
         .contextMenu {
             if let code = item.code { Button("Copy code") { perform(.copyCode(code)) } }
-            if item.canTap { Button("Open on phone") { perform(.tap) } }
             Button("Dismiss on phone") { perform(.dismiss) }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel([posted.app.name, headline].compactMap { $0 }.joined(separator: ", "))
-        .accessibilityHint(item.canTap ? "Opens it on your phone" : "")
     }
 
     @ViewBuilder
