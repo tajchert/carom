@@ -663,6 +663,16 @@ final class AppModel {
         savePreferences()
     }
 
+    func setNotificationStyle(_ style: NotificationStyle) {
+        preferences.notificationStyle = style
+        savePreferences()
+        notifications.setStyle(style)
+        if style == .rich {
+            let focus = self.focus
+            Task { await focus.requestAuthorization() }
+        }
+    }
+
     func setSendClipboard(to id: String, _ enabled: Bool) {
         preferences.clipboardSendTo = ReceivePolicy.sendTo(preferences.clipboardSendTo, setting: id, enabled: enabled,
                                                            eligible: clipboardTargets.map(\.record.id))

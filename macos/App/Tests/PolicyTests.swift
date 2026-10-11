@@ -1,4 +1,5 @@
 import CaromProtocol
+import CaromDesktop
 import CaromStore
 import Foundation
 import Testing
@@ -50,6 +51,23 @@ struct ReceivePolicyTests {
 
 @Suite("Preferences and activity")
 struct PreferencesTests {
+    /// Plan Review Focus 4: preferences saved before V2 have no notificationStyle key.
+    @Test func preferencesFromBeforeV2KeepTheirValues() throws {
+        let old = try JSON.parse(Data(#"{"paused":true,"mutedApps":["com.x"],"seenApps":[],"onboardingComplete":true}"#.utf8))
+        let p = Preferences(json: old)
+        #expect(p.paused)
+        #expect(p.mutedApps == ["com.x"])
+        #expect(p.onboardingComplete)
+        #expect(p.notificationStyle == nil)
+        #expect(p.showAs == .rich)
+    }
+
+    @Test func notificationStyleRoundTrips() {
+        var p = Preferences()
+        p.notificationStyle = .nativeOnly
+        #expect(Preferences(json: p.json).showAs == .nativeOnly)
+    }
+
     @Test func roundTripsThroughJSON() {
         var p = Preferences()
         p.paused = true

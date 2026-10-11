@@ -29,6 +29,18 @@ private func replyable(_ key: String = "k1") -> Message {
 struct AppModelTests {
     // MARK: Rich notifications
 
+    @Test func nativeOnlyStyleSkipsThePanelAndIsSaved() async {
+        let h = Harness()
+        await h.start()
+        h.model.setNotificationStyle(.nativeOnly)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.panel.shows == 0)
+        #expect(h.presenter.presented.first?.0.passive == false)
+        await settle()
+        let saved = Preferences(json: await h.sync.settings[Preferences.settingsKey])
+        #expect(saved.notificationStyle == .nativeOnly)
+    }
+
     @Test func postedCardCarriesThePhonesActionCap() async {
         let phone = actionPhone(phoneA, "Pixel")
         let h = Harness(directory: [entry(phone)])

@@ -279,6 +279,17 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
   notifications with no text read "Content hidden on your phone." *Dismiss on phone* sends
   `notification.dismiss@1` with `reply_to`. Copying a code or text from a notification suppresses
   automatic sending for 2 s, so it is not sent straight back.
+- **Rich notifications.** `NotificationCoordinator` (CaromDesktop) receives every posted, removed
+  and action-result message. With *Show notifications as: Rich* (the default) a non-activating
+  `NSPanel` at the top right of the screen under the pointer shows Android-like cards: at most 4
+  stacks, then "+N more"; cards fade after 6 s unless the pointer is over them; conversations,
+  calls and Live Updates stay until handled or removed; one app's group collapses into
+  "App · N new". The native notification is posted at the passive level, so it lands in
+  Notification Center without a second banner. The panel takes the keyboard only while a reply
+  field is open. During a Focus only the native notification posts. The app's buttons, Reply and
+  Open on phone (`notification.action@1`) appear only for phones whose caps include it; a card
+  shows "Sending…", then the phone's result, or "Phone is asleep — will send when it wakes" after
+  30 s. *Native only* uses banners and no panel.
 - **Clipboard.** `clipboard.set` is written with `ClipboardWatcher.write` (marker type, so the
   watcher skips it; the engine also suppresses echoes). Automatic sending defaults to on when
   pasteboard access is *Always allow* (`NSPasteboard.accessBehavior`, macOS 15.4+) and on macOS
