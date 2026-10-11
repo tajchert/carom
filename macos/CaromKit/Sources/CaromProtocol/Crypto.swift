@@ -11,6 +11,7 @@ public enum Carom {
         public static let box = "carom/v1/box"
         public static let pair = "carom/v1/pair"
         public static let tokenKey = "carom/v1/token-key"
+        public static let blobConv = "carom/v1/blob-conv"
     }
 
     public enum Tag {
@@ -19,6 +20,7 @@ public enum Carom {
         public static let rekey = "carom/v1/rekey"
         public static let welcome = "carom/v1/welcome"
         public static let pairRequest = "carom/v1/pair-req"
+        public static let blob = "carom/v1/blob"
     }
 
     public enum Limits {

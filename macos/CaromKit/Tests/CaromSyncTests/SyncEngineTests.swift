@@ -25,13 +25,14 @@ struct TestDevice {
     let secrets: InMemorySecretStore
     let state: InMemoryStateStore
 
-    static func make(_ name: String, kind: DeviceKind = .desktop, hub: FakeHub) async -> TestDevice {
+    static func make(_ name: String, kind: DeviceKind = .desktop, hub: FakeHub, caps: [String]? = nil) async -> TestDevice {
         var config = SyncConfiguration(deviceName: name)
         config.kind = kind
         if kind == .phone {
             config.platform = "android"
             config.caps = [MessageType.notificationDismiss.rawValue, MessageType.clipboardSet.rawValue]
         }
+        if let caps { config.caps = caps }
         config.welcomePollInterval = .milliseconds(10)
         config.pairingTimeout = .seconds(5)
         config.retryBaseMs = 50

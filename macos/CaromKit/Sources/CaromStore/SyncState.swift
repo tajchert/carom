@@ -28,14 +28,20 @@ public struct OutboxItem: Sendable, Equatable, Codable {
     /// The notification key of a `notification.posted@1`, kept for the dismiss key check
     /// (SPEC §3.3 rule 7). Not content: the phone's notification key.
     public var notificationKey: String?
+    /// The message type, kept for the action_result check (SPEC §3.5). Not content.
+    public var messageType: String?
+    /// The `session` of a `media.state@1`, kept for the media.command check (SPEC §3.5).
+    public var mediaSession: String?
 
     public init(envelope: Envelope, createdAt: Int, attempts: Int = 0, nextAttemptAt: Int,
-                notificationKey: String? = nil) {
+                notificationKey: String? = nil, messageType: String? = nil, mediaSession: String? = nil) {
         self.envelope = envelope
         self.createdAt = createdAt
         self.attempts = attempts
         self.nextAttemptAt = nextAttemptAt
         self.notificationKey = notificationKey
+        self.messageType = messageType
+        self.mediaSession = mediaSession
     }
 
     public var expiresAt: Int { createdAt + envelope.ttlS * 1000 }
@@ -47,11 +53,17 @@ public struct MessageRef: Sendable, Equatable, Codable {
     public var expiresAt: Int
     /// For a `notification.posted@1` we sent: its key (SPEC §3.3 rule 7, dismiss key check).
     public var key: String?
+    /// For a message we sent: its type (SPEC §3.5: an action_result must reply to an action).
+    public var type: String?
+    /// For a `media.state@1` we sent: its session (SPEC §3.5: a media.command must match it).
+    public var session: String?
 
-    public init(peers: [String], expiresAt: Int, key: String? = nil) {
+    public init(peers: [String], expiresAt: Int, key: String? = nil, type: String? = nil, session: String? = nil) {
         self.peers = peers
         self.expiresAt = expiresAt
         self.key = key
+        self.type = type
+        self.session = session
     }
 }
 
@@ -113,13 +125,18 @@ public struct SyncState: Sendable, Equatable, Codable {
     /// directory. SPEC §5.5 step 1: a device that missed keyring versions may use its cached
     /// directory to verify a version written by a device that has since been revoked.
     public var signPubCache: [String: CachedSigner] = [:]
+    /// Whether the V2 types were added to `receive` once (a device that wrote its rules before V2
+    /// has none of them). After that, removing one is the user's choice.
+    public var receiveV2Merged = false
+    /// The `caps` of the last record we published, so an upgrade republishes the record once.
+    public var publishedCaps: [String]?
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
         case hubURL, deviceId, deviceName, receive, recordUpdated, directory, listedIds, lastUpdated, rekeyMembers,
              rekeyBy, seen, sent, received, outbox, lastClipboardTs, lastMsgId, pendingRemovals, settings,
-             signPubCache
+             signPubCache, receiveV2Merged, publishedCaps
     }
 
     /// Every field is optional on disk, so state written by an older build still loads.
@@ -144,6 +161,8 @@ public struct SyncState: Sendable, Equatable, Codable {
         pendingRemovals = try c.decodeIfPresent([String: PendingRemoval].self, forKey: .pendingRemovals) ?? [:]
         settings = try c.decodeIfPresent([String: JSON].self, forKey: .settings) ?? [:]
         signPubCache = try c.decodeIfPresent([String: CachedSigner].self, forKey: .signPubCache) ?? [:]
+        receiveV2Merged = try c.decodeIfPresent(Bool.self, forKey: .receiveV2Merged) ?? false
+        publishedCaps = try c.decodeIfPresent([String].self, forKey: .publishedCaps)
     }
 
     /// Drops expired seen ids and message references.

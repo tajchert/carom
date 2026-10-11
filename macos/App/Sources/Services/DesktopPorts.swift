@@ -7,7 +7,7 @@ import CaromDesktop
 
 @MainActor
 protocol NotificationPresenting: AnyObject {
-    var onAction: ((NotificationAction) -> Void)? { get set }
+    var onAction: ((NativeNotificationEvent) -> Void)? { get set }
     func requestAuthorization() async -> Bool
     func authorizationState() async -> Bool?
     func present(_ notification: PresentedNotification, showPhoneName: Bool) async

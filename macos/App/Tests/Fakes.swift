@@ -109,7 +109,7 @@ actor FakeSync: SyncService {
 
 @MainActor
 final class FakePresenter: NotificationPresenting {
-    var onAction: ((NotificationAction) -> Void)?
+    var onAction: ((NativeNotificationEvent) -> Void)?
     var presented: [(PresentedNotification, Bool)] = []
     var withdrawn: [(String, String)] = []
     var withdrawnAll: [String] = []

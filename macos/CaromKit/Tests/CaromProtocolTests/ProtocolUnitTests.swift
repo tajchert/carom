@@ -149,6 +149,30 @@ struct ProtocolUnitTests {
         #expect(Routing.defaultReceive(.cli) == ["clipboard.set@1": .everyone])
     }
 
+    @Test("SPEC §3.6: caps and default receive lists for the V2 types")
+    func v2RoutingDefaults() {
+        let phoneRules = Routing.defaultReceive(.phone)
+        #expect(phoneRules["notification.action@1"] == .everyone && phoneRules["media.command@1"] == .everyone)
+        #expect(phoneRules["notification.action_result@1"] == nil && phoneRules["media.state@1"] == nil)
+        let desktopRules = Routing.defaultReceive(.desktop)
+        #expect(desktopRules["notification.action_result@1"] == .everyone && desktopRules["media.state@1"] == .everyone)
+        #expect(desktopRules["notification.action@1"] == nil && desktopRules["media.command@1"] == nil)
+        #expect(Set(Routing.desktopCaps).isSuperset(of: ["notification.action_result@1", "media.state@1"]))
+        #expect(!Routing.desktopCaps.contains("notification.action@1"))
+        #expect(Routing.v2Types.count == 4)
+
+        // A phone that advertises media.state reaches the Mac; one that does not receive actions is skipped.
+        let mac = DeviceRecord(identity: DeviceIdentity.generate(), name: "Mac", kind: .desktop, platform: "macos",
+                               appVersion: "1", caps: Routing.desktopCaps, updated: 1)
+        let phone = DeviceRecord(identity: DeviceIdentity.generate(), name: "Pixel", kind: .phone, platform: "android",
+                                 appVersion: "1", caps: ["media.state@1", "media.command@1"], receive: phoneRules,
+                                 updated: 1)
+        #expect(Routing.recipients(type: "media.state@1", sender: phone.id, directory: [mac]) == [mac.id])
+        #expect(Routing.recipients(type: "media.command@1", sender: mac.id, directory: [phone]) == [phone.id])
+        #expect(Routing.recipients(type: "notification.action@1", sender: mac.id, directory: [phone]) == [])
+        #expect(Routing.advertises(phone, .mediaCommand) && !Routing.advertises(phone, .notificationAction))
+    }
+
     @Test func qrHubURLRules() {
         #expect(QR.isValidHubURL("https://carom-hub.example.workers.dev"))
         #expect(QR.isValidHubURL("http://127.0.0.1:8787"))
