@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.long
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,7 +28,7 @@ class ProtocolVectorsTest {
         val HANDLED = setOf(
             "b64.json", "blob.json", "box.json", "collapse.json", "device_id.json", "encoding.json",
             "envelope_receive.json", "envelope_seal.json", "envelope_shape.json", "kdf.json",
-            "padding.json", "pairing.json", "qr.json", "record.json", "rekey.json", "token.json",
+            "messages.json", "padding.json", "pairing.json", "qr.json", "record.json", "rekey.json", "token.json",
             "uuidv7.json",
         )
     }
@@ -423,6 +424,35 @@ class ProtocolVectorsTest {
     }
 
     @Test
+    fun messages() {
+        val v = load("messages.json")
+        for (c in v.arr("defaults")) {
+            val type = c.str("type")
+            assertEquals(type, c.num("default_ttl_s"), MessageTypes.defaultTtlS(type))
+            assertEquals(type, c.jsonObject.getValue("reply_to_required").jsonPrimitive.boolean, type in MessageTypes.REQUIRES_REPLY_TO)
+        }
+        for (c in v.arr("collapse_cases")) {
+            assertEquals(c.str("type"), c.strOrNull("real_key"), MessageTypes.collapseRealKey(c.str("type"), c.obj("body")))
+            assertTrue(c.str("type"), MessageTypes.isValidBody(c.str("type"), c.obj("body")))
+        }
+        for (c in v.arr("valid")) {
+            val p = c.obj("payload")
+            val payload = Payload.decode(p.toString().toByteArray())
+            assertNotNull(c.name, payload)
+            assertEquals(c.name, p.obj("body"), typedBodyRoundTrip(p.str("type"), p.obj("body")))
+        }
+        for (c in v.arr("invalid_bodies")) {
+            assertFalse(c.name, MessageTypes.isValidBody(c.str("type"), c.obj("body")))
+        }
+        for (c in v.arr("missing_reply_to")) {
+            val p = c.obj("payload")
+            assertTrue(c.name, MessageTypes.isValidBody(p.str("type"), p.obj("body")))
+            assertTrue(c.name, p.str("type") in MessageTypes.REQUIRES_REPLY_TO)
+            assertNull(c.name, Payload.decode(p.toString().toByteArray())?.replyTo)
+        }
+    }
+
+    @Test
     fun qr() {
         val v = load("qr.json")
         for (c in v.arr("build")) {
@@ -458,23 +488,36 @@ class ProtocolVectorsTest {
     }
 
     /** Decodes the body with the typed v1 class and re-encodes it, which must be lossless and ordered. */
+    /** The V1 `notification.posted@1` keys. A body using only these keeps its V1 byte order. */
+    private val v1PostedKeys = setOf("key", "app", "title", "text", "sub_text", "category", "posted_at", "redacted", "ongoing")
+
+    /** Decodes the body with the typed class and re-encodes it, which must be lossless. */
     private fun typedBodyRoundTrip(type: String, body: JsonObject): JsonObject {
         assertTrue(type, MessageTypes.isValidBody(type, body))
         return when (type) {
-            MessageTypes.NOTIFICATION_POSTED -> roundTrip(MessageBodies.NotificationPosted.serializer(), body)
+            MessageTypes.NOTIFICATION_POSTED ->
+                roundTrip(MessageBodies.NotificationPosted.serializer(), body, ordered = body.keys.all { it in v1PostedKeys })
             MessageTypes.NOTIFICATION_REMOVED -> roundTrip(MessageBodies.NotificationRemoved.serializer(), body)
             MessageTypes.NOTIFICATION_DISMISS -> roundTrip(MessageBodies.NotificationDismiss.serializer(), body)
             MessageTypes.CLIPBOARD_SET -> roundTrip(MessageBodies.ClipboardSet.serializer(), body)
             MessageTypes.DEVICE_STATUS -> roundTrip(MessageBodies.DeviceStatus.serializer(), body)
+            MessageTypes.NOTIFICATION_ACTION -> roundTrip(MessageBodies.NotificationAction.serializer(), body, ordered = false)
+            MessageTypes.NOTIFICATION_ACTION_RESULT -> roundTrip(MessageBodies.NotificationActionResult.serializer(), body, ordered = false)
+            MessageTypes.MEDIA_STATE -> roundTrip(MessageBodies.MediaState.serializer(), body, ordered = false)
+            MessageTypes.MEDIA_COMMAND -> roundTrip(MessageBodies.MediaCommand.serializer(), body, ordered = false)
             else -> error("unknown type $type")
         }
     }
 
-    private fun <T> roundTrip(serializer: kotlinx.serialization.KSerializer<T>, body: JsonObject): JsonObject {
+    /**
+     * V1 bodies must also keep their key order, since their payload bytes are compared. The V2
+     * bodies are compared as JSON values: the order of keys inside a signed payload is not
+     * normative, and a field the typed class dropped would still fail the comparison.
+     */
+    private fun <T> roundTrip(serializer: kotlinx.serialization.KSerializer<T>, body: JsonObject, ordered: Boolean = true): JsonObject {
         val typed = MessageBodies.fromJson(serializer, body)!!
         val json = MessageBodies.toJson(serializer, typed)
-        // Key order matters for byte-exact payloads, so compare the serialized text too.
-        assertEquals(body.toString(), json.toString())
+        if (ordered) assertEquals(body.toString(), json.toString()) else assertEquals(body, json)
         return json
     }
 
