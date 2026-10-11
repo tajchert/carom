@@ -46,15 +46,5 @@ enum CardColors {
 
 /// The result line under a button (SPEC §6.1).
 enum CardStatusText {
-    static func text(for status: ActionStatus) -> String? {
-        switch status {
-        case .idle: nil
-        case .sending: "Sending…"
-        case .sent: "Sent"
-        case .asleep: "Phone is asleep — will send when it wakes"
-        case .gone: "Notification is gone"
-        case .changed: "App changed its buttons"
-        case .failed: "Couldn't send"
-        }
-    }
+    static func text(for status: ActionStatus) -> String? { status.label }
 }

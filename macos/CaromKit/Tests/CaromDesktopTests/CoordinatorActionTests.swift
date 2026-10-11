@@ -70,7 +70,7 @@ final class ActionLog {
         (true, nil, ActionStatus.sent),
         (false, "gone", .gone),
         (false, "changed", .changed),
-        (false, "blocked", .failed),
+        (false, "blocked", .blocked),
     ] as [(Bool, String?, ActionStatus)])
     func resultSetsTheStatus(ok: Bool, error: String?, expected: ActionStatus) async {
         let (c, _, _, _) = make()

@@ -94,10 +94,10 @@ public struct CallCardView: View {
         }
     }
 
-    /// Off while a press is on its way or done; on again after "Couldn't send", so the user can
-    /// retry while the phone still rings.
+    /// Off while a press is on its way or done; on again after "Couldn't send" or "Phone blocked
+    /// opening the app", so the user can retry (or unlock the phone and retry) while it still rings.
     static func buttonsDisabled(acted: Bool, status: ActionStatus) -> Bool {
-        status == .sending || status == .sent || (acted && status != .failed)
+        status == .sending || status == .sent || (acted && status != .failed && status != .blocked)
     }
 
     private func act(_ action: CardAction) {

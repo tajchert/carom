@@ -34,5 +34,6 @@ private final class Silent: RingPlaying {
         #expect(CallCardView.buttonsDisabled(acted: true, status: .sending))
         #expect(CallCardView.buttonsDisabled(acted: true, status: .sent))
         #expect(!CallCardView.buttonsDisabled(acted: true, status: .failed))
+        #expect(!CallCardView.buttonsDisabled(acted: true, status: .blocked))
     }
 }

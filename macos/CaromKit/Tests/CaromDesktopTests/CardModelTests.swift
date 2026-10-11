@@ -83,6 +83,7 @@ import Testing
         #expect(ActionStatus.asleep.label == "Phone is asleep — will send when it wakes")
         #expect(ActionStatus.gone.label == "Notification is gone")
         #expect(ActionStatus.changed.label == "App changed its buttons")
+        #expect(ActionStatus.blocked.label == "Phone blocked opening the app")
         #expect(ActionStatus.failed.label == "Couldn't send")
     }
 
@@ -90,7 +91,7 @@ import Testing
         (true, nil, ActionStatus.sent),
         (false, "gone", .gone),
         (false, "changed", .changed),
-        (false, "blocked", .failed),
+        (false, "blocked", .blocked),
         (false, "failed", .failed),
         (false, nil, .failed),
     ] as [(Bool, String?, ActionStatus)])

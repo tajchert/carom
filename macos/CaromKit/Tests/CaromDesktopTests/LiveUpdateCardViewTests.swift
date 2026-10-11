@@ -41,6 +41,8 @@ import Testing
         #expect(CardStatusText.text(for: .asleep) == "Phone is asleep — will send when it wakes")
         #expect(CardStatusText.text(for: .gone) == "Notification is gone")
         #expect(CardStatusText.text(for: .changed) == "App changed its buttons")
+        #expect(CardStatusText.text(for: .blocked) == "Phone blocked opening the app")
+        #expect(CardStatusText.text(for: .failed) == "Couldn't send")
     }
 
     @Test func argbColoursKeepTheirAlpha() {
