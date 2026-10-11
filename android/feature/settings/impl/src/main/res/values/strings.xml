@@ -32,4 +32,13 @@
     <string name="feature_settings_leave_body">This phone is removed from your Hub and its keys are deleted. Your other devices stop sending to it. To use Carom again, pair it again.</string>
     <string name="feature_settings_leave_confirm">Leave</string>
     <string name="feature_settings_leave_failed">Could not reach your Hub. Check your connection and try again.</string>
+    <string name="feature_settings_section_actions">Actions from Mac</string>
+    <string name="feature_settings_actions_off">Off</string>
+    <string name="feature_settings_actions_off_summary">Your Mac can\'t tap, reply to or control anything on this phone.</string>
+    <string name="feature_settings_actions_after">After a notification</string>
+    <string name="feature_settings_actions_after_summary">Your Mac can act for a few minutes after this phone sends it a notification.</string>
+    <string name="feature_settings_actions_window">Stay ready for</string>
+    <string name="feature_settings_actions_minutes">%1$d min</string>
+    <string name="feature_settings_actions_always">Always while a Mac is online</string>
+    <string name="feature_settings_actions_always_summary">Always ready. Shows a permanent notification and uses more battery.</string>
 </resources>
