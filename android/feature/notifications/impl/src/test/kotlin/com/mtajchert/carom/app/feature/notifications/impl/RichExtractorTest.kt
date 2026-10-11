@@ -6,11 +6,14 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.graphics.drawable.IconCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtajchert.carom.app.core.protocol.MessageBodies
@@ -258,6 +261,85 @@ class RichExtractorTest {
         val n = builder().build()
         val viaExtras = AppLabelResolver(context).label("com.invisible", n.extras)
         assertEquals(context.applicationInfo.loadLabel(context.packageManager).toString(), viaExtras)
+    }
+
+    private fun person(name: String, key: String? = null, withIcon: Boolean = false): Person =
+        Person.Builder().setName(name).apply {
+            key?.let { setKey(it) }
+            if (withIcon) setIcon(IconCompat.createWithBitmap(Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)))
+        }.build()
+
+    @Test
+    fun `messaging keeps the V1 title and text and fills the conversation`() {
+        val me = person("Me")
+        val anna = person("Anna", key = "anna")
+        val style = NotificationCompat.MessagingStyle(me)
+            .setConversationTitle("Weekend")
+            .setGroupConversation(true)
+            .addMessage("first", 1, anna)
+            .addMessage("last one", 2, anna)
+        val s = extract(builder().setStyle(style).build())
+        assertEquals(RichContent.TEMPLATE_MESSAGING, s.rich.template)
+        assertEquals("Anna: last one", s.text)
+        assertEquals("Weekend", s.title)
+        assertEquals(SnapConversation(title = "Weekend", isGroup = true), s.rich.conversation)
+        assertEquals(listOf("first", "last one"), s.rich.messages.map { it.text })
+        assertEquals(listOf(1L, 2L), s.rich.messages.map { it.ts })
+        assertEquals("anna", s.rich.messages.last().senderKey)
+        assertEquals("Anna", s.rich.messages.last().senderName)
+
+        val mine = NotificationCompat.MessagingStyle(me).addMessage("from me", 3, null as Person?)
+        val m = extract(builder().setStyle(mine).build())
+        assertEquals("Me: from me", m.text)
+        assertEquals(false, m.rich.conversation!!.isGroup)
+    }
+
+    @Test
+    fun `200 messages are capped at the newest 6, oldest first, with avatars and images`() {
+        val anna = person("Anna", withIcon = true)
+        val style = NotificationCompat.MessagingStyle(person("Me"))
+        repeat(200) { i -> style.addMessage("m$i", i.toLong(), anna) }
+        style.addMessage(
+            NotificationCompat.MessagingStyle.Message("look", 500, anna)
+                .setData("image/png", Uri.parse("content://media/external/images/1")),
+        )
+        val s = extract(builder().setStyle(style).build())
+        assertEquals(listOf("m195", "m196", "m197", "m198", "m199", "look"), s.rich.messages.map { it.text })
+        assertEquals("Anna: look", s.text)
+        assertTrue((0..5).all { ImageSlot.SenderIcon(it) in s.imageSources })
+        assertTrue(s.imageSources[ImageSlot.MessageImage(5)] is ImageSource.FromUri)
+        assertFalse(ImageSlot.MessageImage(0) in s.imageSources)
+    }
+
+    @Test
+    fun `a conversation's large icon is its avatar`() {
+        val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
+        val style = NotificationCompat.MessagingStyle(person("Me")).addMessage("hi", 1, person("Anna"))
+        val s = extract(builder().setLargeIcon(bitmap).setStyle(style).build())
+        assertTrue(ImageSlot.ConversationIcon in s.imageSources)
+        assertFalse(ImageSlot.LargeIcon in s.imageSources)
+    }
+
+    @Test
+    fun `a placeholder message is flagged redacted and sent empty`() {
+        val anna = person("Anna")
+        val style = NotificationCompat.MessagingStyle(anna).addMessage(placeholder, 1, anna)
+        val m = extract(builder().setStyle(style).build())
+        assertTrue(m.redacted)
+        assertNull(m.text)
+        assertEquals("", m.rich.messages.single().text)
+    }
+
+    @Test
+    fun `a malformed messaging bundle omits the conversation but keeps the rest`() {
+        val n = builder().setContentTitle("Chat").setContentIntent(contentIntent).build()
+        n.extras.putString(Notification.EXTRA_TEMPLATE, "android.app.Notification\$MessagingStyle")
+        n.extras.putString(Notification.EXTRA_MESSAGES, "not an array of bundles")
+        val s = extract(n)
+        assertEquals("Chat", s.title)
+        assertTrue(s.rich.canOpen)
+        assertTrue(s.rich.messages.isEmpty())
+        assertNull(s.rich.conversation)
     }
 
     private fun builder() = NotificationCompat.Builder(context, "channel").setSmallIcon(android.R.drawable.ic_dialog_info)

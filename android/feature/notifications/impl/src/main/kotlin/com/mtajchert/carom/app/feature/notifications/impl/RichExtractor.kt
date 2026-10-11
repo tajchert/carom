@@ -2,6 +2,7 @@ package com.mtajchert.carom.app.feature.notifications.impl
 
 import android.annotation.SuppressLint
 import android.app.Notification
+import android.app.Person as PlatformPerson
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -10,6 +11,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.os.BundleCompat
@@ -43,7 +45,15 @@ class RichExtractor @Inject constructor(
         val sources = LinkedHashMap<ImageSlot, ImageSource>()
         val template = template(n, extras)
 
-        val title = extras.text(Notification.EXTRA_TITLE) ?: extras.text(Notification.EXTRA_CONVERSATION_TITLE)
+        val messaging = if (template == RichContent.TEMPLATE_MESSAGING) guarded { readMessaging(extras, sources) } else null
+        val lastBody = messaging?.lastBody
+
+        // For a conversation the text already names the sender, so its title is the better title.
+        val title = if (lastBody != null) {
+            extras.text(Notification.EXTRA_CONVERSATION_TITLE) ?: extras.text(Notification.EXTRA_TITLE)
+        } else {
+            extras.text(Notification.EXTRA_TITLE) ?: extras.text(Notification.EXTRA_CONVERSATION_TITLE)
+        }
         val plainText = extras.text(Notification.EXTRA_TEXT)
         val bigText = extras.text(Notification.EXTRA_BIG_TEXT)
         val subText = extras.text(Notification.EXTRA_SUB_TEXT)
@@ -51,13 +61,20 @@ class RichExtractor @Inject constructor(
         val lines = readLines(extras)
 
         // Android 15+ swaps the content for a placeholder when we may not see it.
-        val redacted = listOf(title, plainText, bigText, subText, summaryText).any(redaction::isRedacted) ||
-            lines.any(redaction::isRedacted)
-        val text = listOf(plainText, bigText).firstOrNull { it != null && !redaction.isRedacted(it) }
+        val redacted = listOf(title, lastBody, plainText, bigText, subText, summaryText).any(redaction::isRedacted) ||
+            lines.any(redaction::isRedacted) || messaging?.redacted == true
+        val text = if (messaging != null && lastBody != null) {
+            lastBody.takeUnless(redaction::isRedacted)?.let { messaging.formatted() }
+        } else {
+            listOf(plainText, bigText).firstOrNull { it != null && !redaction.isRedacted(it) }
+        }
 
         sources[ImageSlot.AppIcon] = ImageSource.FromApp(sbn.packageName, appInfo(extras))
         guarded { n.getSmallIcon() }?.let { sources[ImageSlot.SmallIcon] = ImageSource.FromIcon(it) }
-        guarded { n.getLargeIcon() }?.let { sources[ImageSlot.LargeIcon] = ImageSource.FromIcon(it) }
+        guarded { n.getLargeIcon() }?.let {
+            // A conversation's large icon is the chat's avatar, not a picture beside the text.
+            sources[if (messaging != null) ImageSlot.ConversationIcon else ImageSlot.LargeIcon] = ImageSource.FromIcon(it)
+        }
         if (template == RichContent.TEMPLATE_BIG_PICTURE) picture(extras)?.let { sources[ImageSlot.Picture] = it }
 
         val rich = RichContent(
@@ -67,6 +84,8 @@ class RichExtractor @Inject constructor(
             bigText = bigText.takeIf { it != null && !redaction.isRedacted(it) && it != text },
             lines = lines.filterNot(redaction::isRedacted).take(RichContent.MAX_LINES),
             summaryText = summaryText?.takeUnless(redaction::isRedacted),
+            conversation = messaging?.conversation,
+            messages = messaging?.messages.orEmpty(),
             pictureDesc = extras.text(Notification.EXTRA_PICTURE_CONTENT_DESCRIPTION),
             actions = guarded { readActions(n) }.orEmpty(),
             canOpen = n.contentIntent != null,
@@ -177,6 +196,64 @@ class RichExtractor @Inject constructor(
             extras.containsKey(Notification.EXTRA_MEDIA_SESSION) ||
             n.category == Notification.CATEGORY_TRANSPORT
     }
+
+    private class Messaging(
+        val conversation: SnapConversation,
+        val messages: List<SnapMessage>,
+        val lastBody: String?,
+        val lastSender: String?,
+        val redacted: Boolean,
+    ) {
+        /** "sender: text"; the sender is omitted when unknown. */
+        fun formatted(): String? = lastBody?.let { body -> if (lastSender == null) body else "$lastSender: $body" }
+    }
+
+    /**
+     * `MessagingStyle` messages from the platform bundles (historic first), the newest
+     * [RichContent.MAX_MESSAGES]. Sender icons and message images are registered in [sources]
+     * under the message's position in the returned list.
+     */
+    private fun readMessaging(extras: Bundle, sources: MutableMap<ImageSlot, ImageSource>): Messaging? {
+        val user = BundleCompat.getParcelable(extras, Notification.EXTRA_MESSAGING_PERSON, PlatformPerson::class.java)
+        val all = Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles(extras, Notification.EXTRA_HISTORIC_MESSAGES)) +
+            Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles(extras, Notification.EXTRA_MESSAGES))
+        val kept = all.filter { it.text?.isNotBlank() == true || it.hasImage() }.takeLast(RichContent.MAX_MESSAGES)
+        if (kept.isEmpty()) return null
+
+        var anyRedacted = false
+        val messages = kept.mapIndexed { i, m ->
+            val person = m.senderPerson ?: user
+            person?.icon?.let { sources[ImageSlot.SenderIcon(i)] = ImageSource.FromIcon(it) }
+            m.dataUri?.takeIf { m.hasImage() }?.let { sources[ImageSlot.MessageImage(i)] = ImageSource.FromUri(it) }
+            val body = m.text?.toString().orEmpty()
+            val hidden = redaction.isRedacted(body)
+            if (hidden) anyRedacted = true
+            SnapMessage(
+                senderName = (person?.name ?: m.sender)?.toString()?.takeIf { it.isNotBlank() },
+                senderKey = person?.key?.takeIf { it.isNotBlank() },
+                text = if (hidden) "" else body,
+                ts = m.timestamp.coerceAtLeast(0),
+            )
+        }
+        val last = kept.last()
+        val lastPerson = last.senderPerson ?: user
+        return Messaging(
+            conversation = SnapConversation(
+                title = extras.text(Notification.EXTRA_CONVERSATION_TITLE),
+                isGroup = extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION),
+            ),
+            messages = messages,
+            lastBody = last.text?.toString()?.takeIf { it.isNotBlank() },
+            lastSender = (lastPerson?.name ?: last.sender)?.toString()?.takeIf { it.isNotBlank() },
+            redacted = anyRedacted,
+        )
+    }
+
+    private fun Notification.MessagingStyle.Message.hasImage(): Boolean =
+        dataUri != null && dataMimeType?.startsWith("image/") == true
+
+    private fun bundles(extras: Bundle, key: String): Array<Parcelable> =
+        BundleCompat.getParcelableArray(extras, key, Bundle::class.java) ?: emptyArray()
 
     private fun Bundle.text(key: String): String? = getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
 
