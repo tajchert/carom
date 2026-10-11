@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.feature.notifications.impl.codes
 
+import android.annotation.SuppressLint
 import android.companion.AssociationInfo
 import android.companion.AssociationRequest
 import android.companion.CompanionDeviceManager
@@ -60,6 +61,10 @@ class AndroidAssociationApi @Inject constructor(
             }
         }
 
+    // REQUEST_COMPANION_SELF_MANAGED is not declared: the platform does not grant it to
+    // third-party apps (lint ProtectedPermissions). Without it associate() throws
+    // SecurityException, start() maps that to Failed, and the flow falls back to the adb screen.
+    @SuppressLint("MissingPermission")
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun request(profile: AssociationProfile): AssociationRequest {
         val builder = AssociationRequest.Builder()

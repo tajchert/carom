@@ -181,7 +181,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `code forwarding state and intent come from the access`() {
+    fun `code forwarding state comes from the access`() {
         device.codeForwarding.current = CodeForwardingState.NOT_ENABLED
         assertEquals(CodeForwardingState.NOT_ENABLED, vm.codeForwardingState())
         device.codeForwarding.current = CodeForwardingState.ENABLED

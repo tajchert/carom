@@ -229,6 +229,48 @@ class MediaBridgeTest {
     }
 
     @Test
+    fun `pausing forwarding while a session is tracked sends stopped at the next change`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        h.prefs.setPreferences(UserPreferences(forwardingPaused = true))
+        session.snapshot = session.snapshot.copy(title = "Next", artKey = "next")
+        session.change()
+        runCurrent()
+        advanceTimeBy(MediaBridge.DEBOUNCE_MS + 1)
+        runCurrent()
+
+        assertEquals(listOf("playing", "stopped"), h.states().map { it.state })
+        assertTrue(session.callbacks.isEmpty())
+        session.change()
+        settle()
+        assertEquals(2, h.sync.sent.size)
+    }
+
+    @Test
+    fun `hiding content or unlocking with the locked-only switch while tracked sends stopped`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        h.apps.setMode("com.music", AppForwardingMode.HIDE_CONTENT)
+        session.change()
+        settle()
+        assertEquals(listOf("playing", "stopped"), h.states().map { it.state })
+
+        h.apps.setMode("com.music", AppForwardingMode.FORWARD)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        h.prefs.setPreferences(UserPreferences(forwardOnlyWhenLocked = true))
+        h.locked = false
+        session.change()
+        settle()
+        assertEquals(listOf("playing", "stopped", "playing", "stopped"), h.states().map { it.state })
+        assertTrue(session.callbacks.isEmpty())
+    }
+
+    @Test
     fun `notifications without a media session and our own are ignored`() = runTest {
         val bridge = h.start(this)
         bridge.onPosted(h.sbn(9)) // no session registered for id 9

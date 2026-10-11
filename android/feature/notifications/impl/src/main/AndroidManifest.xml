@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- Lets Carom ask Android for a self-managed companion association, which unlocks one-time codes on Android 15+ (docs/SETUP.md).
-        A normal install-time permission; lint's ProtectedPermissions list is out of date for it. -->
-    <uses-permission
-        android:name="android.permission.REQUEST_COMPANION_SELF_MANAGED"
-        tools:ignore="ProtectedPermissions" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

@@ -82,19 +82,6 @@ class MediaCommandHandlerTest {
         assertEquals(listOf("seek@0"), fake.performed)
     }
 
-    @Test
-    fun `isActive follows the tracked sessions`() = runTest {
-        h.source.sessions[1] = FakeMediaSession()
-        val bridge = h.start(this)
-        assertEquals(false, bridge.isActive(session))
-        bridge.onPosted(h.sbn(1))
-        runCurrent()
-        assertEquals(true, bridge.isActive(session))
-        bridge.onRemoved(h.sbn(1))
-        runCurrent()
-        assertEquals(false, bridge.isActive(session))
-    }
-
     private fun command(session: String, command: String, positionMs: Long? = null) = received(
         MessageBodies.toJson(MessageBodies.MediaCommand.serializer(), MessageBodies.MediaCommand(session, command, positionMs)),
     )

@@ -113,9 +113,6 @@ class MediaBridge @Inject constructor(
         bySession.clear()
     }
 
-    /** True while [session] is tracked, i.e. its media notification is still showing (spec §3.5). */
-    fun isActive(session: String): Boolean = bySession.containsKey(session)
-
     /**
      * Runs [command] on [session] when the session is active, advertises the control, and the
      * arguments are valid. Called from the sync engine's thread; it only reads the maps.
@@ -155,16 +152,8 @@ class MediaBridge @Inject constructor(
     private suspend fun posted(r: Run, sbn: StatusBarNotification) {
         val handle = source.open(sbn) ?: return // not a media notification
         val app = apps.recordSeen(handle.packageName, handle.appLabel, r.env.now())
-        val prefs = preferences.userPreferences.first()
-        val skip = NotificationFilter.policy(
-            mode = app.mode,
-            paused = prefs.forwardingPaused,
-            onlyWhenLocked = prefs.forwardOnlyWhenLocked,
-            screenLocked = prefs.forwardOnlyWhenLocked && r.env.isScreenLocked(),
-        )
         val existing = byKey[sbn.key]
-        // Title, artist and album are content, so Hide content means no media card at all.
-        if (skip != null || app.mode == AppForwardingMode.HIDE_CONTENT) {
+        if (blocked(r, app.mode)) {
             existing?.let { stopAndUntrack(r, it) }
             return
         }
@@ -185,6 +174,21 @@ class MediaBridge @Inject constructor(
         schedule(r, tracked)
     }
 
+    /**
+     * True when the per-app mode, the global pause or the locked-only switch forbid forwarding.
+     * Title, artist and album are content, so Hide content means no media card at all.
+     */
+    private suspend fun blocked(r: Run, mode: AppForwardingMode): Boolean {
+        val prefs = preferences.userPreferences.first()
+        val skip = NotificationFilter.policy(
+            mode = mode,
+            paused = prefs.forwardingPaused,
+            onlyWhenLocked = prefs.forwardOnlyWhenLocked,
+            screenLocked = prefs.forwardOnlyWhenLocked && r.env.isScreenLocked(),
+        )
+        return skip != null || mode == AppForwardingMode.HIDE_CONTENT
+    }
+
     /** One pending flush per session; it reads the newest state when it fires. */
     private fun schedule(r: Run, t: Tracked) {
         if (t.pending?.isActive == true) return
@@ -196,6 +200,12 @@ class MediaBridge @Inject constructor(
     }
 
     private suspend fun send(r: Run, t: Tracked) {
+        // Settings may have changed since the notification was posted; re-check before every send.
+        val app = apps.recordSeen(t.handle.packageName, t.handle.appLabel, r.env.now())
+        if (blocked(r, app.mode)) {
+            stopAndUntrack(r, t)
+            return
+        }
         val snapshot = t.handle.snapshot()
         refreshArt(t, snapshot.artKey)
         val body = MessageBodies.MediaState(
