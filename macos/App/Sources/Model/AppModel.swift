@@ -462,7 +462,7 @@ final class AppModel {
             let code = CodeExtractor.code(in: n)
             activity.add(RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
-                                            msgId: msgId, code: code, date: options.now()))
+                                            msgId: msgId, code: code, date: options.now(), icon: n.app.icon))
             await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
             trackLive(phoneId: sender.id, posted: n)
             autoCopy(code, phoneId: sender.id, key: n.key)

@@ -278,6 +278,20 @@ struct AppModelTests {
         #expect(h.model.notifications.cards.isEmpty)
     }
 
+    @Test func recentNotificationKeepsTheAppIcon() async {
+        let h = Harness()
+        await h.start()
+        let icon = BlobRef(id: "icon1", key: "", mime: "image/webp", size: 1, hash: "AAAAAAAAAAAAAAAAAAAAAA==")
+        var n = NotificationPosted(key: "k1", app: .init(id: "com.chat", name: "Chat", icon: icon), title: "Ana",
+                                   text: "Hi", postedAt: 1)
+        await h.model.dispatch(.notificationPosted(n), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.first?.icon == icon)
+        n.key = "k2"
+        n.app.icon = nil
+        await h.model.dispatch(.notificationPosted(n), msgId: "m2", sender: pixel)
+        #expect(h.model.activity.notifications.first?.icon == nil)
+    }
+
     @Test func dismissActionRepliesToTheOriginalMessage() async {
         let h = Harness()
         await h.start()
