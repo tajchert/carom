@@ -90,4 +90,38 @@ import Testing
         let expanded = try #require(render(card(item, expanded: true), name: "bt-expanded"))
         #expect(expanded.size.height > collapsed.size.height)
     }
+
+    @Test func rendersActionsWithEveryStatus() throws {
+        let item = Fixture.card(Fixture.withActions(Fixture.posted(text: "Your code is 482913")))
+        let statuses: [ActionStatus] = [.idle, .sending, .sent, .asleep, .gone, .changed, .failed]
+        var heights: [CGFloat] = []
+        for status in statuses {
+            let image = try #require(render(card(item, status: status), name: "status-\(status)"))
+            heights.append(image.size.height)
+        }
+        #expect(heights[3] > heights[0], "a status line adds height")
+    }
+
+    @Test func rendersStacksCollapsedAndSingle() async throws {
+        let (c, _, _, _) = makeCoordinator()
+        await c.posted(Fixture.card(Fixture.grouped("a")))
+        await c.posted(Fixture.card(Fixture.grouped("b")))
+        await c.posted(Fixture.card(Fixture.grouped("s", summary: true)))
+        await c.posted(Fixture.card(Fixture.posted("solo")))
+        let stacks = c.visibleStacks
+        #expect(stacks.count == 2)
+        for (i, stack) in stacks.enumerated() {
+            let image = try #require(render(CardStackView(stack: stack, coordinator: c), name: "stack-\(i)"))
+            #expect(image.size.height > 40)
+        }
+    }
+
+    @Test func liveAndCallCardsRouteToTheirViews() async throws {
+        let (c, _, _, _) = makeCoordinator()
+        await c.posted(Fixture.card(Fixture.live()))
+        await c.posted(Fixture.card(Fixture.incomingCall()))
+        for stack in c.visibleStacks {
+            #expect(render(CardStackView(stack: stack, coordinator: c), name: "pinned-\(stack.id)") != nil)
+        }
+    }
 }

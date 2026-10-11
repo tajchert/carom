@@ -42,6 +42,7 @@ struct NotificationCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             CardHeader(item: item, images: images, ink: ink, showsChevron: isExpandable, expanded: $expanded)
             content(ink)
+            CardActionsRow(item: item, ink: ink, status: status, perform: perform)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
