@@ -90,8 +90,14 @@ public struct CallCardView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(acted || status == .sending)
+            .disabled(Self.buttonsDisabled(acted: acted, status: status))
         }
+    }
+
+    /// Off while a press is on its way or done; on again after "Couldn't send", so the user can
+    /// retry while the phone still rings.
+    static func buttonsDisabled(acted: Bool, status: ActionStatus) -> Bool {
+        status == .sending || status == .sent || (acted && status != .failed)
     }
 
     private func act(_ action: CardAction) {
