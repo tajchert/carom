@@ -60,6 +60,8 @@ data class NotificationAppSetting(
     val label: String,
     val mode: AppForwardingMode,
     val lastPostedAt: Long,
+    /** "Ongoing: Forward": also forward ongoing notifications that are not Live Updates, progress or calls. Default off. */
+    val forwardOngoing: Boolean = false,
 )
 
 /** A line in Home's recent activity. Never holds full clipboard or notification content. */

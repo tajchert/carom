@@ -26,4 +26,9 @@ class FakeNotificationAppsRepository(initial: List<NotificationAppSetting> = emp
         val existing = state.value[packageName] ?: NotificationAppSetting(packageName, packageName, mode, 0)
         state.value = state.value + (packageName to existing.copy(mode = mode))
     }
+
+    override suspend fun setForwardOngoing(packageName: String, enabled: Boolean) {
+        val existing = state.value[packageName] ?: NotificationAppSetting(packageName, packageName, DefaultAppModes.defaultFor(packageName), 0)
+        state.value = state.value + (packageName to existing.copy(forwardOngoing = enabled))
+    }
 }

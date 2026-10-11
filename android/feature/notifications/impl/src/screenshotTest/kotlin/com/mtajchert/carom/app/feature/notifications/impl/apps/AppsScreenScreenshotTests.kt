@@ -13,7 +13,7 @@ private val populated = AppsUiState(
     loading = false,
     apps = listOf(
         NotificationAppSetting("com.google.android.calendar", "Calendar", AppForwardingMode.FORWARD, 0),
-        NotificationAppSetting("com.google.android.gm", "Gmail", AppForwardingMode.FORWARD, 0),
+        NotificationAppSetting("com.google.android.gm", "Gmail", AppForwardingMode.FORWARD, 0, forwardOngoing = true),
         NotificationAppSetting("com.example.bank", "My Bank", AppForwardingMode.HIDE_CONTENT, 0),
         NotificationAppSetting("org.thoughtcrime.securesms", "Signal", AppForwardingMode.FORWARD, 0),
         NotificationAppSetting("com.android.systemui", "System UI", AppForwardingMode.OFF, 0),
@@ -29,6 +29,7 @@ private fun Apps(state: AppsUiState) {
             onBack = {},
             onQueryChange = {},
             onModeChange = { _, _ -> },
+            onForwardOngoingChange = { _, _ -> },
             onPausedChange = {},
             onOnlyWhenLockedChange = {},
             onOpenAccessSettings = {},

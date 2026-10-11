@@ -13,6 +13,8 @@
     <string name="feature_notifications_mode_forward">Forward</string>
     <string name="feature_notifications_mode_hide">Hide content</string>
     <string name="feature_notifications_mode_off">Off</string>
+    <string name="feature_notifications_ongoing_forward">Ongoing: Forward</string>
+    <string name="feature_notifications_ongoing_off">Ongoing: Off</string>
     <string name="feature_notifications_empty">No apps yet</string>
     <string name="feature_notifications_empty_description">Apps appear here after they post a notification.</string>
     <string name="feature_notifications_no_results">No apps match your search.</string>

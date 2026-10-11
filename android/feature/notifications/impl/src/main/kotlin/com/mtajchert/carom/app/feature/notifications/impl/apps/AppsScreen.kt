@@ -74,6 +74,7 @@ fun AppsScreen(onBack: () -> Unit, viewModel: AppsViewModel = hiltViewModel()) {
         onBack = onBack,
         onQueryChange = viewModel::setQuery,
         onModeChange = viewModel::setMode,
+        onForwardOngoingChange = viewModel::setForwardOngoing,
         onPausedChange = viewModel::setPaused,
         onOnlyWhenLockedChange = viewModel::setOnlyWhenLocked,
         onOpenAccessSettings = { openNotificationAccessSettings(context) },
@@ -87,6 +88,7 @@ fun AppsContent(
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
     onModeChange: (String, AppForwardingMode) -> Unit,
+    onForwardOngoingChange: (String, Boolean) -> Unit,
     onPausedChange: (Boolean) -> Unit,
     onOnlyWhenLockedChange: (Boolean) -> Unit,
     onOpenAccessSettings: () -> Unit,
@@ -138,7 +140,11 @@ fun AppsContent(
                         }
                     }
                     items(state.apps, key = { it.packageName }) { app ->
-                        AppRow(app, onModeChange = { onModeChange(app.packageName, it) })
+                        AppRow(
+                            app,
+                            onModeChange = { onModeChange(app.packageName, it) },
+                            onForwardOngoingChange = { onForwardOngoingChange(app.packageName, it) },
+                        )
                     }
                 }
             }
@@ -223,7 +229,11 @@ private val modes = listOf(
 )
 
 @Composable
-private fun AppRow(app: NotificationAppSetting, onModeChange: (AppForwardingMode) -> Unit) {
+private fun AppRow(
+    app: NotificationAppSetting,
+    onModeChange: (AppForwardingMode) -> Unit,
+    onForwardOngoingChange: (Boolean) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
         Column {
             Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -251,6 +261,13 @@ private fun AppRow(app: NotificationAppSetting, onModeChange: (AppForwardingMode
                 )
             }
         }
+        ToggleRow(
+            label = stringResource(
+                if (app.forwardOngoing) R.string.feature_notifications_ongoing_forward else R.string.feature_notifications_ongoing_off,
+            ),
+            checked = app.forwardOngoing,
+            onChange = onForwardOngoingChange,
+        )
     }
 }
 
