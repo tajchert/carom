@@ -45,9 +45,12 @@ public struct NotificationPosted: MessageBody {
     public struct App: Sendable, Equatable {
         public var id: String
         public var name: String
-        public init(id: String, name: String) {
+        /// The app icon (V2).
+        public var icon: BlobRef?
+        public init(id: String, name: String, icon: BlobRef? = nil) {
             self.id = id
             self.name = name
+            self.icon = icon
         }
     }
 
@@ -61,8 +64,44 @@ public struct NotificationPosted: MessageBody {
     public var redacted: Bool
     public var ongoing: Bool?
 
+    // V2 additions (SPEC §3.3). Their types are in RichNotification.swift.
+    /// `standard`, `big_text`, `inbox`, `messaging`, `big_picture`, `progress`, `call`, `media` or `custom`.
+    public var template: String?
+    /// `Notification.color`, ARGB; nil when it is the default.
+    public var color: Int?
+    public var colorized: Bool?
+    /// Alpha mask, tinted by `color`.
+    public var smallIcon: BlobRef?
+    public var largeIcon: BlobRef?
+    public var picture: BlobRef?
+    public var pictureDesc: String?
+    public var bigText: String?
+    public var lines: [String]?
+    public var summaryText: String?
+    public var conversation: Conversation?
+    /// Newest last.
+    public var messages: [ConversationMessage]?
+    public var actions: [Action]?
+    public var canOpen: Bool?
+    public var progress: Progress?
+    public var live: Live?
+    /// Unix ms; shown only when `showWhen` is true.
+    public var when: Int?
+    public var showWhen: Bool?
+    public var chronometer: Chronometer?
+    public var call: Call?
+    public var group: Group?
+    public var channel: Channel?
+
     public init(key: String, app: App, title: String? = nil, text: String? = nil, subText: String? = nil,
-                category: String? = nil, postedAt: Int, redacted: Bool = false, ongoing: Bool? = nil) {
+                category: String? = nil, postedAt: Int, redacted: Bool = false, ongoing: Bool? = nil,
+                template: String? = nil, color: Int? = nil, colorized: Bool? = nil, smallIcon: BlobRef? = nil,
+                largeIcon: BlobRef? = nil, picture: BlobRef? = nil, pictureDesc: String? = nil,
+                bigText: String? = nil, lines: [String]? = nil, summaryText: String? = nil,
+                conversation: Conversation? = nil, messages: [ConversationMessage]? = nil,
+                actions: [Action]? = nil, canOpen: Bool? = nil, progress: Progress? = nil, live: Live? = nil,
+                when: Int? = nil, showWhen: Bool? = nil, chronometer: Chronometer? = nil, call: Call? = nil,
+                group: Group? = nil, channel: Channel? = nil) {
         self.key = key
         self.app = app
         self.title = title
@@ -72,6 +111,28 @@ public struct NotificationPosted: MessageBody {
         self.postedAt = postedAt
         self.redacted = redacted
         self.ongoing = ongoing
+        self.template = template
+        self.color = color
+        self.colorized = colorized
+        self.smallIcon = smallIcon
+        self.largeIcon = largeIcon
+        self.picture = picture
+        self.pictureDesc = pictureDesc
+        self.bigText = bigText
+        self.lines = lines
+        self.summaryText = summaryText
+        self.conversation = conversation
+        self.messages = messages
+        self.actions = actions
+        self.canOpen = canOpen
+        self.progress = progress
+        self.live = live
+        self.when = when
+        self.showWhen = showWhen
+        self.chronometer = chronometer
+        self.call = call
+        self.group = group
+        self.channel = channel
     }
 
     public init?(json b: JSONObject) {
@@ -85,13 +146,31 @@ public struct NotificationPosted: MessageBody {
         let subText = optString(b["sub_text"]), category = optString(b["category"])
         let ongoing = optBool(b["ongoing"])
         guard title.ok, text.ok, subText.ok, category.ok, ongoing.ok else { return nil }
-        self.init(key: key, app: App(id: appId, name: appName), title: title.value, text: text.value,
-                  subText: subText.value, category: category.value, postedAt: postedAt, redacted: redacted,
-                  ongoing: ongoing.value)
+        self.init(key: key, app: App(id: appId, name: appName, icon: BlobRef(json: app["icon"])),
+                  title: title.value, text: text.value, subText: subText.value, category: category.value,
+                  postedAt: postedAt, redacted: redacted, ongoing: ongoing.value,
+                  template: b["template"]?.stringValue, color: b["color"]?.safeInt,
+                  colorized: b["colorized"]?.boolValue, smallIcon: BlobRef(json: b["small_icon"]),
+                  largeIcon: BlobRef(json: b["large_icon"]), picture: BlobRef(json: b["picture"]),
+                  pictureDesc: b["picture_desc"]?.stringValue, bigText: b["big_text"]?.stringValue,
+                  lines: b["lines"]?.arrayValue.map { Array($0.compactMap(\.stringValue).prefix(Limits.lines)) },
+                  summaryText: b["summary_text"]?.stringValue, conversation: Conversation(json: b["conversation"]),
+                  messages: b["messages"]?.arrayValue.map {
+                      Array($0.compactMap { ConversationMessage(json: $0) }.suffix(Limits.messages))
+                  },
+                  actions: b["actions"]?.arrayValue.map {
+                      Array($0.compactMap { Action(json: $0) }.prefix(Limits.actions))
+                  },
+                  canOpen: b["can_open"]?.boolValue, progress: Progress(json: b["progress"]),
+                  live: Live(json: b["live"]), when: b["when"]?.safeInt, showWhen: b["show_when"]?.boolValue,
+                  chronometer: Chronometer(json: b["chronometer"]), call: Call(json: b["call"]),
+                  group: Group(json: b["group"]), channel: Channel(json: b["channel"]))
     }
 
     public var json: JSONObject {
-        var o: JSONObject = ["key": .string(key), "app": ["id": .string(app.id), "name": .string(app.name)]]
+        var appJSON: JSONObject = ["id": .string(app.id), "name": .string(app.name)]
+        if let icon = app.icon { appJSON["icon"] = icon.json }
+        var o: JSONObject = ["key": .string(key), "app": .object(appJSON)]
         if let title { o["title"] = .string(title) }
         if let text { o["text"] = .string(text) }
         if let subText { o["sub_text"] = .string(subText) }
@@ -99,6 +178,28 @@ public struct NotificationPosted: MessageBody {
         o["posted_at"] = JSON(postedAt)
         o["redacted"] = .bool(redacted)
         if let ongoing { o["ongoing"] = .bool(ongoing) }
+        if let template { o["template"] = .string(template) }
+        if let color { o["color"] = JSON(color) }
+        if let colorized { o["colorized"] = .bool(colorized) }
+        if let smallIcon { o["small_icon"] = smallIcon.json }
+        if let largeIcon { o["large_icon"] = largeIcon.json }
+        if let picture { o["picture"] = picture.json }
+        if let pictureDesc { o["picture_desc"] = .string(pictureDesc) }
+        if let bigText { o["big_text"] = .string(bigText) }
+        if let lines { o["lines"] = JSON(lines) }
+        if let summaryText { o["summary_text"] = .string(summaryText) }
+        if let conversation { o["conversation"] = conversation.json }
+        if let messages { o["messages"] = .array(messages.map(\.json)) }
+        if let actions { o["actions"] = .array(actions.map(\.json)) }
+        if let canOpen { o["can_open"] = .bool(canOpen) }
+        if let progress { o["progress"] = progress.json }
+        if let live { o["live"] = live.json }
+        if let when { o["when"] = JSON(when) }
+        if let showWhen { o["show_when"] = .bool(showWhen) }
+        if let chronometer { o["chronometer"] = chronometer.json }
+        if let call { o["call"] = call.json }
+        if let group { o["group"] = group.json }
+        if let channel { o["channel"] = channel.json }
         return o
     }
 
