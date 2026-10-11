@@ -143,10 +143,21 @@ final class FakeClipboard: ClipboardWatching {
     var written: [ClipboardItem] = []
     var current: ClipboardItem?
     var reads = 0
+    /// Bumped by every write, like `NSPasteboard.changeCount`. Tests bump it to fake a copy.
+    var changeCount = 0
+    var clears = 0
 
     func start() { running = true }
     func stop() { running = false }
-    func write(text: String, sensitive: Bool) { written.append(ClipboardItem(text: text, sensitive: sensitive)) }
+    func write(text: String, sensitive: Bool) {
+        written.append(ClipboardItem(text: text, sensitive: sensitive))
+        changeCount += 1
+    }
+    func clear(ifChangeCount count: Int) -> Bool {
+        guard count == changeCount else { return false }
+        clears += 1
+        return true
+    }
     func readCurrent() -> ClipboardItem? {
         reads += 1
         return current
@@ -226,6 +237,7 @@ struct Harness {
         options.unreachableAfter = .milliseconds(50)
         options.pairingPollInterval = .milliseconds(20)
         options.outboxInterval = .seconds(3600)
+        options.codeClearDelay = .milliseconds(40)
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,

@@ -76,6 +76,16 @@ struct NotificationSettings: View {
                 } footer: {
                     Footnote("Rides, deliveries and timers from your phone get a small item next to the Carom icon until they end.")
                 }
+
+                Section {
+                    Toggle("Copy codes automatically", isOn: Binding(
+                        get: { model.preferences.copiesCodes },
+                        set: { model.setAutoCopyCodes($0) }))
+                } header: {
+                    Text("Verification Codes")
+                } footer: {
+                    Footnote("Copies a code as soon as it arrives and clears it from the clipboard after 60 seconds if it's still there.")
+                }
             }
             .formStyle(.grouped)
         }

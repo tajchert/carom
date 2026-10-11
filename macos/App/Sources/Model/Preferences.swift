@@ -29,6 +29,8 @@ struct Preferences: Codable, Equatable, Sendable {
     /// "Show Live Updates in the menu bar". `nil` follows the default: on. Optional so that
     /// settings saved before this existed still decode.
     var liveChip: Bool?
+    /// "Copy codes automatically". `nil` follows the default: off.
+    var autoCopyCodes: Bool?
 
     init() {}
 
@@ -48,6 +50,8 @@ struct Preferences: Codable, Equatable, Sendable {
     func isMuted(_ appId: String) -> Bool { mutedApps.contains(appId) }
 
     var showsLiveChip: Bool { liveChip ?? true }
+
+    var copiesCodes: Bool { autoCopyCodes ?? false }
 
     /// Records an app; returns true when something changed.
     @discardableResult

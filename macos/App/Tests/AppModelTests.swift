@@ -661,3 +661,76 @@ struct NowPlayingModelTests {
         #expect(await h.sync.sent.isEmpty)
     }
 }
+
+// MARK: - Copy codes automatically
+
+@MainActor
+@Suite("Copy codes automatically")
+struct AutoCopyTests {
+    @Test func offByDefault() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.clipboard.written.isEmpty)
+    }
+
+    @Test func writesAConcealedCodeAndClearsItLater() async throws {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.clipboard.written == [ClipboardItem(text: "482913", sensitive: true)])
+        #expect(h.clipboard.clears == 0)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(h.clipboard.clears == 1)
+    }
+
+    @Test func doesNotClearAfterSomethingElseWasCopied() async throws {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.clipboard.changeCount += 1  // the user copied something else
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(h.clipboard.clears == 0)
+    }
+
+    @Test func theCopyIsNotSentBackToThePhone() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.clipboard.onCopy?(ClipboardItem(text: "482913", sensitive: true))
+        await settle()
+        #expect(await h.sync.sent.isEmpty)
+    }
+
+    @Test func anUpdateOfTheSameNotificationCopiesOnce() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        await h.model.dispatch(posted(), msgId: "m2", sender: pixel)
+        await h.model.dispatch(posted(text: "Your code is 777777"), msgId: "m3", sender: pixel)
+        #expect(h.clipboard.written.map(\.text) == ["482913", "777777"])
+    }
+
+    @Test func redactedAndPausedNotificationsAreNotCopied() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(rich("k1", ["text": "Your code is 482913", "redacted": true]), msgId: "m1", sender: pixel)
+        h.model.setPaused(true)
+        await h.model.dispatch(posted(), msgId: "m2", sender: pixel)
+        #expect(h.clipboard.written.isEmpty)
+    }
+
+    @Test func quittingClearsAPendingCode() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.model.shutdown()
+        #expect(h.clipboard.clears == 1)
+    }
+}

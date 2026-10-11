@@ -23,6 +23,10 @@ protocol ClipboardWatching: AnyObject {
     func stop()
     func write(text: String, sensitive: Bool)
     func readCurrent() -> ClipboardItem?
+    /// The pasteboard change count. Read it right after `write` to remember that write.
+    var changeCount: Int { get }
+    /// Empties the pasteboard when nothing was copied since `count`. Returns whether it cleared.
+    func clear(ifChangeCount count: Int) -> Bool
 }
 
 @MainActor

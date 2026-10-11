@@ -82,6 +82,8 @@ final class AppModel {
         /// Where decrypted images are cached. Every `Options()` gets a folder of its own, so
         /// tests do not share a cache.
         var blobDirectory = URL.temporaryDirectory.appending(path: "carom-blobs-\(UUID().uuidString)")
+        /// How long an automatically copied code stays on the clipboard.
+        var codeClearDelay: Duration = .seconds(60)
     }
 
     // MARK: State read by the views
@@ -135,6 +137,9 @@ final class AppModel {
     @ObservationIgnored private var watcherRunning = false
     @ObservationIgnored private var sawNetworkPath = false
     @ObservationIgnored private var liveUpdates: [(id: String, posted: NotificationPosted)] = []
+    @ObservationIgnored private var codeClearTask: Task<Void, Never>?
+    @ObservationIgnored private var codeClearCount: Int?
+    @ObservationIgnored private var lastAutoCopied: String?
 
     init(sync: any SyncService, desktop: DesktopServices, options: Options = Options()) {
         self.sync = sync
@@ -437,6 +442,7 @@ final class AppModel {
                                             msgId: msgId, code: code, date: options.now()))
             await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
             trackLive(phoneId: sender.id, posted: n)
+            autoCopy(code, phoneId: sender.id, key: n.key)
             let presented = PresentedNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                                   appName: n.app.name, title: n.title, text: text, key: n.key,
                                                   msgId: msgId)
@@ -463,6 +469,30 @@ final class AppModel {
             break  // a desktop does not receive these
         case .notificationActionResult:
             break  // V2: shown by the notification coordinator (M4a)
+        }
+    }
+
+    // MARK: One-time codes
+
+    /// "Copy codes automatically": copies a code that just arrived, marked as concealed, and
+    /// clears it again after `codeClearDelay` unless something else was copied since.
+    private func autoCopy(_ code: String?, phoneId: String, key: String) {
+        guard let code, preferences.copiesCodes else { return }
+        let marker = "\(phoneId)/\(key)/\(code)"
+        guard marker != lastAutoCopied else { return }  // an update of the same notification
+        lastAutoCopied = marker
+        clipboard.write(text: code, sensitive: true)
+        suppressCopiesUntil = options.now().addingTimeInterval(options.copySuppression)
+        let count = clipboard.changeCount
+        codeClearCount = count
+        codeClearTask?.cancel()
+        let delay = options.codeClearDelay
+        codeClearTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            _ = self.clipboard.clear(ifChangeCount: count)
+            self.codeClearCount = nil
+            self.codeClearTask = nil
         }
     }
 
@@ -690,6 +720,11 @@ final class AppModel {
         applyLiveChipSetting()
     }
 
+    func setAutoCopyCodes(_ on: Bool) {
+        preferences.autoCopyCodes = on
+        savePreferences()
+    }
+
     func setAutomaticClipboard(_ on: Bool) {
         preferences.automaticClipboard = on
         savePreferences()
@@ -747,6 +782,8 @@ final class AppModel {
 
     /// Called when the app quits: releases the global hotkey and stops the watcher and socket.
     func shutdown() {
+        codeClearTask?.cancel()
+        if let count = codeClearCount { _ = clipboard.clear(ifChangeCount: count) }
         hotkey.unregister()
         trace("shutdown hotkey unregistered")
         hotkeyAvailable = false
@@ -776,6 +813,7 @@ final class AppModel {
         activity.clear()
         mediaSessions = []
         liveUpdates = []
+        lastAutoCopied = nil
         updateLiveChip()
         let blobs = self.blobs
         Task { await blobs.clear() }

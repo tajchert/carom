@@ -82,6 +82,14 @@ struct PreferencesTests {
         #expect(back == p && !back.showsLiveChip)
     }
 
+    @Test func autoCopyIsOffByDefaultAndRoundTrips() {
+        #expect(!Preferences().copiesCodes)
+        var p = Preferences()
+        p.autoCopyCodes = true
+        let back = Preferences(json: p.json)
+        #expect(back == p && back.copiesCodes)
+    }
+
     @Test func noteAppReportsChanges() {
         var p = Preferences()
         let first = p.noteApp(id: "a", name: "A")
