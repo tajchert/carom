@@ -4,6 +4,7 @@ import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.hub.HubMessage
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.protocol.DeviceKind
+import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.protocol.Received
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,26 @@ interface CaromSync {
     /** Posts every due outbox item. Returns the earliest time more work is due, or null. */
     suspend fun flushOutbox(): FlushResult
 
+    /**
+     * Seals and uploads one image (SPEC V2 §3.2, §3.7). [convergent] derives the key from the
+     * current group key and the image and checks with `HEAD ?touch=1` first, so one icon is
+     * uploaded once per key version; otherwise the key is random. Use a [msgId] only for message
+     * images, so the Hub deletes them when that message is superseded.
+     *
+     * Returns null on any failure (not paired, too large, an empty mime or a dimension below 1,
+     * network, quota): the caller drops that image and still sends the notification. Does CPU
+     * work, so call it off the main thread.
+     */
+    suspend fun uploadBlob(
+        plain: ByteArray,
+        mime: String,
+        w: Int?,
+        h: Int?,
+        convergent: Boolean,
+        ttlS: Long,
+        msgId: String? = null,
+    ): MessageBodies.BlobRef?
+
     /** `GET /v1/messages` until drained, handling and acknowledging every page (foreground, after send). */
     suspend fun fetchMessages(): FetchResult
 
@@ -67,8 +88,11 @@ interface CaromSync {
 }
 
 sealed interface SendResult {
-    /** Posted (or a duplicate/superseded post, which is also final). */
-    data class Sent(val msgId: String) : SendResult
+    /**
+     * Posted (or a duplicate/superseded post, which is also final). [online] holds the recipients
+     * that had a live WebSocket when the Hub accepted the message (SPEC V2 §3.7).
+     */
+    data class Sent(val msgId: String, val online: Set<String> = emptySet()) : SendResult
 
     /** Stored in the outbox; it will be retried (network error, 5xx). */
     data class Queued(val msgId: String) : SendResult

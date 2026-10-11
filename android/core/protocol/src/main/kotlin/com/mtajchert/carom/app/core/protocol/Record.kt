@@ -204,17 +204,21 @@ object Records {
 
 /** Default receive rules (SPEC §5.1) and sender-side routing (SPEC §5.2). */
 object Routing {
-    /** `receive` written at pairing. A `cli` device receives only `clipboard.set@1`. */
+    /** `receive` written at pairing (SPEC §5.1, SPEC V2 §3.6). A `cli` device receives only `clipboard.set@1`. */
     fun defaultReceive(kind: DeviceKind): Map<String, ReceiveRule> = when (kind) {
         DeviceKind.PHONE -> linkedMapOf(
             MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone,
             MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone,
+            MessageTypes.NOTIFICATION_ACTION to ReceiveRule.Everyone,
+            MessageTypes.MEDIA_COMMAND to ReceiveRule.Everyone,
         )
         DeviceKind.DESKTOP -> linkedMapOf(
             MessageTypes.NOTIFICATION_POSTED to ReceiveRule.Everyone,
             MessageTypes.NOTIFICATION_REMOVED to ReceiveRule.Everyone,
             MessageTypes.DEVICE_STATUS to ReceiveRule.Everyone,
             MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone,
+            MessageTypes.NOTIFICATION_ACTION_RESULT to ReceiveRule.Everyone,
+            MessageTypes.MEDIA_STATE to ReceiveRule.Everyone,
         )
         DeviceKind.CLI -> linkedMapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone)
     }

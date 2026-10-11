@@ -14,7 +14,9 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import okhttp3.OkHttpClient
+import okio.Buffer
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -168,6 +170,121 @@ class OkHttpHubClientTest {
             fail()
         } catch (_: HubException.Network) {
         }
+    }
+
+    @Test
+    fun `post message result carries the online recipients`() = runTest {
+        server.enqueue(json(200, """{"seq":4,"duplicate":false,"online":["dev_a","dev_b"]}"""))
+        assertEquals(PostMessageResult(seq = 4, online = listOf("dev_a", "dev_b")), client.postMessage(envelope()))
+        server.enqueue(json(200, """{"seq":5}"""))
+        assertEquals(emptyList<String>(), client.postMessage(envelope()).online)
+    }
+
+    @Test
+    fun `put blob sends raw bytes with ttl and msg id`() = runTest {
+        val ct = ByteArray(300) { it.toByte() }
+        server.enqueue(json(201, """{"id":"abcDEF-_123","size":300,"expires_at":1791650000000}"""))
+        val info = client.putBlob("abcDEF-_123", ct, ttlS = 3600, msgId = "01a1268a-e800-7614-b735-9b848038782d")
+        assertEquals(BlobInfo("abcDEF-_123", 300, 1_791_650_000_000), info)
+        val request = take()
+        assertEquals("PUT", request.method)
+        assertEquals("/carom/v1/blobs/abcDEF-_123", request.url.encodedPath)
+        assertEquals("3600", request.url.queryParameter("ttl_s"))
+        assertEquals("01a1268a-e800-7614-b735-9b848038782d", request.url.queryParameter("msg_id"))
+        assertEquals("application/octet-stream", request.headers["Content-Type"])
+        assertEquals("Bearer ct1.token", request.headers["Authorization"])
+        assertArrayEquals(ct, request.body!!.toByteArray())
+    }
+
+    @Test
+    fun `put blob without a msg id omits the parameter and an existing blob answers 200`() = runTest {
+        server.enqueue(json(200, """{"id":"x","size":1,"expires_at":5}"""))
+        assertEquals(BlobInfo("x", 1, 5), client.putBlob("x", byteArrayOf(1), ttlS = 60))
+        assertNull(take().url.queryParameter("msg_id"))
+    }
+
+    @Test
+    fun `put blob errors are typed and quota is not retryable`() = runTest {
+        server.enqueue(json(400, """{"error":{"code":"bad_request","message":"hash"}}"""))
+        try {
+            client.putBlob("x", byteArrayOf(1), ttlS = 60)
+            fail()
+        } catch (e: HubException.Http) {
+            assertEquals(HubErrorCode.BAD_REQUEST, e.code)
+        }
+        server.enqueue(json(413, """{"error":{"code":"too_large","message":"big"}}"""))
+        try {
+            client.putBlob("x", byteArrayOf(1), ttlS = 60)
+            fail()
+        } catch (e: HubException.Http) {
+            assertEquals(HubErrorCode.TOO_LARGE, e.code)
+        }
+        server.enqueue(json(429, """{"error":{"code":"rate_limited","message":"quota"},"quota":true}"""))
+        try {
+            client.putBlob("x", byteArrayOf(1), ttlS = 60)
+            fail()
+        } catch (e: HubException.Http) {
+            assertTrue(e.isQuotaExceeded)
+            assertFalse(e.isRetryable)
+        }
+        server.enqueue(json(429, """{"error":{"code":"rate_limited","message":"slow"}}"""))
+        try {
+            client.putBlob("x", byteArrayOf(1), ttlS = 60)
+            fail()
+        } catch (e: HubException.Http) {
+            assertFalse(e.isQuotaExceeded)
+            assertTrue(e.isRetryable)
+        }
+    }
+
+    @Test
+    fun `head blob is true on 200 and false on 404 and can touch`() = runTest {
+        server.enqueue(MockResponse.Builder().code(200).addHeader("x-expires-at", "123").build())
+        assertTrue(client.headBlob("abc"))
+        val plain = take()
+        assertEquals("HEAD", plain.method)
+        assertEquals("/carom/v1/blobs/abc", plain.url.encodedPath)
+        assertNull(plain.url.queryParameter("touch"))
+
+        server.enqueue(MockResponse.Builder().code(200).addHeader("x-expires-at", "456").build())
+        assertTrue(client.headBlob("abc", touchTtlS = 7200))
+        val touch = take()
+        assertEquals("1", touch.url.queryParameter("touch"))
+        assertEquals("7200", touch.url.queryParameter("ttl_s"))
+
+        server.enqueue(MockResponse.Builder().code(404).build())
+        assertFalse(client.headBlob("missing"))
+        server.enqueue(MockResponse.Builder().code(403).build())
+        try {
+            client.headBlob("abc")
+            fail()
+        } catch (e: HubException.Http) {
+            assertEquals(HubErrorCode.FORBIDDEN, e.code)
+        }
+    }
+
+    @Test
+    fun `get blob returns the bytes and null on 404`() = runTest {
+        val ct = ByteArray(2048) { (it * 3).toByte() }
+        server.enqueue(MockResponse.Builder().code(200).addHeader("Content-Type", "application/octet-stream").body(Buffer().write(ct)).build())
+        assertArrayEquals(ct, client.getBlob("abc"))
+        val request = take()
+        assertEquals("GET", request.method)
+        assertEquals("/carom/v1/blobs/abc", request.url.encodedPath)
+        assertEquals("Bearer ct1.token", request.headers["Authorization"])
+
+        server.enqueue(json(404, """{"error":{"code":"not_found","message":"no blob"}}"""))
+        assertNull(client.getBlob("abc"))
+    }
+
+    @Test
+    fun `blob ids that are not base64url are refused before any request`() = runTest {
+        try {
+            client.getBlob("../v1/devices")
+            fail()
+        } catch (_: IllegalArgumentException) {
+        }
+        assertEquals(0, server.requestCount)
     }
 
     // -------------------------------------------------------------------------
