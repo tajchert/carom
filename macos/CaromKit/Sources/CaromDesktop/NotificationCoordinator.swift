@@ -80,6 +80,8 @@ public final class NotificationCoordinator {
     @ObservationIgnored private let focus: any FocusStatusProviding
     @ObservationIgnored private let options: Options
     @ObservationIgnored private let now: @MainActor () -> Date
+    /// Waits for the fade and asleep timers. Returns early when the task is cancelled.
+    @ObservationIgnored private let sleep: @Sendable (Duration) async -> Void
     @ObservationIgnored private var fadeTasks: [String: Task<Void, Never>] = [:]
     /// Cards the user acted on: they fade even if they would otherwise stay.
     @ObservationIgnored private var handled: Set<String> = []
@@ -96,12 +98,14 @@ public final class NotificationCoordinator {
     @ObservationIgnored private var earlyResults: [(msgId: String, result: NotificationActionResult)] = []
 
     public init(native: any NativeNotifying, panel: any CardPanelHosting, focus: any FocusStatusProviding,
-                options: Options = Options(), now: @escaping @MainActor () -> Date = { Date() }) {
+                options: Options = Options(), now: @escaping @MainActor () -> Date = { Date() },
+                sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }) {
         self.native = native
         self.panel = panel
         self.focus = focus
         self.options = options
         self.now = now
+        self.sleep = sleep
         panel.bind(self)
     }
 
@@ -118,10 +122,30 @@ public final class NotificationCoordinator {
     public func posted(_ item: CardItem) async {
         let isUpdate = cards[item.id] != nil
         cards[item.id] = item
-        handled.remove(item.id)
-        if style == .rich { place(item, isUpdate: isUpdate) }
-        await native.present(PresentedNotification(card: item, passive: style == .rich),
+        // Messaging apps re-post a conversation with the user's own reply appended (no sender).
+        // That changes the card in place, silently, and keeps it handled.
+        let ownReply = isUpdate && Self.endsWithOwnMessage(item)
+        if !ownReply {
+            handled.remove(item.id)
+            if isUpdate { clearFinishedStatus(item.id) }
+            if style == .rich { place(item, isUpdate: isUpdate) }
+        }
+        await native.present(PresentedNotification(card: item, passive: style == .rich || ownReply),
                              showPhoneName: item.phoneName != nil)
+    }
+
+    /// The newest message is the phone user's own (it has no sender).
+    static func endsWithOwnMessage(_ item: CardItem) -> Bool {
+        guard let last = item.posted.messages?.last else { return false }
+        return last.sender == nil
+    }
+
+    /// A new message replaces the last action's result; an action still in flight keeps its status.
+    private func clearFinishedStatus(_ cardId: String) {
+        switch statuses[cardId] {
+        case .sending?, .asleep?, nil: break
+        default: statuses[cardId] = nil
+        }
     }
 
     /// A `notification.removed`: the card and the native notification go.
@@ -257,9 +281,9 @@ public final class NotificationCoordinator {
     /// queued at the Hub (TTL 10 min), so a later result still updates the status.
     private func armAsleep(_ cardId: String) {
         asleepTasks.removeValue(forKey: cardId)?.cancel()
-        let delay = options.asleepAfter
+        let delay = options.asleepAfter, sleep = sleep
         asleepTasks[cardId] = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            await sleep(delay)
             guard !Task.isCancelled, let self else { return }
             self.asleepTasks[cardId] = nil
             if self.statuses[cardId] == .sending { self.statuses[cardId] = .asleep }
@@ -297,9 +321,9 @@ public final class NotificationCoordinator {
         fadeTasks.removeValue(forKey: id)?.cancel()
         guard let item = cards[id], onPanel.contains(id), !isHovering, replyingTo != id else { return }
         if item.staysUntilHandled, !handled.contains(id) { return }
-        let delay = options.fadeAfter
+        let delay = options.fadeAfter, sleep = sleep
         fadeTasks[id] = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            await sleep(delay)
             guard !Task.isCancelled else { return }
             self?.takeOffPanel(id)
         }
@@ -311,7 +335,11 @@ public final class NotificationCoordinator {
         onPanel.remove(id)
         shownAt[id] = nil
         if replyingTo == id { endReply() }
-        if onPanel.isEmpty { panel.hide() }
+        if onPanel.isEmpty {
+            // An ordered-out window gets no hover exit, so the hold would otherwise stay on.
+            isHovering = false
+            panel.hide()
+        }
     }
 
     private func forget(_ id: String) {

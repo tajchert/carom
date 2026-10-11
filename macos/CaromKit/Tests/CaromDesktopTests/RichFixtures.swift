@@ -159,7 +159,7 @@ final class FakeFocus: FocusStatusProviding {
 
 /// A clock that moves one second per reading, so cards shown one after another order strictly.
 @MainActor
-final class TickClock {
+private final class TickClock {
     private var now = Date(timeIntervalSince1970: 1_800_000_000)
     func next() -> Date {
         now = now.addingTimeInterval(1)
@@ -167,9 +167,54 @@ final class TickClock {
     }
 }
 
+/// The coordinator's fade and asleep timers on virtual time: they fire only when a test calls
+/// `advance(by:)`, so a busy main actor (parallel renders) cannot make them late.
 @MainActor
-func makeCoordinator(focused: Bool = false, fade: Duration = .milliseconds(40),
-                     asleep: Duration = .milliseconds(40))
+final class CoordinatorTimers {
+    private var now: Duration = .zero
+    private var nextId = 0
+    private var waiting: [Int: (deadline: Duration, resume: CheckedContinuation<Void, Never>)] = [:]
+
+    /// The closure the coordinator sleeps with.
+    nonisolated var sleep: @Sendable (Duration) async -> Void {
+        { [self] delay in await self.wait(delay) }
+    }
+
+    private func wait(_ delay: Duration) async {
+        let id = nextId
+        nextId += 1
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled {
+                    continuation.resume()
+                } else {
+                    waiting[id] = (now + delay, continuation)
+                }
+            }
+        } onCancel: {
+            Task { @MainActor in self.wake(id) }
+        }
+    }
+
+    private func wake(_ id: Int) { waiting.removeValue(forKey: id)?.resume.resume() }
+
+    /// Moves virtual time on, fires every timer that is due, and lets the woken tasks run.
+    func advance(by delay: Duration) async {
+        await settle()  // timer tasks created just now register their sleep first
+        now += delay
+        for (id, entry) in waiting where entry.deadline <= now { wake(id) }
+        await settle()
+    }
+}
+
+/// Lets tasks already queued on the main actor (sends, woken timers) run.
+func settle() async {
+    for _ in 0..<20 { await Task.yield() }
+}
+
+@MainActor
+func makeCoordinator(focused: Bool = false, fade: Duration = .seconds(6), asleep: Duration = .seconds(30),
+                     timers: CoordinatorTimers = CoordinatorTimers())
     -> (NotificationCoordinator, FakeNative, FakePanel, FakeFocus)
 {
     let native = FakeNative(), panel = FakePanel(), focus = FakeFocus(), clock = TickClock()
@@ -178,9 +223,6 @@ func makeCoordinator(focused: Bool = false, fade: Duration = .milliseconds(40),
     options.fadeAfter = fade
     options.asleepAfter = asleep
     let coordinator = NotificationCoordinator(native: native, panel: panel, focus: focus, options: options,
-                                              now: { clock.next() })
+                                              now: { clock.next() }, sleep: timers.sleep)
     return (coordinator, native, panel, focus)
 }
-
-/// Waits real time for fade and asleep timers (40 ms in tests).
-func pause(_ ms: Int) async { try? await Task.sleep(for: .milliseconds(ms)) }

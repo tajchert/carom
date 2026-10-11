@@ -13,18 +13,17 @@ public struct CardItem: Identifiable, Sendable, Equatable {
     public var receivedAt: Date
     public var phoneAcceptsActions: Bool   // phone caps include notification.action@1
 
+    public static func id(phoneId: String, key: String) -> String { phoneId + "/" + key }
+}
+
+// In an extension so the struct keeps its memberwise init (M4b builds cards with it).
+extension CardItem {
+    /// A card whose id is derived from the phone and the notification key.
     public init(phoneId: String, phoneName: String?, msgId: String, posted: NotificationPosted,
                 receivedAt: Date, phoneAcceptsActions: Bool) {
-        id = Self.id(phoneId: phoneId, key: posted.key)
-        self.phoneId = phoneId
-        self.phoneName = phoneName
-        self.msgId = msgId
-        self.posted = posted
-        self.receivedAt = receivedAt
-        self.phoneAcceptsActions = phoneAcceptsActions
+        self.init(id: Self.id(phoneId: phoneId, key: posted.key), phoneId: phoneId, phoneName: phoneName,
+                  msgId: msgId, posted: posted, receivedAt: receivedAt, phoneAcceptsActions: phoneAcceptsActions)
     }
-
-    public static func id(phoneId: String, key: String) -> String { phoneId + "/" + key }
 }
 
 public enum CardAction: Sendable, Equatable {

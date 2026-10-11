@@ -6,13 +6,15 @@ import Testing
 
 @MainActor
 @Suite struct NotificationCoordinatorTests {
+    let timers = CoordinatorTimers()
+
     @Test func bindsThePanel() {
-        let (_, _, panel, _) = makeCoordinator()
+        let (_, _, panel, _) = makeCoordinator(timers: timers)
         #expect(panel.bound)
     }
 
     @Test func postedShowsOnPanelAndPostsAQuietNativeCopy() async {
-        let (c, native, panel, _) = makeCoordinator()
+        let (c, native, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.posted()))
         #expect(c.onPanel == [Fixture.id("k1")])
         #expect(panel.shows == 1)
@@ -24,7 +26,7 @@ import Testing
     }
 
     @Test func phoneNameAndReplyReachTheNativeCopy() async {
-        let (c, native, _, _) = makeCoordinator()
+        let (c, native, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted()), phoneName: "Pixel"))
         #expect(native.presented[0].showPhoneName)
         #expect(native.presented[0].notification.phoneName == "Pixel")
@@ -32,7 +34,7 @@ import Testing
     }
 
     @Test func nativeOnlyPostsAnActiveNativeAndNoPanel() async {
-        let (c, native, panel, _) = makeCoordinator()
+        let (c, native, panel, _) = makeCoordinator(timers: timers)
         c.setStyle(.nativeOnly)
         await c.posted(Fixture.card(Fixture.posted()))
         #expect(c.onPanel.isEmpty && panel.shows == 0 && panel.alerts.isEmpty)
@@ -40,7 +42,7 @@ import Testing
     }
 
     @Test func switchingToNativeOnlyClearsThePanel() async {
-        let (c, _, panel, _) = makeCoordinator()
+        let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.messaging()))
         c.setStyle(.nativeOnly)
         #expect(c.onPanel.isEmpty)
@@ -48,7 +50,7 @@ import Testing
     }
 
     @Test func focusSkipsPanelAndSoundButNativeStillPosts() async {
-        let (c, native, panel, _) = makeCoordinator(focused: true)
+        let (c, native, panel, _) = makeCoordinator(focused: true, timers: timers)
         await c.posted(Fixture.card(Fixture.posted()))
         #expect(c.onPanel.isEmpty && panel.shows == 0 && panel.alerts.isEmpty)
         #expect(native.presented.count == 1)
@@ -56,7 +58,7 @@ import Testing
     }
 
     @Test func liveUpdateChangesInPlaceWithoutSound() async {
-        let (c, native, panel, _) = makeCoordinator()
+        let (c, native, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.live(value: 10)))
         await c.posted(Fixture.card(Fixture.live(value: 60), msgId: "m2"))
         #expect(panel.alerts.count == 1)
@@ -67,24 +69,45 @@ import Testing
     }
 
     @Test func plainCardFadesAndHoverHoldsIt() async {
-        let (c, _, panel, _) = makeCoordinator()
+        let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.posted()))
         c.setHovering(true)
-        await pause(120)
+        await timers.advance(by: .seconds(60))
         #expect(c.onPanel.count == 1, "held while the pointer is over the panel")
         c.setHovering(false)
-        await pause(120)
+        await timers.advance(by: .seconds(60))
         #expect(c.onPanel.isEmpty)
         #expect(panel.hides == 1)
         #expect(c.cards.count == 1, "fading only leaves the panel; the phone still has it")
     }
 
+    /// The panel is ordered out under the pointer: no hover exit comes, so the hold must end.
+    @Test func hoverHoldEndsWhenTheLastCardLeaves() async {
+        let (c, _, _, _) = makeCoordinator(timers: timers)
+        await c.posted(Fixture.card(Fixture.posted()))
+        c.setHovering(true)
+        c.close(Fixture.id("k1"))
+        #expect(!c.isHovering)
+        await c.posted(Fixture.card(Fixture.posted("k2")))
+        await timers.advance(by: .seconds(60))
+        #expect(c.onPanel.isEmpty, "the next card fades")
+    }
+
+    @Test func fadeWaitsForTheFullDelay() async {
+        let (c, _, _, _) = makeCoordinator(timers: timers)
+        await c.posted(Fixture.card(Fixture.posted()))
+        await timers.advance(by: .seconds(5))
+        #expect(c.onPanel.count == 1)
+        await timers.advance(by: .seconds(1))
+        #expect(c.onPanel.isEmpty)
+    }
+
     @Test func conversationCallAndLiveCardsStayUntilRemoved() async {
-        let (c, native, _, _) = makeCoordinator()
+        let (c, native, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.messaging()))
         await c.posted(Fixture.card(Fixture.incomingCall()))
         await c.posted(Fixture.card(Fixture.live()))
-        await pause(120)
+        await timers.advance(by: .seconds(60))
         #expect(c.onPanel.count == 3)
         c.removed(phoneId: Fixture.phone, key: "chat1")
         #expect(c.onPanel.count == 2)
@@ -93,7 +116,7 @@ import Testing
     }
 
     @Test func removedAllForgetsThatPhonesCards() async {
-        let (c, native, _, _) = makeCoordinator()
+        let (c, native, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.messaging()))
         await c.posted(Fixture.card(Fixture.messaging("chat2"), phone: Fixture.otherPhone))
         c.removedAll(phoneId: Fixture.phone)
@@ -102,7 +125,7 @@ import Testing
     }
 
     @Test func closeOnlyLeavesThePanel() async {
-        let (c, native, _, _) = makeCoordinator()
+        let (c, native, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.messaging()))
         c.close(Fixture.id("chat1"))
         #expect(c.onPanel.isEmpty)
@@ -111,7 +134,7 @@ import Testing
     }
 
     @Test func onlyTheSummaryAlertsWhenTheGroupSaysSo() async {
-        let (c, _, panel, _) = makeCoordinator()
+        let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.grouped("a", alert: "summary")))
         #expect(c.onPanel.count == 1)
         #expect(panel.alerts.isEmpty)
@@ -120,7 +143,7 @@ import Testing
     }
 
     @Test func panelShowsFourStacksAndCountsTheRest() async {
-        let (c, _, _, _) = makeCoordinator()
+        let (c, _, _, _) = makeCoordinator(timers: timers)
         for i in 0..<6 { await c.posted(Fixture.card(Fixture.messaging("k\(i)"))) }
         #expect(c.visibleStacks.count == 4)
         #expect(c.hiddenStackCount == 2)
@@ -128,7 +151,7 @@ import Testing
     }
 
     @Test func groupedCardsShareAStack() async {
-        let (c, _, _, _) = makeCoordinator()
+        let (c, _, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.grouped("a")))
         await c.posted(Fixture.card(Fixture.grouped("b")))
         #expect(c.stacks.count == 1)
@@ -138,7 +161,7 @@ import Testing
     // MARK: Index Review Focus 4 (coordinator side)
 
     @Test func panelBecomesKeyOnlyForReply() async {
-        let (c, _, panel, _) = makeCoordinator()
+        let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted())))
         #expect(panel.replyModes.isEmpty, "showing a card never asks for the keyboard")
         c.beginReply(Fixture.id("k1"))
@@ -150,7 +173,7 @@ import Testing
     }
 
     @Test func noReplyModeWithoutAReplyActionOrCaps() async {
-        let (c, _, panel, _) = makeCoordinator()
+        let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.posted("plain")))
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted("nocaps")), actions: false))
         c.beginReply(Fixture.id("plain"))
@@ -160,10 +183,10 @@ import Testing
     }
 
     @Test func replyingHoldsTheFadeAndClosingTheCardEndsIt() async {
-        let (c, _, panel, _) = makeCoordinator()
+        let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted())))
         c.beginReply(Fixture.id("k1"))
-        await pause(120)
+        await timers.advance(by: .seconds(60))
         #expect(c.onPanel.count == 1)
         c.close(Fixture.id("k1"))
         #expect(c.replyingTo == nil)

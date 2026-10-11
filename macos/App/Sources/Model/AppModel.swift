@@ -431,7 +431,7 @@ final class AppModel {
             shown.text = text
             let card = CardItem(phoneId: sender.id, phoneName: phones.count > 1 ? sender.name : nil, msgId: msgId,
                                 posted: shown, receivedAt: options.now(),
-                                phoneAcceptsActions: sender.caps.contains(MessageType.notificationAction.rawValue))
+                                phoneAcceptsActions: Routing.advertises(sender, .notificationAction))
             await notifications.posted(card)
             trace("notification presented")
         case .notificationRemoved(let r):
@@ -505,8 +505,7 @@ final class AppModel {
         case .dismissOnPhone(_, let key, let msgId):
             _ = try? await sync.send(NotificationDismiss(key: key), replyTo: msgId, only: nil)
         case .copiedCode, .copiedText:
-            // Our own copy: do not send it straight back to the phone.
-            suppressCopiesUntil = options.now().addingTimeInterval(options.copySuppression)
+            noteOwnCopy()
         case .reply(let phoneId, let key, let msgId, let index, let title, let text):
             let action = CardAction.reply(index: index, title: title, text: text)
             if !notifications.perform(action, on: CardItem.id(phoneId: phoneId, key: key)) {
@@ -552,8 +551,14 @@ final class AppModel {
             guard let self else { return }
             // Written with the watcher's marker, and not sent straight back to the phone.
             self.clipboard.write(text: code, sensitive: false)
-            self.suppressCopiesUntil = self.options.now().addingTimeInterval(self.options.copySuppression)
+            self.noteOwnCopy()
         }
+    }
+
+    /// Our own copy of a notification's code or text: automatic sending pauses briefly, so it is
+    /// not sent straight back to the phone.
+    private func noteOwnCopy() {
+        suppressCopiesUntil = options.now().addingTimeInterval(options.copySuppression)
     }
 
     /// Copies text from the menu. Written through the watcher, so it is not sent back.

@@ -273,7 +273,8 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
 - **Connection state** comes from `SyncEngine.realtimeStates()` (connected after the first frame
   or pong; the engine pings once right away), combined with sleep and no-network from the system
   monitor. After 45 s without a connection a "Can't reach your Hub" banner appears.
-- **Notifications.** `notification.posted` → `NotificationPresenter.present` unless paused, the
+- **Notifications.** `notification.posted` → `NotificationCoordinator` (native copy via
+  `NotificationPresenter`) unless paused, the
   phone is turned off in our `receive` rules, or the app is muted locally. The phone name is shown
   only with more than one phone. `removed` withdraws it (and drops it from the menu). Redacted
   notifications with no text read "Content hidden on your phone." *Dismiss on phone* sends
@@ -289,7 +290,9 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
   field is open. During a Focus only the native notification posts. The app's buttons, Reply and
   Open on phone (`notification.action@1`) appear only for phones whose caps include it; a card
   shows "Sending…", then the phone's result, or "Phone is asleep — will send when it wakes" after
-  30 s. *Native only* uses banners and no panel.
+  30 s. When the phone re-posts a conversation with the user's own reply appended (newest
+  message without a sender), the card changes in place without a sound and still fades.
+  *Native only* uses banners and no panel.
 - **Clipboard.** `clipboard.set` is written with `ClipboardWatcher.write` (marker type, so the
   watcher skips it; the engine also suppresses echoes). Automatic sending defaults to on when
   pasteboard access is *Always allow* (`NSPasteboard.accessBehavior`, macOS 15.4+) and on macOS

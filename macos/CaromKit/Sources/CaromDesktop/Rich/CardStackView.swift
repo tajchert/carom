@@ -17,16 +17,27 @@ struct CardStackView: View {
         }
     }
 
+    /// Which view draws a card.
+    enum Kind: Equatable { case call, live, notification }
+
+    /// An incoming call wins over a Live Update (a call can carry progress too).
+    static func kind(for item: CardItem) -> Kind {
+        if item.isIncomingCall { return .call }
+        if item.isLive { return .live }
+        return .notification
+    }
+
     @ViewBuilder
     private func card(_ item: CardItem) -> some View {
         let status = coordinator.status(for: item.id)
         let perform: (CardAction) -> Void = { [coordinator] action in _ = coordinator.perform(action, on: item.id) }
         Group {
-            if item.isIncomingCall {
+            switch Self.kind(for: item) {
+            case .call:
                 CallCardView(item: item, images: coordinator.images, status: status, perform: perform)
-            } else if item.isLive {
+            case .live:
                 LiveUpdateCardView(item: item, images: coordinator.images, status: status, perform: perform)
-            } else {
+            case .notification:
                 NotificationCardView(item: item, images: coordinator.images, status: status, perform: perform)
             }
         }

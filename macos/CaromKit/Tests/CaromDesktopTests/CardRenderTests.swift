@@ -123,5 +123,12 @@ import Testing
         for stack in c.visibleStacks {
             #expect(render(CardStackView(stack: stack, coordinator: c), name: "pinned-\(stack.id)") != nil)
         }
+        #expect(CardStackView.kind(for: Fixture.card(Fixture.live())) == .live)
+        #expect(CardStackView.kind(for: Fixture.card(Fixture.incomingCall())) == .call)
+        #expect(CardStackView.kind(for: Fixture.card(Fixture.messaging())) == .notification)
+        #expect(CardStackView.kind(for: Fixture.card(Fixture.posted())) == .notification)
+        var callWithProgress = Fixture.incomingCall()
+        callWithProgress.progress = Fixture.live().progress
+        #expect(CardStackView.kind(for: Fixture.card(callWithProgress)) == .call, "a call wins over live")
     }
 }
