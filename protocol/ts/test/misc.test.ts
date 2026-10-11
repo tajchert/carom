@@ -138,8 +138,20 @@ describe('messages and routing', () => {
   });
 
   it('default receive rules follow SPEC §5.1', () => {
-    expect(defaultReceive('phone')).toEqual({ 'clipboard.set@1': '*', 'notification.dismiss@1': '*' });
-    expect(Object.keys(defaultReceive('desktop')).sort()).toEqual(['clipboard.set@1', 'device.status@1', 'notification.posted@1', 'notification.removed@1']);
+    expect(defaultReceive('phone')).toEqual({
+      'clipboard.set@1': '*',
+      'notification.dismiss@1': '*',
+      'notification.action@1': '*',
+      'media.command@1': '*',
+    });
+    expect(Object.keys(defaultReceive('desktop')).sort()).toEqual([
+      'clipboard.set@1',
+      'device.status@1',
+      'media.state@1',
+      'notification.action_result@1',
+      'notification.posted@1',
+      'notification.removed@1',
+    ]);
     expect(defaultReceive('cli')).toEqual({ 'clipboard.set@1': '*' });
   });
 

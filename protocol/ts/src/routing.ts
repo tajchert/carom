@@ -11,13 +11,20 @@ import type { DeviceKind, DeviceRecord, ReceiveRule } from './record.ts';
 export function defaultReceive(kind: DeviceKind): Partial<Record<MessageType, ReceiveRule>> {
   switch (kind) {
     case 'phone':
-      return { 'clipboard.set@1': '*', 'notification.dismiss@1': '*' };
+      return {
+        'clipboard.set@1': '*',
+        'notification.dismiss@1': '*',
+        'notification.action@1': '*',
+        'media.command@1': '*',
+      };
     case 'desktop':
       return {
         'notification.posted@1': '*',
         'notification.removed@1': '*',
         'device.status@1': '*',
         'clipboard.set@1': '*',
+        'notification.action_result@1': '*',
+        'media.state@1': '*',
       };
     case 'cli':
       return { 'clipboard.set@1': '*' };
