@@ -1,6 +1,19 @@
 // @carom/protocol: reference implementation of Carom protocol v1 (protocol/SPEC.md).
 
 export { b64decode, b64decodeLength, b64encode, B64Error } from './b64.ts';
+export {
+  blobAad,
+  blobHash,
+  blobId,
+  convergentKey,
+  isValidBlobRef,
+  openBlob,
+  padBinary,
+  paddedBlobLength,
+  sealBlob,
+  unpadBinary,
+  type BlobRef,
+} from './blob.ts';
 export { concat, equalBytes, fromHex, fromUtf8, lp, toHex, u32be, u64, utf8, type Bytes } from './bytes.ts';
 export { collapseInput, collapseValue } from './collapse.ts';
 export { INFO, KEY_LENGTH, LIMITS, PROTOCOL_VERSION, SALT_LENGTH, SIG_LENGTH, TAG } from './constants.ts';
@@ -35,14 +48,37 @@ export {
   DEFAULT_TTL_S,
   isMessageType,
   isValidBody,
+  LIST_LIMITS,
+  MEDIA_COMMANDS,
   MESSAGE_TYPES,
+  requiresReplyTo,
+  type ActionRef,
+  type ActionSpec,
+  type AppInfo,
+  type CallInfo,
+  type ChannelInfo,
+  type Chronometer,
   type ClipboardSetBody,
+  type Conversation,
+  type ConversationMessage,
   type DeviceStatusBody,
+  type GroupInfo,
+  type Live,
+  type MediaCommand,
+  type MediaCommandBody,
+  type MediaStateBody,
   type MessageBodies,
   type MessageType,
+  type NotificationActionBody,
+  type NotificationActionResultBody,
   type NotificationDismissBody,
   type NotificationPostedBody,
   type NotificationRemovedBody,
+  type Person,
+  type Progress,
+  type ProgressPoint,
+  type ProgressSegment,
+  type ReplySpec,
 } from './messages.ts';
 export {
   buildPairAccept,

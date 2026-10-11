@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:media.command@1",
+  "title": "media.command@1 body",
+  "description": "SPEC §4, §4.3. Sent with payload-level `reply_to` = a media.state msg_id of the same session. Default TTL 10 minutes, no collapse. `seek` requires `position_ms`.",
+  "type": "object",
+  "properties": {
+    "session": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "enum": ["play", "pause", "next", "previous", "seek"] },
+    "position_ms": { "$ref": "urn:carom:v1:common#/$defs/ms" }
+  },
+  "required": ["session", "command"],
+  "if": { "properties": { "command": { "const": "seek" } } },
+  "then": {
+    "required": ["position_ms"],
+    "properties": { "position_ms": { "$ref": "urn:carom:v1:common#/$defs/ms" } }
+  }
+}

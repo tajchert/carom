@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:notification.action@1",
+  "title": "notification.action@1 body",
+  "description": "SPEC §4, §4.2. Sent with payload-level `reply_to` = the posted message's msg_id. Default TTL 10 minutes, no collapse.",
+  "type": "object",
+  "properties": {
+    "key": { "type": "string" },
+    "action": {
+      "oneOf": [
+        { "type": "string", "enum": ["tap", "answer", "decline"] },
+        {
+          "type": "object",
+          "properties": {
+            "index": { "$ref": "urn:carom:v1:common#/$defs/count" },
+            "title": { "type": "string" },
+            "reply_text": { "type": "string" }
+          },
+          "required": ["index", "title"]
+        }
+      ]
+    }
+  },
+  "required": ["key", "action"]
+}

@@ -209,7 +209,7 @@ describe('node:crypto cross-check of vectors', () => {
   });
 
   it('envelope receive rules', () => {
-    const TYPES_NEEDING_REPLY = new Set(['notification.dismiss@1']);
+    const TYPES_NEEDING_REPLY = new Set(['notification.dismiss@1', 'notification.action@1', 'notification.action_result@1', 'media.command@1']);
     for (const c of load('envelope_receive.json').cases) {
       const e = c.envelope;
       const x = c.context;
@@ -405,6 +405,71 @@ describe('node:crypto cross-check of vectors', () => {
       const k = hkdf(utf(c.setup_token), Buffer.alloc(0), 'carom/v1/token-key');
       const ok = hmac(k, cat(lp(id), lp(ub(rand)))).subarray(0, 16).equals(ub(mac));
       expect(ok ? id : null, c.name).toBe(c.expected_device_id);
+    }
+  });
+
+  it('blobs: padding, convergent keys, seal and open', () => {
+    const v = load('blob.json');
+    const padLen = (n: number): number => {
+      const len = 4 + n;
+      return len <= 4096 ? Math.ceil(len / 256) * 256 : Math.ceil(len / 4096) * 4096;
+    };
+    const pad = (p: Buffer): Buffer => {
+      const out = Buffer.alloc(padLen(p.length));
+      out.writeUInt32BE(p.length, 0);
+      p.copy(out, 4);
+      return out;
+    };
+    const unpad = (p: Buffer): Buffer | null => {
+      if (p.length < 4) return null;
+      const n = p.readUInt32BE(0);
+      if (4 + n > p.length || padLen(n) !== p.length) return null;
+      return p.subarray(4 + n).every((x) => x === 0) ? p.subarray(4, 4 + n) : null;
+    };
+    const blobAad = (mime: string): Buffer => cat(lp('carom/v1/blob'), lp(mime));
+    for (const c of v.padding.cases) expect(padLen(c.plain_length)).toBe(c.padded_length);
+    for (const c of v.padding.rejected) expect(padLen(c.plain_length) + 16).toBeGreaterThan(1_048_576);
+    for (const c of v.pad_examples) {
+      expect(pad(hx(c.plain_hex)).toString('hex'), c.name).toBe(c.padded_hex);
+      expect(unpad(hx(c.padded_hex))?.toString('hex'), c.name).toBe(c.plain_hex);
+    }
+    for (const c of v.unpad_invalid) expect(unpad(hx(c.padded_hex)), c.name).toBeNull();
+    for (const c of v.convergent_key) {
+      expect(sha256(hx(c.plain_hex)).toString('hex')).toBe(c.salt_hex);
+      expect(hkdf(hx(c.group_key_hex), hx(c.salt_hex), 'carom/v1/blob-conv').toString('hex'), c.name).toBe(c.key_hex);
+    }
+    for (const c of v.seal) {
+      const plain = hx(c.plain_hex);
+      const ct = aeadSeal(hx(c.key_hex), blobAad(c.mime), pad(plain));
+      expect(blobAad(c.mime).toString('hex')).toBe(c.aad_hex);
+      expect(ct.toString('hex'), c.name).toBe(c.ct_hex);
+      expect(c.ref).toMatchObject({
+        id: b64(sha256(ct)),
+        key: b64(hx(c.key_hex)),
+        mime: c.mime,
+        size: plain.length,
+        hash: b64(sha256(plain).subarray(0, 16)),
+      });
+    }
+    const refOk = (r: Json): boolean =>
+      typeof r.id === 'string' && strictB64(r.id)?.length === 32 &&
+      typeof r.key === 'string' && strictB64(r.key)?.length === 32 &&
+      typeof r.mime === 'string' && r.mime.length > 0 &&
+      Number.isSafeInteger(r.size) && r.size >= 0 && r.size <= 1_044_476 &&
+      typeof r.hash === 'string' && strictB64(r.hash)?.length === 16;
+    for (const c of v.open_cases) {
+      const ct = hx(c.ct_hex);
+      const got = ((): string => {
+        if (!refOk(c.ref)) return 'bad_ref';
+        if (b64(sha256(ct)) !== c.ref.id) return 'bad_id';
+        const padded = aeadOpen(ub(c.ref.key), blobAad(c.ref.mime), ct);
+        if (padded === null) return 'decrypt_failed';
+        const plain = unpad(padded);
+        if (plain === null) return 'bad_padding';
+        if (plain.length !== c.ref.size) return 'bad_size';
+        return b64(sha256(plain).subarray(0, 16)) === c.ref.hash ? 'ok' : 'bad_hash';
+      })();
+      expect(got, c.name).toBe(c.expected);
     }
   });
 

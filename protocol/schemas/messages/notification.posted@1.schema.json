@@ -2,25 +2,160 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:carom:v1:notification.posted@1",
   "title": "notification.posted@1 body",
-  "description": "SPEC §4. Default TTL 2 days, collapse key `n:<key>`. Text is plain text: receivers MUST NOT render markup or auto-open URLs.",
+  "description": "SPEC §4, §4.1. Default TTL 2 days, collapse key `n:<key>`. Text is plain text: receivers MUST NOT render markup or auto-open URLs. Every field after `ongoing` was added in V2 and is optional.",
   "type": "object",
   "properties": {
     "key": { "type": "string", "description": "Android notification key." },
-    "app": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "description": "Package name." },
-        "name": { "type": "string" }
-      },
-      "required": ["id", "name"]
-    },
+    "app": { "$ref": "urn:carom:v1:common#/$defs/app" },
     "title": { "type": "string" },
     "text": { "type": "string" },
     "sub_text": { "type": "string" },
     "category": { "type": "string" },
     "posted_at": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
     "redacted": { "type": "boolean" },
-    "ongoing": { "type": "boolean" }
+    "ongoing": { "type": "boolean" },
+    "template": {
+      "type": "string",
+      "description": "standard, big_text, inbox, messaging, big_picture, progress, call, media or custom. Receivers render unknown values as standard."
+    },
+    "color": { "$ref": "urn:carom:v1:common#/$defs/int32", "description": "Notification.color, ARGB as a signed 32-bit integer." },
+    "colorized": { "type": "boolean" },
+    "small_icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" },
+    "large_icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" },
+    "picture": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" },
+    "picture_desc": { "type": "string" },
+    "big_text": { "type": "string" },
+    "lines": { "type": "array", "maxItems": 7, "items": { "type": "string" } },
+    "summary_text": { "type": "string" },
+    "conversation": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "is_group": { "type": "boolean" },
+        "icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" }
+      },
+      "required": ["is_group"]
+    },
+    "messages": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/message" }, "description": "Newest last." },
+    "actions": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/action" } },
+    "can_open": { "type": "boolean" },
+    "progress": { "$ref": "#/$defs/progress" },
+    "live": {
+      "type": "object",
+      "properties": {
+        "promoted": { "type": "boolean" },
+        "short_critical_text": { "type": "string" }
+      },
+      "required": ["promoted"]
+    },
+    "when": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
+    "show_when": { "type": "boolean" },
+    "chronometer": {
+      "type": "object",
+      "properties": { "count_down": { "type": "boolean" } },
+      "required": ["count_down"]
+    },
+    "call": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "description": "incoming, ongoing, screening or unknown. Other values mean unknown." },
+        "person": { "$ref": "#/$defs/person" },
+        "is_video": { "type": "boolean" },
+        "verification": { "type": "string" }
+      },
+      "required": ["type"]
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "summary": { "type": "boolean" },
+        "sort_key": { "type": "string" },
+        "alert": { "type": "string", "description": "all, summary or children. Other values mean all." }
+      },
+      "required": ["key", "summary", "alert"]
+    },
+    "channel": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "importance": { "$ref": "urn:carom:v1:common#/$defs/int32" }
+      },
+      "required": ["id", "importance"]
+    }
   },
-  "required": ["key", "app", "posted_at", "redacted"]
+  "required": ["key", "app", "posted_at", "redacted"],
+  "$defs": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "key": { "type": "string" },
+        "icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" }
+      },
+      "required": ["name"]
+    },
+    "message": {
+      "type": "object",
+      "properties": {
+        "sender": { "$ref": "#/$defs/person" },
+        "text": { "type": "string" },
+        "ts": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
+        "image": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" }
+      },
+      "required": ["text", "ts"]
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "index": { "$ref": "urn:carom:v1:common#/$defs/count", "description": "Position in Notification.actions." },
+        "title": { "type": "string" },
+        "semantic": { "$ref": "urn:carom:v1:common#/$defs/count" },
+        "reply": {
+          "type": "object",
+          "properties": {
+            "label": { "type": "string" },
+            "choices": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "required": ["index", "title"]
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "value": { "$ref": "urn:carom:v1:common#/$defs/count" },
+        "max": { "$ref": "urn:carom:v1:common#/$defs/count" },
+        "indeterminate": { "type": "boolean" },
+        "segments": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "properties": {
+              "length": { "$ref": "urn:carom:v1:common#/$defs/count" },
+              "color": { "$ref": "urn:carom:v1:common#/$defs/int32" }
+            },
+            "required": ["length"]
+          }
+        },
+        "points": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "properties": {
+              "position": { "$ref": "urn:carom:v1:common#/$defs/count" },
+              "color": { "$ref": "urn:carom:v1:common#/$defs/int32" }
+            },
+            "required": ["position"]
+          }
+        },
+        "tracker_icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" },
+        "start_icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" },
+        "end_icon": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" }
+      },
+      "required": ["value", "max", "indeterminate"]
+    }
+  }
 }

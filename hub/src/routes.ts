@@ -28,7 +28,10 @@ export type RouteName =
   | "messages.post"
   | "messages.get"
   | "acks"
-  | "ws";
+  | "ws"
+  | "blobs.put"
+  | "blobs.head"
+  | "blobs.get";
 
 export interface Route {
   name: RouteName;
@@ -43,6 +46,8 @@ const SMALL = 4 * 1024;
 const MEDIUM = 64 * 1024;
 /** One serialized envelope (98 304 bytes, SPEC §3) plus the {"envelope":…} wrapper. */
 export const MESSAGE_BODY_LIMIT = 98_304 + 1024;
+/** One blob: 1 MiB of ciphertext plus 1 KiB of slack (SPEC §6). */
+export const BLOB_BODY_LIMIT = 1_048_576 + 1024;
 
 // Literal paths come before parameterized ones with the same shape.
 export const ROUTES: readonly Route[] = [
@@ -64,6 +69,9 @@ export const ROUTES: readonly Route[] = [
   { name: "messages.get", method: "GET", path: "/v1/messages", auth: "device", maxBody: 0 },
   { name: "acks", method: "POST", path: "/v1/acks", auth: "device", maxBody: SMALL },
   { name: "ws", method: "GET", path: "/v1/ws", auth: "device", maxBody: 0 },
+  { name: "blobs.put", method: "PUT", path: "/v1/blobs/:id", auth: "device", maxBody: BLOB_BODY_LIMIT },
+  { name: "blobs.head", method: "HEAD", path: "/v1/blobs/:id", auth: "device", maxBody: 0 },
+  { name: "blobs.get", method: "GET", path: "/v1/blobs/:id", auth: "device", maxBody: 0 },
 ];
 
 export interface RouteMatch {

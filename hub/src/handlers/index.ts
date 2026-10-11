@@ -1,6 +1,7 @@
 import type { Handler } from "../call";
 import type { RouteName } from "../routes";
 import * as admin from "./admin";
+import * as blobs from "./blobs";
 import * as devices from "./devices";
 import * as keyring from "./keyring";
 import * as messages from "./messages";
@@ -25,4 +26,7 @@ export const HANDLERS: Record<RouteName, Handler> = {
   "messages.get": messages.fetchMessages,
   acks: messages.acks,
   ws: messages.websocket,
+  "blobs.put": blobs.put,
+  "blobs.head": blobs.head,
+  "blobs.get": blobs.get,
 };

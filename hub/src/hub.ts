@@ -12,6 +12,7 @@ import { DEVICE_HEADER, TOKEN_HASH_HEADER } from "./headers";
 import { matchRoute, type AuthKind } from "./routes";
 import { DATA_TABLES, migrate } from "./schema";
 import { closeRevoked, deviceOf } from "./sockets";
+import { earliestBlobExpiry, purgeExpiredBlobs } from "./store/blobs";
 import { getDevice, touchLastSeen, type DeviceRow } from "./store/devices";
 import { earliestMessageExpiry, purgeExpired } from "./store/messages";
 import { deleteMetaExceptSchema } from "./store/meta";
@@ -20,7 +21,8 @@ import { isObject } from "./validate";
 
 /** Sets the single alarm to the earliest pending expiry, only when work exists. */
 async function scheduleAlarm(storage: DurableObjectStorage): Promise<void> {
-  const expiries = [earliestMessageExpiry(storage.sql), earliestPairingExpiry(storage.sql)].filter((t) => t !== null);
+  const sql = storage.sql;
+  const expiries = [earliestMessageExpiry(sql), earliestPairingExpiry(sql), earliestBlobExpiry(sql)].filter((t) => t !== null);
   if (expiries.length === 0) return;
   const next = Math.min(...expiries);
   const current = await storage.getAlarm();
@@ -86,6 +88,7 @@ export class Hub extends DurableObject<Env> {
   override async alarm(): Promise<void> {
     const now = Date.now();
     purgeExpired(this.runtime.sql, now);
+    purgeExpiredBlobs(this.runtime.sql, now);
     expirePairings(this.runtime.sql, now);
     await scheduleAlarm(this.ctx.storage);
   }

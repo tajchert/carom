@@ -1,0 +1,1358 @@
+{
+  "description": "Message bodies (SPEC §4). defaults gives each type's default TTL in seconds and whether a payload-level reply_to is required (a missing one is bad_payload, SPEC §3.3 rule 5). collapse_cases gives the collapse real key for a body, or null when the type does not collapse. valid payloads MUST be accepted and parsed, including every V2 field of notification.posted@1. invalid_bodies MUST be rejected as bad_payload. missing_reply_to payloads have a valid body but lack the required reply_to. Integers marked int32 in SPEC §4 are signed 32-bit, so ARGB colours with the alpha bit set are negative. Blob references are the ones sealed in blob.json. The first valid payload and the inline reply, media state and seek command are also sealed in envelope_seal.json.",
+  "defaults": [
+    {
+      "type": "notification.posted@1",
+      "default_ttl_s": 172800,
+      "reply_to_required": false
+    },
+    {
+      "type": "notification.removed@1",
+      "default_ttl_s": 172800,
+      "reply_to_required": false
+    },
+    {
+      "type": "notification.dismiss@1",
+      "default_ttl_s": 86400,
+      "reply_to_required": true
+    },
+    {
+      "type": "clipboard.set@1",
+      "default_ttl_s": 86400,
+      "reply_to_required": false
+    },
+    {
+      "type": "device.status@1",
+      "default_ttl_s": 86400,
+      "reply_to_required": false
+    },
+    {
+      "type": "notification.action@1",
+      "default_ttl_s": 600,
+      "reply_to_required": true
+    },
+    {
+      "type": "notification.action_result@1",
+      "default_ttl_s": 600,
+      "reply_to_required": true
+    },
+    {
+      "type": "media.state@1",
+      "default_ttl_s": 86400,
+      "reply_to_required": false
+    },
+    {
+      "type": "media.command@1",
+      "default_ttl_s": 600,
+      "reply_to_required": true
+    }
+  ],
+  "collapse_cases": [
+    {
+      "type": "notification.posted@1",
+      "body": {
+        "key": "0|com.whatsapp|2|family|10124",
+        "app": {
+          "id": "com.whatsapp",
+          "name": "WhatsApp",
+          "icon": {
+            "id": "a_E-v7sgUURwwK0nQ5Gp_giYa2yQSns6vxL3Z0aujzc",
+            "key": "DoMnd3QFh8LLGjD_mF29dAdu9aE-d8AVIeOCbIHQ5yI",
+            "mime": "image/webp",
+            "size": 300,
+            "hash": "e6ZrrzwPfx57VPWgppiTpA",
+            "w": 128,
+            "h": 128
+          }
+        },
+        "title": "Family",
+        "text": "Mum: See you at 8",
+        "category": "msg",
+        "posted_at": 1791648019600,
+        "redacted": false,
+        "template": "messaging",
+        "color": -16734076,
+        "small_icon": {
+          "id": "fnaKQvb5muJqX5-2CFSyMBnJzoaJQEeeaDNueu0PZx4",
+          "key": "acNOu_kQIT_iZZ6m6VM4KcDf441ozFk_YCkyUARcQsc",
+          "mime": "image/webp",
+          "size": 120,
+          "hash": "nCo7PUKo-6TlkxUWO2UKEQ",
+          "w": 96,
+          "h": 96
+        },
+        "large_icon": {
+          "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+          "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+          "mime": "image/webp",
+          "size": 1000,
+          "hash": "3uAY9siCMMBjuA0RTcsyeA",
+          "w": 192,
+          "h": 192
+        },
+        "summary_text": "2 new messages",
+        "conversation": {
+          "title": "Family",
+          "is_group": true
+        },
+        "messages": [
+          {
+            "sender": {
+              "name": "Anna",
+              "key": "anna",
+              "icon": {
+                "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+                "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+                "mime": "image/webp",
+                "size": 1000,
+                "hash": "3uAY9siCMMBjuA0RTcsyeA",
+                "w": 192,
+                "h": 192
+              }
+            },
+            "text": "Dinner at 8? 🍝",
+            "ts": 1791647960000
+          },
+          {
+            "sender": {
+              "name": "Mum"
+            },
+            "text": "See you at 8",
+            "ts": 1791648019600,
+            "image": {
+              "id": "JSNTFomG9pkCFG2CcL192Mac8iZr_gzDYGQHs6T46hU",
+              "key": "Txbe8rTF6gjjvcEymBqr1vbeNA9pGlBya03x8ckCLbg",
+              "mime": "image/jpeg",
+              "size": 5000,
+              "hash": "vqDVOwT5R5JiMbamQpEBIA",
+              "w": 1080,
+              "h": 720
+            }
+          }
+        ],
+        "actions": [
+          {
+            "index": 0,
+            "title": "Reply",
+            "semantic": 1,
+            "reply": {
+              "label": "Message",
+              "choices": [
+                "On my way",
+                "👍"
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "title": "Mark as read",
+            "semantic": 2
+          }
+        ],
+        "can_open": true,
+        "when": 1791648019600,
+        "show_when": true,
+        "group": {
+          "key": "g:family",
+          "summary": false,
+          "sort_key": "0002",
+          "alert": "all"
+        },
+        "channel": {
+          "id": "group_chat_defaults",
+          "importance": 4
+        }
+      },
+      "real_key": "n:0|com.whatsapp|2|family|10124"
+    },
+    {
+      "type": "notification.removed@1",
+      "body": {
+        "key": "0|com.whatsapp|2|family|10124"
+      },
+      "real_key": "n:0|com.whatsapp|2|family|10124"
+    },
+    {
+      "type": "notification.dismiss@1",
+      "body": {
+        "key": "0|com.whatsapp|2|family|10124"
+      },
+      "real_key": null
+    },
+    {
+      "type": "clipboard.set@1",
+      "body": {
+        "mime": "text/plain",
+        "text": "x",
+        "sensitive": false
+      },
+      "real_key": "clip"
+    },
+    {
+      "type": "device.status@1",
+      "body": {
+        "battery": 50
+      },
+      "real_key": "status"
+    },
+    {
+      "type": "notification.action@1",
+      "body": {
+        "key": "0|com.whatsapp|2|family|10124",
+        "action": {
+          "index": 0,
+          "title": "Reply",
+          "reply_text": "On my way 🚗"
+        }
+      },
+      "real_key": null
+    },
+    {
+      "type": "notification.action_result@1",
+      "body": {
+        "ok": false,
+        "error": "changed"
+      },
+      "real_key": null
+    },
+    {
+      "type": "media.state@1",
+      "body": {
+        "session": "com.spotify.music/7f3a9c",
+        "app": {
+          "id": "com.spotify.music",
+          "name": "Spotify",
+          "icon": {
+            "id": "a_E-v7sgUURwwK0nQ5Gp_giYa2yQSns6vxL3Z0aujzc",
+            "key": "DoMnd3QFh8LLGjD_mF29dAdu9aE-d8AVIeOCbIHQ5yI",
+            "mime": "image/webp",
+            "size": 300,
+            "hash": "e6ZrrzwPfx57VPWgppiTpA",
+            "w": 128,
+            "h": 128
+          }
+        },
+        "title": "Clair de Lune",
+        "artist": "Claude Debussy",
+        "album": "Suite bergamasque",
+        "art": {
+          "id": "JSNTFomG9pkCFG2CcL192Mac8iZr_gzDYGQHs6T46hU",
+          "key": "Txbe8rTF6gjjvcEymBqr1vbeNA9pGlBya03x8ckCLbg",
+          "mime": "image/jpeg",
+          "size": 5000,
+          "hash": "vqDVOwT5R5JiMbamQpEBIA",
+          "w": 1080,
+          "h": 720
+        },
+        "state": "playing",
+        "position_ms": 61000,
+        "position_at": 1791648039500,
+        "duration_ms": 302000,
+        "controls": [
+          "play",
+          "pause",
+          "next",
+          "previous",
+          "seek"
+        ]
+      },
+      "real_key": "m:com.spotify.music/7f3a9c"
+    },
+    {
+      "type": "media.command@1",
+      "body": {
+        "session": "com.spotify.music/7f3a9c",
+        "command": "seek",
+        "position_ms": 90000
+      },
+      "real_key": null
+    }
+  ],
+  "valid": [
+    {
+      "name": "messaging notification with blob references, actions, group and channel",
+      "payload": {
+        "type": "notification.posted@1",
+        "ts": 1791648020000,
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124",
+          "app": {
+            "id": "com.whatsapp",
+            "name": "WhatsApp",
+            "icon": {
+              "id": "a_E-v7sgUURwwK0nQ5Gp_giYa2yQSns6vxL3Z0aujzc",
+              "key": "DoMnd3QFh8LLGjD_mF29dAdu9aE-d8AVIeOCbIHQ5yI",
+              "mime": "image/webp",
+              "size": 300,
+              "hash": "e6ZrrzwPfx57VPWgppiTpA",
+              "w": 128,
+              "h": 128
+            }
+          },
+          "title": "Family",
+          "text": "Mum: See you at 8",
+          "category": "msg",
+          "posted_at": 1791648019600,
+          "redacted": false,
+          "template": "messaging",
+          "color": -16734076,
+          "small_icon": {
+            "id": "fnaKQvb5muJqX5-2CFSyMBnJzoaJQEeeaDNueu0PZx4",
+            "key": "acNOu_kQIT_iZZ6m6VM4KcDf441ozFk_YCkyUARcQsc",
+            "mime": "image/webp",
+            "size": 120,
+            "hash": "nCo7PUKo-6TlkxUWO2UKEQ",
+            "w": 96,
+            "h": 96
+          },
+          "large_icon": {
+            "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+            "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+            "mime": "image/webp",
+            "size": 1000,
+            "hash": "3uAY9siCMMBjuA0RTcsyeA",
+            "w": 192,
+            "h": 192
+          },
+          "summary_text": "2 new messages",
+          "conversation": {
+            "title": "Family",
+            "is_group": true
+          },
+          "messages": [
+            {
+              "sender": {
+                "name": "Anna",
+                "key": "anna",
+                "icon": {
+                  "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+                  "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+                  "mime": "image/webp",
+                  "size": 1000,
+                  "hash": "3uAY9siCMMBjuA0RTcsyeA",
+                  "w": 192,
+                  "h": 192
+                }
+              },
+              "text": "Dinner at 8? 🍝",
+              "ts": 1791647960000
+            },
+            {
+              "sender": {
+                "name": "Mum"
+              },
+              "text": "See you at 8",
+              "ts": 1791648019600,
+              "image": {
+                "id": "JSNTFomG9pkCFG2CcL192Mac8iZr_gzDYGQHs6T46hU",
+                "key": "Txbe8rTF6gjjvcEymBqr1vbeNA9pGlBya03x8ckCLbg",
+                "mime": "image/jpeg",
+                "size": 5000,
+                "hash": "vqDVOwT5R5JiMbamQpEBIA",
+                "w": 1080,
+                "h": 720
+              }
+            }
+          ],
+          "actions": [
+            {
+              "index": 0,
+              "title": "Reply",
+              "semantic": 1,
+              "reply": {
+                "label": "Message",
+                "choices": [
+                  "On my way",
+                  "👍"
+                ]
+              }
+            },
+            {
+              "index": 1,
+              "title": "Mark as read",
+              "semantic": 2
+            }
+          ],
+          "can_open": true,
+          "when": 1791648019600,
+          "show_when": true,
+          "group": {
+            "key": "g:family",
+            "summary": false,
+            "sort_key": "0002",
+            "alert": "all"
+          },
+          "channel": {
+            "id": "group_chat_defaults",
+            "importance": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "Live Update with segmented progress, points, chronometer and promoted live",
+      "payload": {
+        "type": "notification.posted@1",
+        "ts": 1791648050000,
+        "body": {
+          "key": "0|com.ubercab|7|null|10200",
+          "app": {
+            "id": "com.ubercab",
+            "name": "Uber"
+          },
+          "title": "Driver arriving",
+          "text": "Toyota Prius · KX 4821",
+          "posted_at": 1791648049000,
+          "redacted": false,
+          "ongoing": true,
+          "template": "progress",
+          "color": -16777216,
+          "colorized": false,
+          "progress": {
+            "value": 60,
+            "max": 100,
+            "indeterminate": false,
+            "segments": [
+              {
+                "length": 50,
+                "color": -13730510
+              },
+              {
+                "length": 50
+              }
+            ],
+            "points": [
+              {
+                "position": 50,
+                "color": -1
+              }
+            ],
+            "tracker_icon": {
+              "id": "fnaKQvb5muJqX5-2CFSyMBnJzoaJQEeeaDNueu0PZx4",
+              "key": "acNOu_kQIT_iZZ6m6VM4KcDf441ozFk_YCkyUARcQsc",
+              "mime": "image/webp",
+              "size": 120,
+              "hash": "nCo7PUKo-6TlkxUWO2UKEQ",
+              "w": 96,
+              "h": 96
+            }
+          },
+          "live": {
+            "promoted": true,
+            "short_critical_text": "3 min"
+          },
+          "when": 1791648230000,
+          "show_when": true,
+          "chronometer": {
+            "count_down": true
+          },
+          "channel": {
+            "id": "trip_status",
+            "importance": 3
+          }
+        }
+      }
+    },
+    {
+      "name": "incoming call",
+      "payload": {
+        "type": "notification.posted@1",
+        "ts": 1791648060000,
+        "body": {
+          "key": "0|com.google.android.dialer|1|null|10300",
+          "app": {
+            "id": "com.google.android.dialer",
+            "name": "Phone"
+          },
+          "title": "Anna",
+          "text": "Incoming call",
+          "category": "call",
+          "posted_at": 1791648059900,
+          "redacted": false,
+          "ongoing": true,
+          "template": "call",
+          "call": {
+            "type": "incoming",
+            "person": {
+              "name": "Anna",
+              "icon": {
+                "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+                "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+                "mime": "image/webp",
+                "size": 1000,
+                "hash": "3uAY9siCMMBjuA0RTcsyeA",
+                "w": 192,
+                "h": 192
+              }
+            },
+            "is_video": false,
+            "verification": "Verified business"
+          },
+          "actions": [
+            {
+              "index": 0,
+              "title": "Decline"
+            },
+            {
+              "index": 1,
+              "title": "Answer"
+            }
+          ],
+          "can_open": true
+        }
+      }
+    },
+    {
+      "name": "Hide content mode: key, app with icon, posted_at, redacted, can_open",
+      "payload": {
+        "type": "notification.posted@1",
+        "ts": 1791648070000,
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124",
+          "app": {
+            "id": "com.whatsapp",
+            "name": "WhatsApp",
+            "icon": {
+              "id": "a_E-v7sgUURwwK0nQ5Gp_giYa2yQSns6vxL3Z0aujzc",
+              "key": "DoMnd3QFh8LLGjD_mF29dAdu9aE-d8AVIeOCbIHQ5yI",
+              "mime": "image/webp",
+              "size": 300,
+              "hash": "e6ZrrzwPfx57VPWgppiTpA",
+              "w": 128,
+              "h": 128
+            }
+          },
+          "posted_at": 1791648069000,
+          "redacted": true,
+          "can_open": true
+        }
+      }
+    },
+    {
+      "name": "inline reply action",
+      "payload": {
+        "type": "notification.action@1",
+        "ts": 1791648030000,
+        "reply_to": "01a1268b-3620-770f-8924-eb5c182fd178",
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124",
+          "action": {
+            "index": 0,
+            "title": "Reply",
+            "reply_text": "On my way 🚗"
+          }
+        }
+      }
+    },
+    {
+      "name": "tap action",
+      "payload": {
+        "type": "notification.action@1",
+        "ts": 1791648032000,
+        "reply_to": "01a1268b-3620-770f-8924-eb5c182fd178",
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124",
+          "action": "tap"
+        }
+      }
+    },
+    {
+      "name": "answer action",
+      "payload": {
+        "type": "notification.action@1",
+        "ts": 1791648061000,
+        "reply_to": "01a1268b-d260-73e0-a6b9-9237803819bf",
+        "body": {
+          "key": "0|com.google.android.dialer|1|null|10300",
+          "action": "answer"
+        }
+      }
+    },
+    {
+      "name": "failed action result",
+      "payload": {
+        "type": "notification.action_result@1",
+        "ts": 1791648031000,
+        "reply_to": "01a1268b-5d30-77d5-b741-87c87fccd3da",
+        "body": {
+          "ok": false,
+          "error": "changed"
+        }
+      }
+    },
+    {
+      "name": "successful action result",
+      "payload": {
+        "type": "notification.action_result@1",
+        "ts": 1791648031500,
+        "reply_to": "01a1268b-5d30-77d5-b741-87c87fccd3da",
+        "body": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "name": "media state with album art",
+      "payload": {
+        "type": "media.state@1",
+        "ts": 1791648040000,
+        "body": {
+          "session": "com.spotify.music/7f3a9c",
+          "app": {
+            "id": "com.spotify.music",
+            "name": "Spotify",
+            "icon": {
+              "id": "a_E-v7sgUURwwK0nQ5Gp_giYa2yQSns6vxL3Z0aujzc",
+              "key": "DoMnd3QFh8LLGjD_mF29dAdu9aE-d8AVIeOCbIHQ5yI",
+              "mime": "image/webp",
+              "size": 300,
+              "hash": "e6ZrrzwPfx57VPWgppiTpA",
+              "w": 128,
+              "h": 128
+            }
+          },
+          "title": "Clair de Lune",
+          "artist": "Claude Debussy",
+          "album": "Suite bergamasque",
+          "art": {
+            "id": "JSNTFomG9pkCFG2CcL192Mac8iZr_gzDYGQHs6T46hU",
+            "key": "Txbe8rTF6gjjvcEymBqr1vbeNA9pGlBya03x8ckCLbg",
+            "mime": "image/jpeg",
+            "size": 5000,
+            "hash": "vqDVOwT5R5JiMbamQpEBIA",
+            "w": 1080,
+            "h": 720
+          },
+          "state": "playing",
+          "position_ms": 61000,
+          "position_at": 1791648039500,
+          "duration_ms": 302000,
+          "controls": [
+            "play",
+            "pause",
+            "next",
+            "previous",
+            "seek"
+          ]
+        }
+      }
+    },
+    {
+      "name": "stopped media session with only the required fields",
+      "payload": {
+        "type": "media.state@1",
+        "ts": 1791648080000,
+        "body": {
+          "session": "com.spotify.music/7f3a9c",
+          "app": {
+            "id": "com.spotify.music",
+            "name": "Spotify"
+          },
+          "state": "stopped",
+          "controls": []
+        }
+      }
+    },
+    {
+      "name": "seek command",
+      "payload": {
+        "type": "media.command@1",
+        "ts": 1791648045000,
+        "reply_to": "01a1268b-8440-74e3-a1f8-16193ae8e88b",
+        "body": {
+          "session": "com.spotify.music/7f3a9c",
+          "command": "seek",
+          "position_ms": 90000
+        }
+      }
+    },
+    {
+      "name": "next command",
+      "payload": {
+        "type": "media.command@1",
+        "ts": 1791648046000,
+        "reply_to": "01a1268b-8440-74e3-a1f8-16193ae8e88b",
+        "body": {
+          "session": "com.spotify.music/7f3a9c",
+          "command": "next"
+        }
+      }
+    }
+  ],
+  "invalid_bodies": [
+    {
+      "name": "color is not an integer",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "color": 1.5
+      }
+    },
+    {
+      "name": "color written unsigned (outside int32)",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "color": 4278233220
+      }
+    },
+    {
+      "name": "8 lines",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "lines": [
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line"
+        ]
+      }
+    },
+    {
+      "name": "lines contains a number",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "lines": [
+          "a",
+          1
+        ]
+      }
+    },
+    {
+      "name": "7 messages",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "messages": [
+          {
+            "text": "m0",
+            "ts": 1791648000000
+          },
+          {
+            "text": "m1",
+            "ts": 1791648000000
+          },
+          {
+            "text": "m2",
+            "ts": 1791648000000
+          },
+          {
+            "text": "m3",
+            "ts": 1791648000000
+          },
+          {
+            "text": "m4",
+            "ts": 1791648000000
+          },
+          {
+            "text": "m5",
+            "ts": 1791648000000
+          },
+          {
+            "text": "m6",
+            "ts": 1791648000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "message without text",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "messages": [
+          {
+            "ts": 1791648000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "message sender without name",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "messages": [
+          {
+            "sender": {
+              "key": "anna"
+            },
+            "text": "hi",
+            "ts": 1791648000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "7 actions",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "actions": [
+          {
+            "index": 0,
+            "title": "a0"
+          },
+          {
+            "index": 1,
+            "title": "a1"
+          },
+          {
+            "index": 2,
+            "title": "a2"
+          },
+          {
+            "index": 3,
+            "title": "a3"
+          },
+          {
+            "index": 4,
+            "title": "a4"
+          },
+          {
+            "index": 5,
+            "title": "a5"
+          },
+          {
+            "index": 6,
+            "title": "a6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "action without title",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "actions": [
+          {
+            "index": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "negative action index",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "actions": [
+          {
+            "index": -1,
+            "title": "x"
+          }
+        ]
+      }
+    },
+    {
+      "name": "conversation without is_group",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "conversation": {
+          "title": "Family"
+        }
+      }
+    },
+    {
+      "name": "group without alert",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "group": {
+          "key": "g",
+          "summary": false
+        }
+      }
+    },
+    {
+      "name": "channel without importance",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "channel": {
+          "id": "c"
+        }
+      }
+    },
+    {
+      "name": "progress with 11 segments",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "progress": {
+          "value": 0,
+          "max": 11,
+          "indeterminate": false,
+          "segments": [
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            },
+            {
+              "length": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "progress with 5 points",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "progress": {
+          "value": 0,
+          "max": 5,
+          "indeterminate": false,
+          "points": [
+            {
+              "position": 0
+            },
+            {
+              "position": 1
+            },
+            {
+              "position": 2
+            },
+            {
+              "position": 3
+            },
+            {
+              "position": 4
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "progress without indeterminate",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "progress": {
+          "value": 1,
+          "max": 2
+        }
+      }
+    },
+    {
+      "name": "live without promoted",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "live": {}
+      }
+    },
+    {
+      "name": "call without type",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "call": {}
+      }
+    },
+    {
+      "name": "blob reference id of 16 bytes",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "large_icon": {
+          "id": "AAAAAAAAAAAAAAAAAAAAAA",
+          "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+          "mime": "image/webp",
+          "size": 1000,
+          "hash": "3uAY9siCMMBjuA0RTcsyeA",
+          "w": 192,
+          "h": 192
+        }
+      }
+    },
+    {
+      "name": "blob reference without hash",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "large_icon": {
+          "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+          "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",
+          "mime": "image/webp",
+          "size": 1000
+        }
+      }
+    },
+    {
+      "name": "blob reference key with padding",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "large_icon": {
+          "id": "tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY",
+          "key": "XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg=",
+          "mime": "image/webp",
+          "size": 1000,
+          "hash": "3uAY9siCMMBjuA0RTcsyeA",
+          "w": 192,
+          "h": 192
+        }
+      }
+    },
+    {
+      "name": "app icon is not a blob reference",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A",
+          "icon": "icon.png"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false
+      }
+    },
+    {
+      "name": "unknown fixed action",
+      "type": "notification.action@1",
+      "body": {
+        "key": "k",
+        "action": "press"
+      }
+    },
+    {
+      "name": "button without title",
+      "type": "notification.action@1",
+      "body": {
+        "key": "k",
+        "action": {
+          "index": 0
+        }
+      }
+    },
+    {
+      "name": "reply_text is not a string",
+      "type": "notification.action@1",
+      "body": {
+        "key": "k",
+        "action": {
+          "index": 0,
+          "title": "Reply",
+          "reply_text": 5
+        }
+      }
+    },
+    {
+      "name": "action without key",
+      "type": "notification.action@1",
+      "body": {
+        "action": "tap"
+      }
+    },
+    {
+      "name": "result without ok",
+      "type": "notification.action_result@1",
+      "body": {
+        "error": "gone"
+      }
+    },
+    {
+      "name": "result error is not a string",
+      "type": "notification.action_result@1",
+      "body": {
+        "ok": false,
+        "error": 1
+      }
+    },
+    {
+      "name": "media state without controls",
+      "type": "media.state@1",
+      "body": {
+        "session": "s",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "state": "playing"
+      }
+    },
+    {
+      "name": "media state without app name",
+      "type": "media.state@1",
+      "body": {
+        "session": "s",
+        "app": {
+          "id": "a"
+        },
+        "state": "playing",
+        "controls": [
+          "play"
+        ]
+      }
+    },
+    {
+      "name": "media state with an empty session",
+      "type": "media.state@1",
+      "body": {
+        "session": "",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "state": "playing",
+        "controls": [
+          "play"
+        ]
+      }
+    },
+    {
+      "name": "media state controls are not strings",
+      "type": "media.state@1",
+      "body": {
+        "session": "s",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "state": "playing",
+        "controls": [
+          1
+        ]
+      }
+    },
+    {
+      "name": "unknown media command",
+      "type": "media.command@1",
+      "body": {
+        "session": "s",
+        "command": "stop"
+      }
+    },
+    {
+      "name": "seek without position_ms",
+      "type": "media.command@1",
+      "body": {
+        "session": "s",
+        "command": "seek"
+      }
+    },
+    {
+      "name": "negative position_ms",
+      "type": "media.command@1",
+      "body": {
+        "session": "s",
+        "command": "seek",
+        "position_ms": -1
+      }
+    },
+    {
+      "name": "media command without session",
+      "type": "media.command@1",
+      "body": {
+        "command": "play"
+      }
+    }
+  ],
+  "missing_reply_to": [
+    {
+      "name": "notification.dismiss@1 without reply_to",
+      "payload": {
+        "type": "notification.dismiss@1",
+        "ts": 1791648000000,
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124"
+        }
+      }
+    },
+    {
+      "name": "notification.action@1 without reply_to",
+      "payload": {
+        "type": "notification.action@1",
+        "ts": 1791648000000,
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124",
+          "action": "tap"
+        }
+      }
+    },
+    {
+      "name": "notification.action_result@1 without reply_to",
+      "payload": {
+        "type": "notification.action_result@1",
+        "ts": 1791648000000,
+        "body": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "name": "media.command@1 without reply_to",
+      "payload": {
+        "type": "media.command@1",
+        "ts": 1791648000000,
+        "body": {
+          "session": "com.spotify.music/7f3a9c",
+          "command": "play"
+        }
+      }
+    }
+  ]
+}
