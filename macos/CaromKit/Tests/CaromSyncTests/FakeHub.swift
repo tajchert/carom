@@ -271,6 +271,12 @@ actor FakeHub {
         return blobs[id]
     }
 
+    /// Stores a blob as if a phone had uploaded it.
+    func seedBlob(id: String, ct: Data) { blobs[id] = ct }
+
+    /// Replaces a stored blob behind everyone's back (a corrupt or swapped answer).
+    func corruptBlob(_ id: String, with data: Data) { blobs[id] = data }
+
     func ack(_ token: String?, _ upTo: Int) throws(HubError) {
         let c = try caller(token)
         let target = min(upTo, nextSeq - 1)

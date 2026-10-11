@@ -751,6 +751,24 @@ public actor SyncEngine {
         }
     }
 
+    // MARK: - Blobs
+
+    /// Downloads, verifies and decrypts one image blob (SPEC §3.2). Nil on any failure: no token,
+    /// the Hub does not have it (404, expired), a network error, a wrong id, tag or hash. The
+    /// caller renders without the image. Nothing about the image is logged.
+    public func fetchBlob(_ ref: BlobRef) async -> Data? {
+        guard let hub = try? requireHub() else { return nil }
+        let ct: Data?
+        do throws(HubError) {
+            ct = try await hub.getBlob(id: ref.id)
+        } catch {
+            await noteAuthFailure(error)
+            return nil
+        }
+        guard let ct else { return nil }
+        return Blobs.open(ref, ct: ct)
+    }
+
     // MARK: - Realtime (WebSocket)
 
     /// Creates the Hub WebSocket, starts it, and feeds its events into the engine. The app
