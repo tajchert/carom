@@ -75,13 +75,27 @@ class NotificationForwarderTest {
     @Test
     fun `structurally filtered notifications are neither sent nor recorded`() = runTest {
         val f = forwarder()
-        f.onPosted { snapshot().copy(ongoing = true) }
         f.onPosted { snapshot(pkg = "com.mtajchert.carom.app") }
         f.onPosted { snapshot().copy(importance = 1) }
+        f.onPosted { snapshot().copy(localOnly = true) }
         f.onPosted { null } // unreadable
         runCurrent()
         assertTrue(fake.sent.isEmpty())
         assertTrue(apps.settings.isEmpty())
+    }
+
+    @Test
+    fun `an ongoing notification is recorded but forwarded only when the app setting allows it`() = runTest {
+        val f = forwarder()
+        f.onPosted { snapshot().copy(ongoing = true) }
+        runCurrent()
+        assertTrue(fake.sent.isEmpty())
+        assertTrue("com.chat" in apps.settings)
+
+        apps.setForwardOngoing("com.chat", true)
+        f.onPosted { snapshot(key = "k2").copy(ongoing = true) }
+        runCurrent()
+        assertEquals(1, fake.sent.size)
     }
 
     @Test

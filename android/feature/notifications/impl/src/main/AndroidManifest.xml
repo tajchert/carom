@@ -5,9 +5,9 @@
         <!--
             Deliberately exported (AGENTS.md): the system binds notification listeners, and only
             holders of BIND_NOTIFICATION_LISTENER_SERVICE (the system) may bind it. The default
-            filter asks the system to deliver only alerting notifications and conversations, so
-            silent and ongoing notifications never wake us (Android 12+; older versions deliver
-            everything and our own filters drop them).
+            filter asks the system to deliver every type, including ongoing and silent ones
+            (Live Updates, progress, calls); our own filters decide what is forwarded (Android 12+;
+            older versions deliver everything anyway).
         -->
         <service
             android:name=".CaromListenerService"
@@ -19,7 +19,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.service.notification.default_filter_types"
-                android:value="conversations|alerting" />
+                android:value="conversations|alerting|ongoing|silent" />
         </service>
     </application>
 

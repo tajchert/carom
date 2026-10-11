@@ -71,8 +71,8 @@ class NotificationExtractorTest {
     fun `flags map to the structural filters`() {
         fun flagged(configure: NotificationCompat.Builder.() -> Unit) = extractor.extract(sbn(builder().apply(configure).build()), null)
 
-        assertEquals(SkipReason.ONGOING, NotificationFilter.structural(flagged { setOngoing(true) }, context.packageName))
-        assertEquals(SkipReason.GROUP_SUMMARY, NotificationFilter.structural(flagged { setGroup("g").setGroupSummary(true) }, context.packageName))
+        assertEquals(SkipReason.ONGOING, NotificationFilter.ongoing(flagged { setOngoing(true) }, forwardOngoing = false))
+        assertNull(NotificationFilter.structural(flagged { setGroup("g").setGroupSummary(true) }, context.packageName))
         assertEquals(SkipReason.LOCAL_ONLY, NotificationFilter.structural(flagged { setLocalOnly(true) }, context.packageName))
 
         val fgs = builder().build().apply { flags = flags or Notification.FLAG_FOREGROUND_SERVICE }

@@ -121,7 +121,7 @@ class NotificationForwarder(
             paused = prefs.forwardingPaused,
             onlyWhenLocked = prefs.forwardOnlyWhenLocked,
             screenLocked = prefs.forwardOnlyWhenLocked && env.isScreenLocked(),
-        )
+        ) ?: NotificationFilter.ongoing(n, app.forwardOngoing)
         if (skip != null) return
 
         val body = NotificationMapper.posted(
