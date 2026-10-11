@@ -76,7 +76,11 @@ class AppNavigationTest {
         startOnHome()
         composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Apps").performScrollTo().performClick()
-        composeRule.onNodeWithText("Forward only when the screen is locked").assertIsDisplayed()
+        // The Apps screen shows a loading indicator until its first state arrives.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Forward only when the screen is locked", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Forward only when the screen is locked", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         back()
         composeRule.onNodeWithText("Clipboard").performScrollTo().performClick()
         composeRule.onNodeWithText("Show a notification when a clipboard arrives", useUnmergedTree = true).performScrollTo().assertIsDisplayed()

@@ -23,6 +23,8 @@ interface NotificationAppsRepository {
 
     suspend fun setMode(packageName: String, mode: AppForwardingMode)
 
+    suspend fun setForwardOngoing(packageName: String, enabled: Boolean)
+
     companion object {
         const val TOUCH_INTERVAL_MS = 60 * 60 * 1000L
     }
@@ -50,10 +52,14 @@ class RoomNotificationAppsRepository @Inject constructor(
 
     override suspend fun setMode(packageName: String, mode: AppForwardingMode) = dao.setMode(packageName, mode.name)
 
+    override suspend fun setForwardOngoing(packageName: String, enabled: Boolean) =
+        dao.setForwardOngoing(packageName, enabled)
+
     private fun NotificationAppEntity.toModel() = NotificationAppSetting(
         packageName = packageName,
         label = label,
         mode = AppForwardingMode.entries.firstOrNull { it.name == mode } ?: DefaultAppModes.defaultFor(packageName),
         lastPostedAt = lastPostedAt,
+        forwardOngoing = forwardOngoing,
     )
 }

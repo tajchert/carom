@@ -5,6 +5,7 @@ import { b64decode } from "../encoding";
 import { HttpError, badRequest } from "../errors";
 import { parseEnvelope, verifyEnvelope } from "../envelope";
 import { backlogOf, hasLiveSocket, messageFrame, safeSend, sendMessageFrame, setBacklog } from "../sockets";
+import { deleteBlobsOfMessage } from "../store/blobs";
 import { activeDeviceIds, setCursor, type DeviceRow } from "../store/devices";
 import {
   deleteMessage,
@@ -26,6 +27,15 @@ export const MAX_PENDING = 1000;
 export const WS_PAGE_MESSAGES = 100;
 export const WS_PAGE_BYTES = 1024 * 1024;
 
+/**
+ * Recipients with a live WebSocket right now (SPEC §6). Sockets are tagged with their device id,
+ * so this reads no storage and works while the Hub hibernates. A phone uses it to open its
+ * action window.
+ */
+function onlineOf(hub: HubRuntime, to: readonly string[]): string[] {
+  return to.filter((id) => hasLiveSocket(hub.ctx, id));
+}
+
 export const post: Handler = async (call) => {
   const { hub, now } = call;
   const caller = callerOf(call);
@@ -44,16 +54,21 @@ export const post: Handler = async (call) => {
   if (inactive.length > 0) throw new HttpError("conflict", "some recipients are not active devices", { inactive });
 
   const existing = findByMsgId(hub.sql, caller.id, env.msg_id);
-  if (existing !== null) return ok({ seq: existing, duplicate: true });
+  if (existing !== null) return ok({ seq: existing, duplicate: true, online: onlineOf(hub, env.to) });
 
   const stored = env.collapse === undefined ? null : findByCollapse(hub.sql, caller.id, env.collapse);
   // UUIDv7 strings in lowercase hex sort in creation order.
-  if (stored && env.msg_id < stored.msg_id) return ok({ seq: null, duplicate: false, superseded: true });
+  if (stored && env.msg_id < stored.msg_id) {
+    return ok({ seq: null, duplicate: false, superseded: true, online: onlineOf(hub, env.to) });
+  }
 
   const full = env.to.filter((id) => pendingCount(hub.sql, id, now, MAX_PENDING, stored?.seq ?? 0) >= MAX_PENDING);
   if (full.length > 0) throw new HttpError("rate_limited", `recipients may have at most ${MAX_PENDING} pending messages`, { full });
 
-  if (stored) deleteMessage(hub.sql, stored.seq);
+  if (stored) {
+    deleteMessage(hub.sql, stored.seq);
+    deleteBlobsOfMessage(hub.sql, caller.id, stored.msg_id);
+  }
   const seq = insertMessage(hub.sql, {
     sender: caller.id,
     msgId: env.msg_id,
@@ -63,11 +78,10 @@ export const post: Handler = async (call) => {
     expiresAt: now + env.ttl_s * 1000,
   });
 
-  for (const id of env.to) {
-    if (hasLiveSocket(hub.ctx, id)) sendMessageFrame(hub.ctx, id, seq, parsed.serialized);
-  }
+  const online = onlineOf(hub, env.to);
+  for (const id of online) sendMessageFrame(hub.ctx, id, seq, parsed.serialized);
   await hub.scheduleAlarm();
-  return ok({ seq, duplicate: false });
+  return ok({ seq, duplicate: false, online });
 };
 
 export const fetchMessages: Handler = (call) => {

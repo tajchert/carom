@@ -95,7 +95,7 @@ object Receiver {
         if (payload.type !in ctx.knownTypes) return Outcome.Err(ReceiveError.UNKNOWN_TYPE)
         if (payload.type in MessageTypes.ALL) {
             if (!MessageTypes.isValidBody(payload.type, payload.body)) return Outcome.Err(ReceiveError.BAD_PAYLOAD)
-            if (payload.type == MessageTypes.NOTIFICATION_DISMISS && payload.replyTo == null) {
+            if (payload.type in MessageTypes.REQUIRES_REPLY_TO && payload.replyTo == null) {
                 return Outcome.Err(ReceiveError.BAD_PAYLOAD)
             }
         }

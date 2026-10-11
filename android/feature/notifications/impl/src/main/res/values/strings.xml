@@ -2,8 +2,6 @@
 <resources>
     <!-- Shown in the system's notification access list. -->
     <string name="feature_notifications_listener_label">Carom notification forwarding</string>
-    <!-- Sent to the computer instead of the content for apps set to Hide content. -->
-    <string name="feature_notifications_hidden_text">New notification</string>
 
     <string name="feature_notifications_apps_title">Apps</string>
     <string name="feature_notifications_pause">Pause forwarding</string>
@@ -13,9 +11,39 @@
     <string name="feature_notifications_mode_forward">Forward</string>
     <string name="feature_notifications_mode_hide">Hide content</string>
     <string name="feature_notifications_mode_off">Off</string>
+    <string name="feature_notifications_ongoing_forward">Ongoing: Forward</string>
+    <string name="feature_notifications_ongoing_off">Ongoing: Off</string>
     <string name="feature_notifications_empty">No apps yet</string>
     <string name="feature_notifications_empty_description">Apps appear here after they post a notification.</string>
     <string name="feature_notifications_no_results">No apps match your search.</string>
     <string name="feature_notifications_access_missing">Carom can\'t read notifications yet. Allow notification access to forward them to your computer.</string>
     <string name="feature_notifications_access_action">Allow notification access</string>
+
+    <!-- Shown by Android in its association dialog. -->
+    <string name="feature_notifications_codes_association_name">Carom</string>
+
+    <!-- Code forwarding (Android 15+ hides verification codes from notification apps). -->
+    <string name="feature_notifications_codes_title">Verification codes</string>
+    <string name="feature_notifications_codes_intro">Android 15 and later hides verification codes from notification apps. Allow Carom to see them so you can copy a code on your computer.</string>
+    <string name="feature_notifications_codes_enable">Enable code forwarding</string>
+    <string name="feature_notifications_codes_working">Waiting for Android…</string>
+    <string name="feature_notifications_codes_enabled">Code forwarding is on.</string>
+    <string name="feature_notifications_codes_adb_title">Turn it on from a computer</string>
+    <string name="feature_notifications_codes_adb_body">Android did not allow it on the phone. Connect the phone with USB debugging on and run this command.</string>
+    <string name="feature_notifications_codes_adb_repeat">Android may reset it after a reboot or an update. Run it again if codes are hidden again.</string>
+    <string name="feature_notifications_codes_adb_copy">Copy command</string>
+    <string name="feature_notifications_codes_adb_clip_label">adb command</string>
+    <string name="feature_notifications_codes_unsupported">This version of Android does not hide verification codes. There is nothing to turn on.</string>
+    <string name="feature_notifications_codes_done">Done</string>
+
+    <string name="feature_notifications_codes_channel_name">Verification code access</string>
+    <string name="feature_notifications_codes_channel_description">A quiet reminder when Android hides verification codes from Carom</string>
+    <string name="feature_notifications_codes_prompt_title">One-time codes</string>
+    <string name="feature_notifications_codes_prompt_text">Android hides verification codes from notification apps. Tap to enable.</string>
+
+    <!-- The ongoing notification of "Actions from Mac: Always while a Mac is online". -->
+    <string name="feature_notifications_actions_channel_name">Actions from Mac</string>
+    <string name="feature_notifications_actions_channel_description">Shown while your phone stays ready for your Mac.</string>
+    <string name="feature_notifications_actions_service_title">Ready for your Mac</string>
+    <string name="feature_notifications_actions_service_text">Always-on mode uses more battery. Change it in Settings.</string>
 </resources>

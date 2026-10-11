@@ -8,6 +8,7 @@ export const INFO = {
   box: 'carom/v1/box',
   pair: 'carom/v1/pair',
   tokenKey: 'carom/v1/token-key',
+  blobConvergent: 'carom/v1/blob-conv',
 } as const;
 
 export const TAG = {
@@ -16,6 +17,7 @@ export const TAG = {
   rekey: 'carom/v1/rekey',
   welcome: 'carom/v1/welcome',
   pairRequest: 'carom/v1/pair-req',
+  blob: 'carom/v1/blob',
 } as const;
 
 export const LIMITS = {
@@ -26,6 +28,10 @@ export const LIMITS = {
   maxRecipients: 32,
   clockSkewMs: 300_000,
   maxKv: 0xffff_ffff,
+  /** Largest blob ciphertext (SPEC §11.2). */
+  maxBlobBytes: 1_048_576,
+  /** Largest blob plaintext: its padded length plus the 16-byte tag stays within maxBlobBytes. */
+  maxBlobPlaintext: 1_044_476,
 } as const;
 
 export const KEY_LENGTH = 32;

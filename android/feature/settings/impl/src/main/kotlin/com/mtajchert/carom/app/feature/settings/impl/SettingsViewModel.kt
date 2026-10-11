@@ -11,6 +11,8 @@ import com.mtajchert.carom.app.core.domain.RemoveDeviceUseCase
 import com.mtajchert.carom.app.core.domain.RemoveOutcome
 import com.mtajchert.carom.app.core.domain.RenameOutcome
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
+import com.mtajchert.carom.app.core.domain.SetActionsFromMacUseCase
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.model.SessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +37,8 @@ data class SettingsUiState(
     val hubUrl: String? = null,
     val deviceId: String? = null,
     val appVersion: String = "",
+    val actionsFromMac: ActionsFromMac = ActionsFromMac.AFTER_NOTIFICATION,
+    val actionWindowMinutes: Int = ActionsFromMac.DEFAULT_WINDOW_MINUTES,
     val busy: Boolean = false,
     val message: SettingsMessage? = null,
     /** This device left its Hub; the screen should close. */
@@ -48,6 +52,7 @@ class SettingsViewModel @Inject constructor(
     profile: LocalDeviceProfileProvider,
     private val renameThisDevice: RenameThisDeviceUseCase,
     private val removeDevice: RemoveDeviceUseCase,
+    private val setActionsFromMac: SetActionsFromMacUseCase,
     @param:Named(AndroidDeviceProfileProvider.APP_VERSION) private val appVersion: String,
 ) : ViewModel() {
 
@@ -65,6 +70,8 @@ class SettingsViewModel @Inject constructor(
             paired = paired != null,
             deviceName = name,
             forwardingPaused = prefs.forwardingPaused,
+            actionsFromMac = prefs.actionsFromMac,
+            actionWindowMinutes = prefs.actionWindowMinutes,
             hubUrl = paired?.hubUrl,
             deviceId = paired?.deviceId,
             appVersion = appVersion,
@@ -76,6 +83,15 @@ class SettingsViewModel @Inject constructor(
 
     fun setForwardingPaused(paused: Boolean) {
         viewModelScope.launch { preferences.setForwardingPaused(paused) }
+    }
+
+    /** Saves the choice and republishes the record: Off removes the action types from `caps`. */
+    fun chooseActionsFromMac(mode: ActionsFromMac) {
+        viewModelScope.launch { setActionsFromMac(mode) }
+    }
+
+    fun chooseActionWindow(minutes: Int) {
+        viewModelScope.launch { preferences.setActionWindowMinutes(minutes) }
     }
 
     fun rename(name: String) = work {

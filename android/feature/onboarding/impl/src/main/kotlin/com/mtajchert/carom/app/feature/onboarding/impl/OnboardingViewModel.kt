@@ -1,5 +1,7 @@
 package com.mtajchert.carom.app.feature.onboarding.impl
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +12,8 @@ import com.mtajchert.carom.app.core.data.sync.EnrollmentError
 import com.mtajchert.carom.app.core.data.sync.EnrollmentResult
 import com.mtajchert.carom.app.core.protocol.QrPayload
 import com.mtajchert.carom.app.core.protocol.QrUri
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingAccess
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +63,7 @@ class OnboardingViewModel @Inject constructor(
     private val preferences: UserPreferencesRepository,
     private val sync: CaromSync,
     private val deviceNames: DeviceNameProvider,
+    private val codeForwarding: CodeForwardingAccess,
 ) : ViewModel() {
 
     private val state = MutableStateFlow<OnboardingStep>(OnboardingStep.Welcome)
@@ -142,6 +147,11 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun permissionsDone() = move(OnboardingStep.Permissions, OnboardingStep.Done)
+
+    /** Whether Android hides verification codes from Carom (Android 15+); read again when the user returns from the enable screen. */
+    fun codeForwardingState(): CodeForwardingState = codeForwarding.state()
+
+    fun codeForwardingIntent(context: Context): Intent = codeForwarding.enableIntent(context)
 
     /** Moves one step back. Cancelling a join leaves the pending device to expire on the Hub. */
     fun back() {

@@ -26,6 +26,13 @@ func record(_ id: String, _ name: String, kind: DeviceKind, receive: [String: Re
 
 func entry(_ record: DeviceRecord) -> DirectoryEntry { DirectoryEntry(record: record, kv: 1) }
 
+/// A phone whose record advertises `notification.action@1` (actions from this Mac).
+func actionPhone(_ id: String, _ name: String) -> DeviceRecord {
+    var r = record(id, name, kind: .phone)
+    r.caps.append(MessageType.notificationAction.rawValue)
+    return r
+}
+
 /// In-memory `SyncService` that records what the app asks for.
 actor FakeSync: SyncService {
     struct Sent: Equatable {
@@ -54,6 +61,9 @@ actor FakeSync: SyncService {
     var rejected: [String] = []
     var cancelled: [String] = []
     var setupURIs: [String] = []
+    /// Blob plaintexts by id, and the ids that were asked for.
+    var blobs: [String: Data] = [:]
+    var fetchedBlobs: [String] = []
 
     init(directory: [DirectoryEntry] = [], settings: [String: JSON] = [:], configured: Bool = true) {
         self.directory = directory
@@ -93,11 +103,24 @@ actor FakeSync: SyncService {
         return sendOutcome
     }
 
+    var actionIds = 0
+    func sendReturningMsgId<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws
+        -> (msgId: String?, outcome: SendOutcome)
+    {
+        let outcome = try await send(body, replyTo: replyTo, only: only)
+        actionIds += 1
+        return ("act-\(actionIds)", outcome)
+    }
+
     func flushOutbox() async -> [SendOutcome] { [] }
     func openRealtime() async -> HubSocket? { nil }
     nonisolated let realtime = AsyncStream.makeStream(of: RealtimeState.self)
     nonisolated func realtimeStates() -> AsyncStream<RealtimeState> { realtime.stream }
     func stopRealtime() async { stopRealtimeCalls += 1 }
+    func fetchBlob(_ ref: BlobRef) async -> Data? {
+        fetchedBlobs.append(ref.id)
+        return blobs[ref.id]
+    }
     func revoke(deviceId: String) async throws { revoked.append(deviceId) }
     func wipe() async {
         wiped = true
@@ -109,7 +132,7 @@ actor FakeSync: SyncService {
 
 @MainActor
 final class FakePresenter: NotificationPresenting {
-    var onAction: ((NotificationAction) -> Void)?
+    var onAction: ((NativeNotificationEvent) -> Void)?
     var presented: [(PresentedNotification, Bool)] = []
     var withdrawn: [(String, String)] = []
     var withdrawnAll: [String] = []
@@ -136,10 +159,21 @@ final class FakeClipboard: ClipboardWatching {
     var written: [ClipboardItem] = []
     var current: ClipboardItem?
     var reads = 0
+    /// Bumped by every write, like `NSPasteboard.changeCount`. Tests bump it to fake a copy.
+    var changeCount = 0
+    var clears = 0
 
     func start() { running = true }
     func stop() { running = false }
-    func write(text: String, sensitive: Bool) { written.append(ClipboardItem(text: text, sensitive: sensitive)) }
+    func write(text: String, sensitive: Bool) {
+        written.append(ClipboardItem(text: text, sensitive: sensitive))
+        changeCount += 1
+    }
+    func clear(ifChangeCount count: Int) -> Bool {
+        guard count == changeCount else { return false }
+        clears += 1
+        return true
+    }
     func readCurrent() -> ClipboardItem? {
         reads += 1
         return current
@@ -165,6 +199,19 @@ final class FakeHotkey: HotkeyRegistering {
 }
 
 @MainActor
+final class FakeChipHost: LiveChipHost {
+    /// "show text:5 min", "show progress:0.5", "hide".
+    var calls: [String] = []
+    func show(_ content: LiveChipContent) {
+        switch content {
+        case .text(let t): calls.append("show text:\(t)")
+        case .progress(let f): calls.append("show progress:\(f)")
+        }
+    }
+    func hide() { calls.append("hide") }
+}
+
+@MainActor
 final class FakeLoginItem: LoginItemControlling {
     var isEnabled = false
     var requiresApproval = false
@@ -179,6 +226,26 @@ final class FakeLoginItem: LoginItemControlling {
     }
 }
 
+@MainActor
+final class FakePanel: CardPanelHosting {
+    var shows = 0
+    var hides = 0
+    var replyModes: [Bool] = []
+    var alerts = 0
+    func bind(_ coordinator: NotificationCoordinator) {}
+    func show() { shows += 1 }
+    func hide() { hides += 1 }
+    func setReplyMode(_ on: Bool) { replyModes.append(on) }
+    func alert(announcement: String, sound: Bool) { alerts += 1 }
+}
+
+@MainActor
+final class FakeFocus: FocusStatusProviding {
+    var isFocused = false
+    var authorizationRequests = 0
+    func requestAuthorization() async { authorizationRequests += 1 }
+}
+
 /// A model wired to fakes, plus handles to inspect them.
 @MainActor
 struct Harness {
@@ -188,6 +255,9 @@ struct Harness {
     let clipboard = FakeClipboard()
     let hotkey = FakeHotkey()
     let loginItem = FakeLoginItem()
+    let panel = FakePanel()
+    let focus = FakeFocus()
+    let chipHost = FakeChipHost()
     let clock: TestClock
 
     init(directory: [DirectoryEntry] = [entry(record(phoneA, "Pixel", kind: .phone))],
@@ -205,10 +275,12 @@ struct Harness {
         options.unreachableAfter = .milliseconds(50)
         options.pairingPollInterval = .milliseconds(20)
         options.outboxInterval = .seconds(3600)
+        options.codeClearDelay = .milliseconds(40)
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
-                                                  loginItem: loginItem),
+                                                  loginItem: loginItem, panel: panel, focus: focus,
+                                                  liveChipHost: chipHost),
                          options: options)
     }
 

@@ -66,6 +66,19 @@ interface HubClient {
      */
     suspend fun postMessage(envelope: Envelope): PostMessageResult
 
+    /**
+     * `PUT /v1/blobs/:id?ttl_s=N[&msg_id=uuid]`: stores [ct] (the ciphertext whose sha256 is [id]).
+     * A blob that already exists answers 200 with the later expiry. Throws [HubException.Http]
+     * with `bad_request` (hash mismatch), `too_large`, or `rate_limited` ([HubException.Http.isQuotaExceeded]).
+     */
+    suspend fun putBlob(id: String, ct: ByteArray, ttlS: Long, msgId: String? = null): BlobInfo
+
+    /** `HEAD /v1/blobs/:id`, with `touch=1&ttl_s=N` when [touchTtlS] is set (extends the expiry). False on 404. */
+    suspend fun headBlob(id: String, touchTtlS: Long? = null): Boolean
+
+    /** `GET /v1/blobs/:id`: the ciphertext, or null on 404. */
+    suspend fun getBlob(id: String): ByteArray?
+
     /** `GET /v1/messages?limit=N` with N in 1..200. */
     suspend fun messages(limit: Int = DEFAULT_FETCH_LIMIT): MessagesPage
 

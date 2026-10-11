@@ -35,13 +35,17 @@ class AndroidDeviceProfileProvider @Inject constructor(
     private val receiveRules: ReceiveRulesStore,
     @param:Named(APP_VERSION) private val appVersion: String,
 ) : LocalDeviceProfileProvider {
-    override suspend fun profile(): LocalDeviceProfile = LocalDeviceProfile(
-        name = preferences.userPreferences.first().deviceName?.takeIf { it.isNotBlank() } ?: defaultDeviceName(),
-        kind = DeviceKind.PHONE,
-        platform = "android",
-        appVersion = appVersion,
-        receive = receiveRules.receiveRules(),
-    )
+    override suspend fun profile(): LocalDeviceProfile {
+        val prefs = preferences.userPreferences.first()
+        return LocalDeviceProfile(
+            name = prefs.deviceName?.takeIf { it.isNotBlank() } ?: defaultDeviceName(),
+            kind = DeviceKind.PHONE,
+            platform = "android",
+            appVersion = appVersion,
+            receive = receiveRules.receiveRules(),
+            withheldCaps = ActionCaps.withheld(prefs.actionsFromMac),
+        )
+    }
 
     companion object {
         /** Qualifier for the app's versionName, bound by :app. */

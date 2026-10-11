@@ -18,6 +18,8 @@ final class StubProtocol: URLProtocol {
 
     enum Reply: Sendable {
         case status(Int, String)
+        /// A binary answer (the blob routes).
+        case bytes(Int, Data)
         case failure(URLError.Code)
     }
 
@@ -67,6 +69,12 @@ final class StubProtocol: URLProtocol {
                                        headerFields: ["Content-Type": "application/json"])!
             client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Data(text.utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        case .bytes(let code, let data):
+            let resp = HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Type": "application/octet-stream"])!
+            client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
             client?.urlProtocolDidFinishLoading(self)
         case .failure(let code):
             client?.urlProtocol(self, didFailWithError: URLError(code))
@@ -205,6 +213,90 @@ struct HubClientTests {
         #expect(bodies[11] == ["up_to": 3])
         #expect(bodies[12] == ["setup_token": "t", "confirm": "erase everything"])
         #expect(StubProtocol.requests[12].headers["Authorization"] == nil)
+    }
+
+    @Test("SPEC §6: POST /v1/messages reports the recipients that were online")
+    func postResultCarriesOnline() async throws {
+        let env = Envelope(msgId: "m", from: "dev_a", to: ["dev_b"], collapse: nil, ttlS: 60, kv: 1, salt: "s",
+                           ct: "c", sig: "g")
+        StubProtocol.install { _ in .status(200, #"{"seq":7,"duplicate":false,"online":["dev_b","dev_c"]}"#) }
+        #expect(try await client().postMessage(env)
+                == PostResult(seq: 7, duplicate: false, superseded: false, online: ["dev_b", "dev_c"]))
+        // A Hub that predates V2 sends no `online`.
+        StubProtocol.install { _ in .status(200, #"{"seq":8,"duplicate":false}"#) }
+        #expect(try await client().postMessage(env).online == [])
+    }
+
+    @Test("SPEC §6: PUT /v1/blobs/:id sends raw bytes with the token and parses the answer")
+    func putBlob() async throws {
+        StubProtocol.install { _ in .status(201, #"{"id":"abc","size":4,"expires_at":99}"#) }
+        let ct = Data([0, 1, 2, 255])
+        let info = try await client().putBlob(id: "abc", ct: ct, ttlS: 3_600, msgId: "01a1268a-e800-7614-b735-9b848038782d")
+        #expect(info == BlobInfo(id: "abc", size: 4, expiresAt: 99))
+        let req = try #require(StubProtocol.requests.first)
+        #expect(req.method == "PUT")
+        #expect(req.url == "https://hub.example.com/carom/v1/blobs/abc?ttl_s=3600&msg_id=01a1268a-e800-7614-b735-9b848038782d")
+        #expect(req.headers["Content-Type"] == "application/octet-stream")
+        #expect(req.headers["Authorization"] == "Bearer ct1.token")
+        #expect(req.body == ct)
+
+        StubProtocol.install { _ in .status(200, #"{"id":"abc","size":4,"expires_at":99}"#) }
+        _ = try await client().putBlob(id: "abc", ct: ct, ttlS: 60, msgId: nil)
+        #expect(StubProtocol.requests.first?.url == "https://hub.example.com/carom/v1/blobs/abc?ttl_s=60")
+
+        StubProtocol.install { _ in .status(200, "{}") }
+        await #expect(throws: HubError.invalidResponse("blob")) { try await client().putBlob(id: "abc", ct: ct, ttlS: 60, msgId: nil) }
+        await #expect(throws: HubError.invalidResponse("invalid path parameter")) {
+            try await client().putBlob(id: "a/b", ct: ct, ttlS: 60, msgId: nil)
+        }
+        await #expect(throws: HubError.missingToken) { try await client(token: nil).putBlob(id: "abc", ct: ct, ttlS: 60, msgId: nil) }
+    }
+
+    @Test("a full blob store is 429 quota and is not retried; 413 is not retryable either")
+    func blobQuota() async throws {
+        StubProtocol.install { _ in .status(429, #"{"error":{"code":"rate_limited","message":"x"},"quota":true}"#) }
+        do {
+            _ = try await client().putBlob(id: "abc", ct: Data([1]), ttlS: 60, msgId: nil)
+            Issue.record("expected an error")
+        } catch {
+            #expect(error.status == 429 && error.apiError?.quota == true)
+            #expect(!error.isRetryable)
+        }
+        StubProtocol.install { _ in .status(413, #"{"error":{"code":"too_large","message":"x"}}"#) }
+        do {
+            _ = try await client().putBlob(id: "abc", ct: Data([1]), ttlS: 60, msgId: nil)
+            Issue.record("expected an error")
+        } catch {
+            #expect(error.code == .tooLarge && !error.isRetryable)
+        }
+    }
+
+    @Test("HEAD /v1/blobs/:id is true on 200 and false on 404; touch adds ttl_s")
+    func headBlob() async throws {
+        StubProtocol.install { _ in .status(200, "") }
+        #expect(try await client().headBlob(id: "abc", touchTtlS: 600))
+        #expect(StubProtocol.requests.first?.method == "HEAD")
+        #expect(StubProtocol.requests.first?.url == "https://hub.example.com/carom/v1/blobs/abc?touch=1&ttl_s=600")
+        StubProtocol.install { _ in .status(404, "") }
+        #expect(try await client().headBlob(id: "abc", touchTtlS: nil) == false)
+        #expect(StubProtocol.requests.first?.url == "https://hub.example.com/carom/v1/blobs/abc")
+        StubProtocol.install { _ in .status(403, #"{"error":{"code":"forbidden","message":"x"}}"#) }
+        await #expect(throws: HubError.self) { try await client().headBlob(id: "abc", touchTtlS: nil) }
+    }
+
+    @Test("GET /v1/blobs/:id returns the bytes unchanged, nil on 404, and throws on other errors")
+    func getBlob() async throws {
+        let bytes = Data((0...255).map(UInt8.init))
+        StubProtocol.install { _ in .bytes(200, bytes) }
+        #expect(try await client().getBlob(id: "abc") == bytes)
+        #expect(StubProtocol.requests.first?.method == "GET")
+        #expect(StubProtocol.requests.first?.headers["Accept"] == "application/octet-stream")
+        StubProtocol.install { _ in .status(404, #"{"error":{"code":"not_found","message":"x"}}"#) }
+        #expect(try await client().getBlob(id: "abc") == nil)
+        StubProtocol.install { _ in .status(500, "") }
+        await #expect(throws: HubError.self) { try await client().getBlob(id: "abc") }
+        StubProtocol.install { _ in .failure(.notConnectedToInternet) }
+        await #expect(throws: HubError.transport(.notConnectedToInternet)) { try await client().getBlob(id: "abc") }
     }
 
     @Test func conflictCarriesInactiveIds() async throws {

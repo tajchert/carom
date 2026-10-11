@@ -1,3 +1,4 @@
+import CaromProtocol
 import Foundation
 
 /// A notification received from a phone, as listed in the menu. Kept in memory only.
@@ -13,6 +14,8 @@ struct RecentNotification: Identifiable, Equatable, Sendable {
     var msgId: String
     var code: String?
     var date: Date
+    /// The app icon (`posted.app.icon`); nil shows the first-letter placeholder.
+    var icon: BlobRef? = nil
 }
 
 /// A clipboard item that went in or out. Kept in memory only.
@@ -39,7 +42,7 @@ struct RecentClip: Identifiable, Equatable, Sendable {
 
 /// Newest-first lists with a fixed size.
 struct RecentActivity: Equatable, Sendable {
-    static let notificationLimit = 20
+    static let notificationLimit = 50
     static let clipLimit = 10
 
     private(set) var notifications: [RecentNotification] = []

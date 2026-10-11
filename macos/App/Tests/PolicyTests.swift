@@ -1,4 +1,5 @@
 import CaromProtocol
+import CaromDesktop
 import CaromStore
 import Foundation
 import Testing
@@ -50,6 +51,23 @@ struct ReceivePolicyTests {
 
 @Suite("Preferences and activity")
 struct PreferencesTests {
+    /// Plan Review Focus 4: preferences saved before V2 have no notificationStyle key.
+    @Test func preferencesFromBeforeV2KeepTheirValues() throws {
+        let old = try JSON.parse(Data(#"{"paused":true,"mutedApps":["com.x"],"seenApps":[],"onboardingComplete":true}"#.utf8))
+        let p = Preferences(json: old)
+        #expect(p.paused)
+        #expect(p.mutedApps == ["com.x"])
+        #expect(p.onboardingComplete)
+        #expect(p.notificationStyle == nil)
+        #expect(p.showAs == .rich)
+    }
+
+    @Test func notificationStyleRoundTrips() {
+        var p = Preferences()
+        p.notificationStyle = .nativeOnly
+        #expect(Preferences(json: p.json).showAs == .nativeOnly)
+    }
+
     @Test func roundTripsThroughJSON() {
         var p = Preferences()
         p.paused = true
@@ -66,6 +84,28 @@ struct PreferencesTests {
     @Test func missingOrBrokenJSONGivesDefaults() {
         #expect(Preferences(json: nil) == Preferences())
         #expect(Preferences(json: .string("nope")) == Preferences())
+    }
+
+    @Test func settingsSavedBeforeTheLiveChipOptionStillDecode() {
+        let old: JSON = ["paused": true, "mutedApps": ["com.a"], "seenApps": [], "onboardingComplete": true]
+        let p = Preferences(json: old)
+        #expect(p.paused && p.onboardingComplete && p.mutedApps == ["com.a"])
+        #expect(p.showsLiveChip, "the chip is on by default")
+    }
+
+    @Test func liveChipOptionRoundTrips() {
+        var p = Preferences()
+        p.liveChip = false
+        let back = Preferences(json: p.json)
+        #expect(back == p && !back.showsLiveChip)
+    }
+
+    @Test func autoCopyIsOffByDefaultAndRoundTrips() {
+        #expect(!Preferences().copiesCodes)
+        var p = Preferences()
+        p.autoCopyCodes = true
+        let back = Preferences(json: p.json)
+        #expect(back == p && back.copiesCodes)
     }
 
     @Test func noteAppReportsChanges() {

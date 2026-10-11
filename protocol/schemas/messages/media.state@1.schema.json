@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:media.state@1",
+  "title": "media.state@1 body",
+  "description": "SPEC §4, §4.3. Default TTL 1 day, collapse key `m:<session>`.",
+  "type": "object",
+  "properties": {
+    "session": { "type": "string", "minLength": 1 },
+    "app": { "$ref": "urn:carom:v1:common#/$defs/app" },
+    "title": { "type": "string" },
+    "artist": { "type": "string" },
+    "album": { "type": "string" },
+    "art": { "$ref": "urn:carom:v1:common#/$defs/blob_ref" },
+    "state": { "type": "string", "description": "playing, paused, buffering or stopped. Receivers treat other values as paused." },
+    "position_ms": { "$ref": "urn:carom:v1:common#/$defs/ms" },
+    "position_at": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
+    "duration_ms": { "$ref": "urn:carom:v1:common#/$defs/ms" },
+    "controls": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "From play, pause, next, previous, seek. Receivers ignore other entries."
+    }
+  },
+  "required": ["session", "app", "state", "controls"]
+}

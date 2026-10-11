@@ -1,3 +1,5 @@
+import CaromDesktop
+import CaromProtocol
 import Foundation
 
 /// Launch arguments for driving the app from scripts in Debug builds. Release builds ignore
@@ -10,6 +12,8 @@ import Foundation
 ///         -caromAutoApprove YES                   # approve a verified pairing candidate
 ///         -caromEventLog /path/events.log         # append event types (never content)
 ///         -caromShowWindows menu,settings         # open windows for screenshots
+///         -caromAutoReply 'text'                  # reply on the first card with a reply action
+///         -caromAutoMedia pause                   # send this command to the first media session
 ///
 /// The invite file holds a pairing secret: use a private temporary folder and delete it after.
 struct LaunchOptions: Equatable {
@@ -19,6 +23,8 @@ struct LaunchOptions: Equatable {
     var autoApprove = false
     var eventLog: String?
     var showWindows: [String] = []
+    var autoReply: String?
+    var autoMedia: String?
 
     static var current: LaunchOptions {
         #if DEBUG
@@ -30,7 +36,9 @@ struct LaunchOptions: Equatable {
                              autoApprove: d.bool(forKey: "caromAutoApprove"),
                              eventLog: d.string(forKey: "caromEventLog"),
                              showWindows: (d.string(forKey: "caromShowWindows") ?? "")
-                                 .split(separator: ",").map { String($0) })
+                                 .split(separator: ",").map { String($0) },
+                             autoReply: d.string(forKey: "caromAutoReply"),
+                             autoMedia: d.string(forKey: "caromAutoMedia"))
         #else
         return LaunchOptions()
         #endif
@@ -101,6 +109,79 @@ enum DebugLaunch {
             // Let the menu-bar label open one window before the next request replaces it.
             try? await Task.sleep(for: .milliseconds(400))
         }
+        if options.autoReply != nil || options.autoMedia != nil {
+            Task { await watch(model, options) }
+        }
         #endif
     }
+
+    #if DEBUG
+    /// Polls the cards and media sessions for three minutes and drives them like a user
+    /// would: loads every image of the first card that offers a reply (the BlobStore path the
+    /// views use), replies on it, and sends `autoMedia` to the first session that offers it. Also
+    /// notes progress cards and their updates. Traces carry no content.
+    private static func watch(_ model: AppModel, _ options: LaunchOptions) async {
+        var replied = options.autoReply == nil
+        var mediaSent = options.autoMedia == nil
+        var repliedCard: String?
+        var statusTraced = false
+        var progressMsgIds: [String: String] = [:]
+        let deadline = Date().addingTimeInterval(180)
+        while Date() < deadline {
+            for item in model.notifications.cards.values where item.posted.progress != nil {
+                switch progressMsgIds[item.id] {
+                case nil: model.trace("debug progress card shown")
+                case let seen? where seen != item.msgId: model.trace("debug progress card updated")
+                default: break
+                }
+                progressMsgIds[item.id] = item.msgId
+            }
+            if !replied, let text = options.autoReply,
+               let item = model.notifications.cards.values.first(where: { card in
+                   card.phoneAcceptsActions && card.posted.actions?.contains { $0.reply != nil } == true
+               }),
+               let action = item.posted.actions?.first(where: { $0.reply != nil }) {
+                replied = true
+                let refs = imageRefs(item.posted)
+                var loaded = 0
+                for ref in refs where await model.blobs.image(for: ref) != nil { loaded += 1 }
+                model.trace("debug images loaded \(loaded)/\(refs.count)")
+                model.notifications.perform(.reply(index: action.index, title: action.title, text: text), on: item.id)
+                model.trace("debug reply performed")
+                repliedCard = item.id
+            }
+            if let card = repliedCard, !statusTraced, model.notifications.status(for: card) != .sending,
+               model.notifications.status(for: card) != .idle {
+                statusTraced = true
+                model.trace("debug action status \(model.notifications.status(for: card))")
+            }
+            if !mediaSent, let command = options.autoMedia,
+               let session = model.mediaSessions.first(where: { $0.offers(command) && model.canControlMedia($0) }),
+               let control = mediaControl(command) {
+                mediaSent = true
+                await model.sendMedia(control, sessionID: session.id)
+                model.trace("debug media command \(command)")
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        if !replied || !mediaSent || (repliedCard != nil && !statusTraced) { model.trace("debug watch timed out") }
+    }
+
+    private static func imageRefs(_ n: NotificationPosted) -> [BlobRef] {
+        var refs = [n.app.icon, n.smallIcon, n.largeIcon, n.picture, n.conversation?.icon].compactMap { $0 }
+        for m in n.messages ?? [] { refs += [m.sender?.icon, m.image].compactMap { $0 } }
+        var seen = Set<String>()
+        return refs.filter { seen.insert($0.id).inserted }
+    }
+
+    private static func mediaControl(_ command: String) -> MediaControl? {
+        switch command {
+        case "play": .play
+        case "pause": .pause
+        case "next": .next
+        case "previous": .previous
+        default: nil
+        }
+    }
+    #endif
 }

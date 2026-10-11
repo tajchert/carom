@@ -11,7 +11,7 @@ notifications of any kind; devices fetch when they are already awake (SPEC §9).
 ```
 client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ Hub Durable Object (src/hub.ts)
                      • route match + body limits          • SQLite: devices, messages,
-                     • token MAC check (no DO contact       pairings, keyring, lockouts, meta
+                     • token MAC check (no DO contact       pairings, keyring, lockouts, blobs, meta
                        for garbage tokens)                • WebSocket hibernation
                      • strips client x-carom-* headers,   • one alarm for all expiries
                        sets x-carom-device/-token-hash
@@ -32,10 +32,17 @@ client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ H
   `last_seen` is written at most every 10 minutes. Seqs never repeat, even when collapse
   deletes the newest message, so an ack can never cover a message the device has not seen.
 - **Hibernation.** Sockets are tagged with their device id and nothing is kept in memory.
-  The text frame `ping` is answered with `pong` by the runtime without waking the Hub.
+  The text frame `ping` is answered with `pong` by the runtime without waking the Hub. The
+  `online` list in a `POST /v1/messages` response comes from the same tags, so it costs no
+  storage reads.
 - **No push.** A message reaches a recipient only over its live WebSocket or when it fetches
   (`GET /v1/messages`); an offline recipient's messages wait in the queue until `ttl_s`.
   Schema v3 dropped the old push subscription columns and the stored VAPID key.
+- **Blobs.** Encrypted images (SPEC §11) are rows in the `blobs` table, keyed by
+  `b64(SHA-256(ct))`. The Hub checks the hash, the 1 MiB + 1 KiB body limit and a
+  256 MiB total quota. The total lives in `meta.blob_bytes`, so an upload never sums the
+  table. A blob expires at its own `ttl_s` (60 s to 7 days), when the message it was
+  uploaded with is superseded, or when its uploader is revoked.
 
 ### Source map
 
@@ -64,8 +71,8 @@ All of SPEC §6. Errors are `{"error": {"code", "message"}}`.
 | everything else | an active device token |
 
 Body limits: 100 KiB for `POST /v1/messages` (one 98 304-byte envelope plus wrapper),
-64 KiB for records, keyring and welcome boxes, 4 KiB elsewhere. Oversized bodies get
-`413 too_large` before the Hub is contacted.
+1 MiB + 1 KiB for `PUT /v1/blobs/:id`, 64 KiB for records, keyring and welcome boxes, and
+4 KiB elsewhere. Oversized bodies get `413 too_large` before the Hub is contacted.
 
 Beyond SPEC §6 the Hub uses two extra error codes: `503 unavailable` when the deployment is
 misconfigured (missing or short `SETUP_TOKEN`, bad `HUB_JURISDICTION`) and `500 internal`.
@@ -132,3 +139,6 @@ answered without waking the Hub.
 
 Envelopes: plaintext up to 65 536 bytes, `ttl_s` 60–604 800, 1–32 recipients. At most 5
 open pairing offers, each valid for 5 minutes.
+
+Blobs: at most 1 049 600 bytes each and 256 MiB in total. An upload is one row write plus
+the byte counter.

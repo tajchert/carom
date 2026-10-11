@@ -76,6 +76,10 @@ class AppsViewModel @Inject constructor(
         viewModelScope.launch { apps.setMode(packageName, mode) }
     }
 
+    fun setForwardOngoing(packageName: String, enabled: Boolean) {
+        viewModelScope.launch { apps.setForwardOngoing(packageName, enabled) }
+    }
+
     fun setPaused(value: Boolean) {
         viewModelScope.launch { preferences.setForwardingPaused(value) }
     }

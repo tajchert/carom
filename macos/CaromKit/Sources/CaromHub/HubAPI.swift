@@ -28,6 +28,13 @@ public protocol HubAPI: Sendable {
     func postMessage(_ envelope: Envelope) async throws(HubError) -> PostResult
     func fetchMessages(limit: Int) async throws(HubError) -> MessagePage
     func ack(upTo: Int) async throws(HubError)
+
+    /// `PUT /v1/blobs/:id` with the raw ciphertext (SPEC §6). `ttlS` is clamped by the Hub.
+    func putBlob(id: String, ct: Data, ttlS: Int, msgId: String?) async throws(HubError) -> BlobInfo
+    /// `HEAD /v1/blobs/:id`; `touchTtlS` extends the expiry. False when the Hub answers 404.
+    func headBlob(id: String, touchTtlS: Int?) async throws(HubError) -> Bool
+    /// `GET /v1/blobs/:id`; nil when the Hub answers 404.
+    func getBlob(id: String) async throws(HubError) -> Data?
 }
 
 /// Builds a Hub API for a base URL and an optional device token.
@@ -106,15 +113,32 @@ public struct DeviceListing: Sendable, Equatable {
     }
 }
 
+/// The answer to `PUT /v1/blobs/:id`.
+public struct BlobInfo: Sendable, Equatable {
+    public var id: String
+    public var size: Int
+    /// Unix ms.
+    public var expiresAt: Int
+    public init(id: String, size: Int, expiresAt: Int) {
+        self.id = id
+        self.size = size
+        self.expiresAt = expiresAt
+    }
+}
+
 public struct PostResult: Sendable, Equatable {
     /// nil when the post was superseded by a newer message in its collapse slot.
     public var seq: Int?
     public var duplicate: Bool
     public var superseded: Bool
-    public init(seq: Int?, duplicate: Bool, superseded: Bool) {
+    /// Recipients with a live WebSocket when the Hub accepted the message (SPEC §6). Empty from
+    /// a Hub that predates V2.
+    public var online: [String]
+    public init(seq: Int?, duplicate: Bool, superseded: Bool, online: [String] = []) {
         self.seq = seq
         self.duplicate = duplicate
         self.superseded = superseded
+        self.online = online
     }
 }
 

@@ -1,10 +1,12 @@
 // Builds every vector file in memory: file name → JSON content.
 
 import { b64Vectors, collapseVectors, deviceIdVectors, encodingVectors, kdfVectors, paddingVectors } from './basics.ts';
+import { blobVectors } from './blob.ts';
 import { envelopeReceiveVectors, envelopeSealVectors, envelopeShapeVectors } from './envelope.ts';
 import type { VectorFile } from './fixtures.ts';
 import { boxVectors, pairingVectors, rekeyVectors } from './keys.ts';
 import { qrVectors, tokenVectors, uuidVectors } from './misc.ts';
+import { messageVectors } from './rich.ts';
 import { recordVectors } from './record.ts';
 
 export function buildVectors(): Record<string, VectorFile> {
@@ -25,6 +27,8 @@ export function buildVectors(): Record<string, VectorFile> {
     'token.json': tokenVectors(),
     'qr.json': qrVectors(),
     'uuidv7.json': uuidVectors(),
+    'blob.json': blobVectors(),
+    'messages.json': messageVectors(),
   };
 }
 

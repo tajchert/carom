@@ -5,14 +5,13 @@ import CaromDesktop
 
 // Narrow seams over the CaromDesktop services so AppModel can be unit-tested with fakes.
 
+/// The native presenter. Posting and withdrawing (`NativeNotifying`) go through
+/// `NotificationCoordinator`; the model itself asks for permission and receives the actions.
 @MainActor
-protocol NotificationPresenting: AnyObject {
-    var onAction: ((NotificationAction) -> Void)? { get set }
+protocol NotificationPresenting: NativeNotifying {
+    var onAction: ((NativeNotificationEvent) -> Void)? { get set }
     func requestAuthorization() async -> Bool
     func authorizationState() async -> Bool?
-    func present(_ notification: PresentedNotification, showPhoneName: Bool) async
-    func withdraw(phoneId: String, key: String)
-    func withdrawAll(phoneId: String)
 }
 
 @MainActor
@@ -23,6 +22,10 @@ protocol ClipboardWatching: AnyObject {
     func stop()
     func write(text: String, sensitive: Bool)
     func readCurrent() -> ClipboardItem?
+    /// The pasteboard change count. Read it right after `write` to remember that write.
+    var changeCount: Int { get }
+    /// Empties the pasteboard when nothing was copied since `count`. Returns whether it cleared.
+    func clear(ifChangeCount count: Int) -> Bool
 }
 
 @MainActor
@@ -63,10 +66,15 @@ struct DesktopServices {
     var clipboard: any ClipboardWatching
     var hotkey: any HotkeyRegistering
     var loginItem: any LoginItemControlling
+    var panel: any CardPanelHosting
+    var focus: any FocusStatusProviding
+    /// Where the Live Update chip is drawn.
+    var liveChipHost: any LiveChipHost = NullLiveChipHost()
 
     static func live() -> DesktopServices {
         DesktopServices(presenter: NotificationPresenter(center: .current()),
                         clipboard: ClipboardWatcher(pasteboard: .general, interval: 0.5),
-                        hotkey: HotkeyManager(), loginItem: SystemLoginItem())
+                        hotkey: HotkeyManager(), loginItem: SystemLoginItem(),
+                        panel: RichPanelPresenter(), focus: SystemFocusStatus(), liveChipHost: StatusItemChipHost())
     }
 }

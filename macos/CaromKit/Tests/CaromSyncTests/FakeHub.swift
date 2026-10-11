@@ -48,6 +48,8 @@ actor FakeHub {
     private(set) var frames: [String: [ServerFrame]] = [:]
     private var injected: [HubError] = []
     private(set) var postCount = 0
+    private var blobs: [String: Data] = [:]
+    private(set) var recordPuts = 0
     var now: Int { Int(Date().timeIntervalSince1970 * 1000) }
 
     init(setupToken: String = "correct-horse-battery-staple-0123456789") { self.setupToken = setupToken }
@@ -209,6 +211,7 @@ actor FakeHub {
         let c = try caller(token)
         guard record.id == c.id else { throw fail(400, "bad_request") }
         devices[c.id]?.record = record.json
+        recordPuts += 1
         broadcastDir(except: c.id)
     }
 
@@ -253,6 +256,29 @@ actor FakeHub {
                            more: mine.count > limit)
     }
 
+    func putBlob(_ token: String?, _ id: String, _ ct: Data) throws(HubError) -> BlobInfo {
+        _ = try caller(token)
+        guard B64.encode(Crypto.sha256(ct)) == id else { throw fail(400, "bad_request") }
+        blobs[id] = ct
+        return BlobInfo(id: id, size: ct.count, expiresAt: now + 3_600_000)
+    }
+
+    func hasBlob(_ token: String?, _ id: String) throws(HubError) -> Bool {
+        _ = try caller(token)
+        return blobs[id] != nil
+    }
+
+    func getBlob(_ token: String?, _ id: String) throws(HubError) -> Data? {
+        _ = try caller(token)
+        return blobs[id]
+    }
+
+    /// Stores a blob as if a phone had uploaded it.
+    func seedBlob(id: String, ct: Data) { blobs[id] = ct }
+
+    /// Replaces a stored blob behind everyone's back (a corrupt or swapped answer).
+    func corruptBlob(_ id: String, with data: Data) { blobs[id] = data }
+
     func ack(_ token: String?, _ upTo: Int) throws(HubError) {
         let c = try caller(token)
         let target = min(upTo, nextSeq - 1)
@@ -288,4 +314,9 @@ struct FakeHubClient: HubAPI {
     func postMessage(_ envelope: Envelope) async throws(HubError) -> PostResult { try await hub.post(token, envelope) }
     func fetchMessages(limit: Int) async throws(HubError) -> MessagePage { try await hub.fetch(token, limit) }
     func ack(upTo: Int) async throws(HubError) { try await hub.ack(token, upTo) }
+    func putBlob(id: String, ct: Data, ttlS: Int, msgId: String?) async throws(HubError) -> BlobInfo {
+        try await hub.putBlob(token, id, ct)
+    }
+    func headBlob(id: String, touchTtlS: Int?) async throws(HubError) -> Bool { try await hub.hasBlob(token, id) }
+    func getBlob(id: String) async throws(HubError) -> Data? { try await hub.getBlob(token, id) }
 }

@@ -11,6 +11,7 @@ object Protocol {
         const val BOX = "carom/v1/box"
         const val PAIR = "carom/v1/pair"
         const val TOKEN_KEY = "carom/v1/token-key"
+        const val BLOB_CONV = "carom/v1/blob-conv"
     }
 
     /** Seal / box / signature domain tags. */
@@ -20,10 +21,20 @@ object Protocol {
         const val REKEY = "carom/v1/rekey"
         const val WELCOME = "carom/v1/welcome"
         const val PAIR_REQUEST = "carom/v1/pair-req"
+        const val BLOB = "carom/v1/blob"
     }
 
     object Limits {
         const val MAX_PLAINTEXT = 65_536
+
+        /** Largest blob ciphertext (SPEC V2 §3.7; the Hub also allows 1 KiB of slack). */
+        const val MAX_BLOB_BYTES = 1_048_576
+
+        /**
+         * Largest blob plaintext [Blobs.seal] accepts: `4 + n` pads to at most 1 044 480 bytes
+         * (a multiple of 4096), so the ciphertext, with its 16-byte tag, stays within [MAX_BLOB_BYTES].
+         */
+        const val MAX_BLOB_PLAINTEXT = 1_044_476
         const val MAX_ENVELOPE_BYTES = 98_304
         const val MIN_TTL_S = 60L
         const val MAX_TTL_S = 604_800L

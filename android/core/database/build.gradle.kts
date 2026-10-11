@@ -9,6 +9,7 @@
 // - directory: the cached device list, with the opened record when trusted
 // - notification_apps: per-app forwarding settings
 // - recent_items: short activity lines and notices for Home
+// - icon_uploads: convergent icon blobs already uploaded, per key version
 //
 // The database file is excluded from backup and device transfer (app xml rules).
 // Schema history is exported to schemas/ and every change needs a migration.

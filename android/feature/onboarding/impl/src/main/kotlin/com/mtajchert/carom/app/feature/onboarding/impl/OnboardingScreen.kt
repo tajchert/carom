@@ -50,6 +50,7 @@ class OnboardingActions(
     val onOpenAppInfo: () -> Unit = {},
     val onRequestPostNotifications: () -> Unit = {},
     val onOpenBatterySettings: () -> Unit = {},
+    val onEnableCodeForwarding: () -> Unit = {},
     val onPermissionsDone: () -> Unit = {},
     val onFinish: () -> Unit = {},
 )
@@ -85,13 +86,14 @@ fun OnboardingScreen(
         cameraBlocked = !granted && activity != null &&
             !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
     }
-    var permissions by remember { mutableStateOf(SystemAccess.status(context)) }
+    fun readPermissions() = SystemAccess.status(context).copy(codeForwarding = viewModel.codeForwardingState())
+    var permissions by remember { mutableStateOf(readPermissions()) }
     val postLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        permissions = SystemAccess.status(context)
+        permissions = readPermissions()
     }
-    // The user comes back from system settings: re-check everything.
+    // The user comes back from system settings or the enable screen: re-check everything.
     LifecycleResumeEffect(Unit) {
-        permissions = SystemAccess.status(context)
+        permissions = readPermissions()
         cameraGranted = SystemAccess.hasCamera(context)
         if (cameraGranted) cameraBlocked = false
         onPauseOrDispose { }
@@ -124,6 +126,7 @@ fun OnboardingScreen(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             },
             onOpenBatterySettings = { SystemAccess.openBatterySettings(context) },
+            onEnableCodeForwarding = { context.startActivity(viewModel.codeForwardingIntent(context)) },
             onPermissionsDone = viewModel::permissionsDone,
             onFinish = onFinished,
         )

@@ -1,3 +1,4 @@
+import CaromDesktop
 import SwiftUI
 
 struct NotificationSettings: View {
@@ -25,6 +26,19 @@ struct NotificationSettings: View {
                             Button("Allow") { Task { await model.requestNotificationPermission() } }
                         }
                     }
+                }
+
+                Section {
+                    Picker("Show notifications as", selection: Binding(
+                        get: { model.preferences.showAs },
+                        set: { model.setNotificationStyle($0) })) {
+                        Text("Rich").tag(NotificationStyle.rich)
+                        Text("Native only").tag(NotificationStyle.nativeOnly)
+                    }
+                } footer: {
+                    Footnote(model.preferences.showAs == .rich
+                             ? "Carom shows its own banner with images and the app's buttons. A quiet copy goes to Notification Center. During a Focus only the quiet copy is posted."
+                             : "macOS banners only, without images or the app's buttons.")
                 }
 
                 Section {
@@ -67,6 +81,24 @@ struct NotificationSettings: View {
                     Text("Apps")
                 } footer: {
                     Footnote("Muted apps are hidden on this Mac only. Focus and Do Not Disturb apply as usual.")
+                }
+
+                Section {
+                    Toggle("Show Live Updates in the menu bar", isOn: Binding(
+                        get: { model.preferences.showsLiveChip },
+                        set: { model.setLiveChip($0) }))
+                } footer: {
+                    Footnote("Rides, deliveries and timers from your phone get a small item next to the Carom icon until they end.")
+                }
+
+                Section {
+                    Toggle("Copy codes automatically", isOn: Binding(
+                        get: { model.preferences.copiesCodes },
+                        set: { model.setAutoCopyCodes($0) }))
+                } header: {
+                    Text("Verification Codes")
+                } footer: {
+                    Footnote("Copies a code as soon as it arrives and clears it from the clipboard after 60 seconds if it's still there.")
                 }
             }
             .formStyle(.grouped)

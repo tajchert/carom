@@ -124,7 +124,8 @@ public struct HubClient: HubAPI {
         let seq = j["seq"]?.safeInt
         guard seq != nil || j["seq"] == .null else { throw .invalidResponse("post") }
         return PostResult(seq: seq, duplicate: j["duplicate"]?.boolValue ?? false,
-                          superseded: j["superseded"]?.boolValue ?? false)
+                          superseded: j["superseded"]?.boolValue ?? false,
+                          online: j["online"]?.arrayValue?.compactMap(\.stringValue) ?? [])
     }
 
     public func fetchMessages(limit: Int = 100) async throws(HubError) -> MessagePage {
@@ -140,6 +141,37 @@ public struct HubClient: HubAPI {
 
     public func ack(upTo: Int) async throws(HubError) {
         _ = try await call("POST", "/v1/acks", body: ["up_to": JSON(upTo)])
+    }
+
+    public func putBlob(id: String, ct: Data, ttlS: Int, msgId: String? = nil) async throws(HubError) -> BlobInfo {
+        var path = "/v1/blobs/\(try pathParam(id))?ttl_s=\(ttlS)"
+        if let msgId { path += "&msg_id=\(try pathParam(msgId))" }
+        let data = try await raw("PUT", path, body: ct)
+        guard let j = try? JSON.parse(data), let rid = j["id"]?.stringValue, let size = j["size"]?.safeInt,
+              let exp = j["expires_at"]?.safeInt
+        else { throw .invalidResponse("blob") }
+        return BlobInfo(id: rid, size: size, expiresAt: exp)
+    }
+
+    public func headBlob(id: String, touchTtlS: Int? = nil) async throws(HubError) -> Bool {
+        var path = "/v1/blobs/\(try pathParam(id))"
+        if let touchTtlS { path += "?touch=1&ttl_s=\(touchTtlS)" }
+        do throws(HubError) {
+            _ = try await raw("HEAD", path)
+            return true
+        } catch {
+            if error.status == 404 { return false }
+            throw error
+        }
+    }
+
+    public func getBlob(id: String) async throws(HubError) -> Data? {
+        do throws(HubError) {
+            return try await raw("GET", "/v1/blobs/\(try pathParam(id))", accept: "application/octet-stream")
+        } catch {
+            if error.status == 404 { return nil }
+            throw error
+        }
     }
 
     // MARK: - Plumbing
@@ -175,17 +207,47 @@ public struct HubClient: HubAPI {
     }
 
     func call(_ method: String, _ path: String, body: JSON? = nil, auth: Bool = true) async throws(HubError) -> JSON {
-        var req = URLRequest(url: url(path), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
-        req.httpMethod = method
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
-        if auth {
-            guard let token else { throw .missingToken }
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        var req = try request(method, path, auth: auth, accept: "application/json")
         if let body {
             req.httpBody = body.serializedData()
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
+        let (data, http) = try await perform(req)
+        let json: JSON? = data.isEmpty ? .object(JSONObject()) : try? JSON.parse(data)
+        guard (200..<300).contains(http.statusCode) else { throw failure(http, json) }
+        guard let json, json.objectValue != nil else { throw .invalidResponse("body is not a JSON object") }
+        return json
+    }
+
+    /// An authenticated request with a raw-bytes body or answer (the blob routes). Returns the
+    /// response body of a 2xx answer; an error answer is parsed like `call` does.
+    func raw(_ method: String, _ path: String, body: Data? = nil, accept: String = "application/json")
+        async throws(HubError) -> Data
+    {
+        var req = try request(method, path, auth: true, accept: accept)
+        if let body {
+            req.httpBody = body
+            req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        }
+        let (data, http) = try await perform(req)
+        guard (200..<300).contains(http.statusCode) else {
+            throw failure(http, data.isEmpty ? .object(JSONObject()) : try? JSON.parse(data))
+        }
+        return data
+    }
+
+    private func request(_ method: String, _ path: String, auth: Bool, accept: String) throws(HubError) -> URLRequest {
+        var req = URLRequest(url: url(path), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        req.httpMethod = method
+        req.setValue(accept, forHTTPHeaderField: "Accept")
+        if auth {
+            guard let token else { throw .missingToken }
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return req
+    }
+
+    private func perform(_ req: URLRequest) async throws(HubError) -> (Data, HTTPURLResponse) {
         let data: Data
         let response: URLResponse
         do {
@@ -196,16 +258,15 @@ public struct HubClient: HubAPI {
             throw .transport(.unknown)
         }
         guard let http = response as? HTTPURLResponse else { throw .invalidResponse("not HTTP") }
-        let json: JSON? = data.isEmpty ? .object(JSONObject()) : try? JSON.parse(data)
-        guard (200..<300).contains(http.statusCode) else {
-            let err = json?["error"]
-            throw .api(HubAPIError(
-                status: http.statusCode,
-                code: HubErrorCode(err?["code"]?.stringValue ?? Self.defaultCode(http.statusCode)),
-                message: err?["message"]?.stringValue ?? "", body: json ?? .null))
-        }
-        guard let json, json.objectValue != nil else { throw .invalidResponse("body is not a JSON object") }
-        return json
+        return (data, http)
+    }
+
+    private func failure(_ http: HTTPURLResponse, _ json: JSON?) -> HubError {
+        let err = json?["error"]
+        return .api(HubAPIError(
+            status: http.statusCode,
+            code: HubErrorCode(err?["code"]?.stringValue ?? Self.defaultCode(http.statusCode)),
+            message: err?["message"]?.stringValue ?? "", body: json ?? .null))
     }
 
     static func defaultCode(_ status: Int) -> String {

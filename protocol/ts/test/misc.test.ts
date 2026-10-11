@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { b64encode } from '../src/b64.ts';
 import { generateIdentity } from '../src/device.ts';
 import { tokenKey } from '../src/kdf.ts';
-import { collapseRealKey, DEFAULT_TTL_S, isMessageType, MESSAGE_TYPES } from '../src/messages.ts';
+import { collapseRealKey, DEFAULT_TTL_S, isMessageType, MESSAGE_TYPES, requiresReplyTo } from '../src/messages.ts';
 import { buildPairUri, buildSetupUri, isValidHubUrl, parseQrUri, percentEncode } from '../src/qr.ts';
 import type { DeviceRecord } from '../src/record.ts';
 import { defaultReceive, routeRecipients } from '../src/routing.ts';
@@ -110,21 +110,48 @@ describe('UUIDv7', () => {
 });
 
 describe('messages and routing', () => {
-  it('knows the v1 types, TTLs and collapse keys', () => {
+  it('knows the message types, TTLs and collapse keys', () => {
     expect(MESSAGE_TYPES.every(isMessageType)).toBe(true);
+    // Images are blob references inside bodies (SPEC §11), never a message type of their own.
     expect(isMessageType('blob.ref@1')).toBe(false);
     expect(DEFAULT_TTL_S['notification.posted@1']).toBe(172_800);
     expect(DEFAULT_TTL_S['clipboard.set@1']).toBe(86_400);
+    expect(DEFAULT_TTL_S['notification.action@1']).toBe(600);
+    expect(DEFAULT_TTL_S['notification.action_result@1']).toBe(600);
+    expect(DEFAULT_TTL_S['media.state@1']).toBe(86_400);
+    expect(DEFAULT_TTL_S['media.command@1']).toBe(600);
     expect(collapseRealKey('notification.posted@1', { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 0, redacted: false })).toBe('n:k');
     expect(collapseRealKey('notification.removed@1', { key: 'k' })).toBe('n:k');
     expect(collapseRealKey('clipboard.set@1', { mime: 'text/plain', text: '', sensitive: false })).toBe('clip');
     expect(collapseRealKey('device.status@1', {})).toBe('status');
     expect(collapseRealKey('notification.dismiss@1', { key: 'k' })).toBeNull();
+    expect(collapseRealKey('media.state@1', { session: 's1', app: { id: 'a', name: 'A' }, state: 'playing', controls: [] })).toBe('m:s1');
+    expect(collapseRealKey('notification.action@1', { key: 'k', action: 'tap' })).toBeNull();
+    expect(collapseRealKey('notification.action_result@1', { ok: true })).toBeNull();
+    expect(collapseRealKey('media.command@1', { session: 's1', command: 'play' })).toBeNull();
+    expect(MESSAGE_TYPES.filter(requiresReplyTo)).toEqual([
+      'notification.dismiss@1',
+      'notification.action@1',
+      'notification.action_result@1',
+      'media.command@1',
+    ]);
   });
 
   it('default receive rules follow SPEC §5.1', () => {
-    expect(defaultReceive('phone')).toEqual({ 'clipboard.set@1': '*', 'notification.dismiss@1': '*' });
-    expect(Object.keys(defaultReceive('desktop')).sort()).toEqual(['clipboard.set@1', 'device.status@1', 'notification.posted@1', 'notification.removed@1']);
+    expect(defaultReceive('phone')).toEqual({
+      'clipboard.set@1': '*',
+      'notification.dismiss@1': '*',
+      'notification.action@1': '*',
+      'media.command@1': '*',
+    });
+    expect(Object.keys(defaultReceive('desktop')).sort()).toEqual([
+      'clipboard.set@1',
+      'device.status@1',
+      'media.state@1',
+      'notification.action_result@1',
+      'notification.posted@1',
+      'notification.removed@1',
+    ]);
     expect(defaultReceive('cli')).toEqual({ 'clipboard.set@1': '*' });
   });
 

@@ -4,10 +4,14 @@ import android.app.KeyguardManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.mtajchert.carom.app.feature.notifications.impl.actions.ActiveCallTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPrompt
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaBridge
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -24,9 +28,15 @@ class CaromListenerService : NotificationListenerService() {
 
     @Inject lateinit var forwarderFactory: NotificationForwarder.Factory
 
-    @Inject lateinit var extractor: NotificationExtractor
+    @Inject lateinit var extractor: RichExtractor
 
     @Inject lateinit var bridge: ActiveNotificationsBridge
+
+    @Inject lateinit var mediaBridge: MediaBridge
+
+    @Inject lateinit var redactionPrompt: RedactionPrompt
+
+    @Inject lateinit var callTracker: ActiveCallTracker
 
     private var scope: CoroutineScope? = null
     private var forwarder: NotificationForwarder? = null
@@ -45,6 +55,12 @@ class CaromListenerService : NotificationListenerService() {
                 Log.i(TAG, "dismiss_unavailable")
             }
         }
+
+        override fun find(key: String): StatusBarNotification? = try {
+            getActiveNotifications(arrayOf(key))?.firstOrNull { it.key == key }
+        } catch (_: SecurityException) {
+            null // access was revoked between the check and the call
+        }
     }
 
     override fun onListenerConnected() {
@@ -52,9 +68,15 @@ class CaromListenerService : NotificationListenerService() {
         scope?.cancel()
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope = newScope
-        val f = forwarderFactory.create(newScope, AndroidForwardingEnvironment())
+        val env = AndroidForwardingEnvironment()
+        val f = forwarderFactory.create(newScope, env)
         forwarder = f
         bridge.attach(control)
+        mediaBridge.start(newScope, env)
+        // Media that is already playing when the listener (re)connects.
+        newScope.launch { activeNotificationsOrEmpty().forEach(mediaBridge::onPosted) }
+        // A call or player that was already showing before we connected holds the window now.
+        activeNotificationsOrEmpty().forEach { if (it.packageName != packageName) callTracker.onPosted(it) }
         // Removals that happened while we were not bound (reconnect, process death) are sent now.
         f.reconcile {
             try {
@@ -81,23 +103,41 @@ class CaromListenerService : NotificationListenerService() {
         val f = forwarder ?: return
         // Cheapest possible check on the main thread; everything else happens on the consumer.
         if (sbn.packageName == packageName) return
+        mediaBridge.onPosted(sbn)
+        callTracker.onPosted(sbn)
         f.onPosted {
             val ranking = Ranking()
             val map = rankingMap ?: currentRanking
-            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true })
+            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true }).also {
+                // Android 15+ hid the content: offer code forwarding (spec §5.2). No content is passed on.
+                if (it.redacted) redactionPrompt.onRedacted()
+            }
         }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) = onNotificationPosted(sbn, null)
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
+        mediaBridge.onRemoved(sbn)
+        callTracker.onRemoved(sbn.key)
         forwarder?.onRemoved(sbn.key)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) = onNotificationRemoved(sbn, null)
 
+    private fun activeNotificationsOrEmpty(): List<StatusBarNotification> = try {
+        activeNotifications?.toList().orEmpty()
+    } catch (_: SecurityException) {
+        emptyList() // access was revoked
+    } catch (_: RuntimeException) {
+        emptyList() // the binder went away
+    }
+
     private fun stop() {
         bridge.detach(control)
+        mediaBridge.stop()
+        // No removals arrive while unbound, so holds taken now would never be released.
+        callTracker.releaseAll()
         forwarder = null
         scope?.cancel()
         scope = null
@@ -107,7 +147,6 @@ class CaromListenerService : NotificationListenerService() {
         private val keyguard = getSystemService(KeyguardManager::class.java)
 
         override val ownPackage: String = packageName
-        override val hiddenText: String = getString(R.string.feature_notifications_hidden_text)
 
         override fun isScreenLocked(): Boolean = keyguard?.isKeyguardLocked == true
 
@@ -130,6 +169,9 @@ class ActiveNotificationsBridge @Inject constructor() {
     interface Listener {
         fun isActive(key: String): Boolean
         fun cancel(key: String)
+
+        /** The live notification for [key], or null when it is gone or access was revoked. */
+        fun find(key: String): StatusBarNotification? = null
     }
 
     @Volatile
@@ -150,4 +192,7 @@ class ActiveNotificationsBridge @Inject constructor() {
         l.cancel(key)
         return true
     }
+
+    /** The live notification for [key] from the connected listener, or null when none is connected or it is gone. */
+    fun find(key: String): StatusBarNotification? = listener?.find(key)
 }

@@ -26,6 +26,7 @@ struct MenuBarView: View {
             Divider()
 
             if model.phase == .ready {
+                NowPlayingSection()
                 ActivityList()
                     .frame(maxHeight: 360)
             } else if model.phase == .onboarding {
@@ -156,6 +157,27 @@ struct MenuRow: View {
     }
 }
 
+/// The Now Playing cards of the phones' media sessions, above the activity list.
+private struct NowPlayingSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let sessions = model.nowPlaying
+        if !sessions.isEmpty {
+            VStack(spacing: 8) {
+                ForEach(sessions) { session in
+                    NowPlayingView(session: session, images: model.blobs,
+                                   canControl: model.canControlMedia(session)) { control in
+                        Task { await model.sendMedia(control, sessionID: session.id) }
+                    }
+                }
+            }
+            .padding(10)
+            Divider()
+        }
+    }
+}
+
 /// Recent notifications and clipboard items (in memory only).
 struct ActivityList: View {
     @Environment(AppModel.self) private var model
@@ -218,6 +240,9 @@ private struct NotificationRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
+            AppIconImage(ref: item.icon, appName: item.appName, images: model.blobs)
+                .frame(width: 18, height: 18)
+                .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(item.appName)

@@ -6,7 +6,7 @@ import { LIMITS } from './constants.ts';
 import { deviceIdMatches } from './device.ts';
 import { openEnvelope, type GroupKeys } from './envelope.ts';
 import { validateEnvelopeShape, type Envelope } from './envelope-shape.ts';
-import { isMessageType, isValidBody, MESSAGE_TYPES } from './messages.ts';
+import { isMessageType, isValidBody, MESSAGE_TYPES, requiresReplyTo } from './messages.ts';
 import type { Payload } from './payload.ts';
 
 export type ReceiveError =
@@ -98,7 +98,7 @@ export function receiveEnvelope(value: unknown, ctx: ReceiveContext): ReceiveRes
   if (!known.has(payload.type)) return { ok: false, error: 'unknown_type' };
   if (isMessageType(payload.type)) {
     if (!isValidBody(payload.type, payload.body)) return { ok: false, error: 'bad_payload' };
-    if (payload.type === 'notification.dismiss@1' && payload.reply_to === undefined) {
+    if (requiresReplyTo(payload.type) && payload.reply_to === undefined) {
       return { ok: false, error: 'bad_payload' };
     }
   }

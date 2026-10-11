@@ -1,20 +1,68 @@
 import Foundation
 
-/// v1 message types (SPEC §4).
+/// Message types (SPEC §4, plus the V2 additions in §3.4).
 public enum MessageType: String, Sendable, CaseIterable, Codable {
     case notificationPosted = "notification.posted@1"
     case notificationRemoved = "notification.removed@1"
     case notificationDismiss = "notification.dismiss@1"
     case clipboardSet = "clipboard.set@1"
     case deviceStatus = "device.status@1"
+    case notificationAction = "notification.action@1"
+    case notificationActionResult = "notification.action_result@1"
+    case mediaState = "media.state@1"
+    case mediaCommand = "media.command@1"
 
     /// Default TTL in seconds.
     public var defaultTtlS: Int {
         switch self {
         case .notificationPosted, .notificationRemoved: 2 * 86_400
-        case .notificationDismiss, .clipboardSet, .deviceStatus: 86_400
+        case .notificationDismiss, .clipboardSet, .deviceStatus, .mediaState: 86_400
+        case .notificationAction, .notificationActionResult, .mediaCommand: 600
         }
     }
+
+    /// Types that are only valid as a reply (SPEC §3.5): payload-level `reply_to` is required.
+    public var requiresReplyTo: Bool {
+        switch self {
+        case .notificationDismiss, .notificationAction, .notificationActionResult, .mediaCommand: true
+        case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState: false
+        }
+    }
+}
+
+/// Strict field access for body decoders: an absent field is fine when optional, but a present field
+/// of the wrong type or shape fails the whole body (`bad_payload`, SPEC §3.3 rule 5).
+struct InvalidBody: Error {}
+
+extension JSONObject {
+    /// An optional field: nil when absent; throws when present and `parse` rejects it.
+    func opt<T>(_ key: String, _ parse: (JSON) -> T?) throws -> T? {
+        guard let v = self[key] else { return nil }
+        guard let r = parse(v) else { throw InvalidBody() }
+        return r
+    }
+
+    /// A required field: throws when absent or rejected by `parse`.
+    func need<T>(_ key: String, _ parse: (JSON) -> T?) throws -> T {
+        guard let v = self[key], let r = parse(v) else { throw InvalidBody() }
+        return r
+    }
+
+    /// An optional array of at most `max` items that all pass `parse`.
+    func optList<T>(_ key: String, max: Int = .max, _ parse: (JSON) -> T?) throws -> [T]? {
+        guard let a = try opt(key, { $0.arrayValue }) else { return nil }
+        guard a.count <= max else { throw InvalidBody() }
+        return try a.map { guard let r = parse($0) else { throw InvalidBody() }; return r }
+    }
+}
+
+extension JSON {
+    /// A signed 32-bit integer (SPEC §3.3: colours, importance, semantics).
+    var int32: Int? { int(in: Int(Int32.min)...Int(Int32.max)) }
+    /// A non-negative 32-bit integer.
+    var count32: Int? { int(in: 0...Int(Int32.max)) }
+    /// A non-negative safe integer (epoch milliseconds, durations).
+    var ms: Int? { safeInt.flatMap { $0 >= 0 ? $0 : nil } }
 }
 
 /// A typed v1 message body. Receivers ignore unknown fields, so `init?(json:)` only checks
@@ -45,9 +93,20 @@ public struct NotificationPosted: MessageBody {
     public struct App: Sendable, Equatable {
         public var id: String
         public var name: String
-        public init(id: String, name: String) {
+        /// The app icon (V2).
+        public var icon: BlobRef?
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(id: try o.need("id", \.stringValue), name: try o.need("name", \.stringValue),
+                          icon: try o.opt("icon", { BlobRef(json: $0) }))
+            } catch { return nil }
+        }
+
+        public init(id: String, name: String, icon: BlobRef? = nil) {
             self.id = id
             self.name = name
+            self.icon = icon
         }
     }
 
@@ -61,8 +120,44 @@ public struct NotificationPosted: MessageBody {
     public var redacted: Bool
     public var ongoing: Bool?
 
+    // V2 additions (SPEC §3.3). Their types are in RichNotification.swift.
+    /// `standard`, `big_text`, `inbox`, `messaging`, `big_picture`, `progress`, `call`, `media` or `custom`.
+    public var template: String?
+    /// `Notification.color`, ARGB; nil when it is the default.
+    public var color: Int?
+    public var colorized: Bool?
+    /// Alpha mask, tinted by `color`.
+    public var smallIcon: BlobRef?
+    public var largeIcon: BlobRef?
+    public var picture: BlobRef?
+    public var pictureDesc: String?
+    public var bigText: String?
+    public var lines: [String]?
+    public var summaryText: String?
+    public var conversation: Conversation?
+    /// Newest last.
+    public var messages: [ConversationMessage]?
+    public var actions: [Action]?
+    public var canOpen: Bool?
+    public var progress: Progress?
+    public var live: Live?
+    /// Unix ms; shown only when `showWhen` is true.
+    public var when: Int?
+    public var showWhen: Bool?
+    public var chronometer: Chronometer?
+    public var call: Call?
+    public var group: Group?
+    public var channel: Channel?
+
     public init(key: String, app: App, title: String? = nil, text: String? = nil, subText: String? = nil,
-                category: String? = nil, postedAt: Int, redacted: Bool = false, ongoing: Bool? = nil) {
+                category: String? = nil, postedAt: Int, redacted: Bool = false, ongoing: Bool? = nil,
+                template: String? = nil, color: Int? = nil, colorized: Bool? = nil, smallIcon: BlobRef? = nil,
+                largeIcon: BlobRef? = nil, picture: BlobRef? = nil, pictureDesc: String? = nil,
+                bigText: String? = nil, lines: [String]? = nil, summaryText: String? = nil,
+                conversation: Conversation? = nil, messages: [ConversationMessage]? = nil,
+                actions: [Action]? = nil, canOpen: Bool? = nil, progress: Progress? = nil, live: Live? = nil,
+                when: Int? = nil, showWhen: Bool? = nil, chronometer: Chronometer? = nil, call: Call? = nil,
+                group: Group? = nil, channel: Channel? = nil) {
         self.key = key
         self.app = app
         self.title = title
@@ -72,26 +167,62 @@ public struct NotificationPosted: MessageBody {
         self.postedAt = postedAt
         self.redacted = redacted
         self.ongoing = ongoing
+        self.template = template
+        self.color = color
+        self.colorized = colorized
+        self.smallIcon = smallIcon
+        self.largeIcon = largeIcon
+        self.picture = picture
+        self.pictureDesc = pictureDesc
+        self.bigText = bigText
+        self.lines = lines
+        self.summaryText = summaryText
+        self.conversation = conversation
+        self.messages = messages
+        self.actions = actions
+        self.canOpen = canOpen
+        self.progress = progress
+        self.live = live
+        self.when = when
+        self.showWhen = showWhen
+        self.chronometer = chronometer
+        self.call = call
+        self.group = group
+        self.channel = channel
     }
 
     public init?(json b: JSONObject) {
-        guard let key = b["key"]?.stringValue,
-              case .object(let app)? = b["app"],
-              let appId = app["id"]?.stringValue, let appName = app["name"]?.stringValue,
-              let postedAt = b["posted_at"]?.safeInt, postedAt >= 0,
-              let redacted = b["redacted"]?.boolValue
-        else { return nil }
-        let title = optString(b["title"]), text = optString(b["text"])
-        let subText = optString(b["sub_text"]), category = optString(b["category"])
-        let ongoing = optBool(b["ongoing"])
-        guard title.ok, text.ok, subText.ok, category.ok, ongoing.ok else { return nil }
-        self.init(key: key, app: App(id: appId, name: appName), title: title.value, text: text.value,
-                  subText: subText.value, category: category.value, postedAt: postedAt, redacted: redacted,
-                  ongoing: ongoing.value)
+        do {
+            let app = try b.need("app", { App(json: $0) })
+            self.init(
+                key: try b.need("key", \.stringValue), app: app,
+                title: try b.opt("title", \.stringValue), text: try b.opt("text", \.stringValue),
+                subText: try b.opt("sub_text", \.stringValue), category: try b.opt("category", \.stringValue),
+                postedAt: try b.need("posted_at", \.ms), redacted: try b.need("redacted", \.boolValue),
+                ongoing: try b.opt("ongoing", \.boolValue), template: try b.opt("template", \.stringValue),
+                color: try b.opt("color", \.int32), colorized: try b.opt("colorized", \.boolValue),
+                smallIcon: try b.opt("small_icon", { BlobRef(json: $0) }),
+                largeIcon: try b.opt("large_icon", { BlobRef(json: $0) }),
+                picture: try b.opt("picture", { BlobRef(json: $0) }),
+                pictureDesc: try b.opt("picture_desc", \.stringValue), bigText: try b.opt("big_text", \.stringValue),
+                lines: try b.optList("lines", max: Limits.lines, \.stringValue),
+                summaryText: try b.opt("summary_text", \.stringValue),
+                conversation: try b.opt("conversation", { Conversation(json: $0) }),
+                messages: try b.optList("messages", max: Limits.messages, { ConversationMessage(json: $0) }),
+                actions: try b.optList("actions", max: Limits.actions, { Action(json: $0) }),
+                canOpen: try b.opt("can_open", \.boolValue), progress: try b.opt("progress", { Progress(json: $0) }),
+                live: try b.opt("live", { Live(json: $0) }), when: try b.opt("when", \.ms),
+                showWhen: try b.opt("show_when", \.boolValue),
+                chronometer: try b.opt("chronometer", { Chronometer(json: $0) }),
+                call: try b.opt("call", { Call(json: $0) }), group: try b.opt("group", { Group(json: $0) }),
+                channel: try b.opt("channel", { Channel(json: $0) }))
+        } catch { return nil }
     }
 
     public var json: JSONObject {
-        var o: JSONObject = ["key": .string(key), "app": ["id": .string(app.id), "name": .string(app.name)]]
+        var appJSON: JSONObject = ["id": .string(app.id), "name": .string(app.name)]
+        if let icon = app.icon { appJSON["icon"] = icon.json }
+        var o: JSONObject = ["key": .string(key), "app": .object(appJSON)]
         if let title { o["title"] = .string(title) }
         if let text { o["text"] = .string(text) }
         if let subText { o["sub_text"] = .string(subText) }
@@ -99,6 +230,28 @@ public struct NotificationPosted: MessageBody {
         o["posted_at"] = JSON(postedAt)
         o["redacted"] = .bool(redacted)
         if let ongoing { o["ongoing"] = .bool(ongoing) }
+        if let template { o["template"] = .string(template) }
+        if let color { o["color"] = JSON(color) }
+        if let colorized { o["colorized"] = .bool(colorized) }
+        if let smallIcon { o["small_icon"] = smallIcon.json }
+        if let largeIcon { o["large_icon"] = largeIcon.json }
+        if let picture { o["picture"] = picture.json }
+        if let pictureDesc { o["picture_desc"] = .string(pictureDesc) }
+        if let bigText { o["big_text"] = .string(bigText) }
+        if let lines { o["lines"] = JSON(lines) }
+        if let summaryText { o["summary_text"] = .string(summaryText) }
+        if let conversation { o["conversation"] = conversation.json }
+        if let messages { o["messages"] = .array(messages.map(\.json)) }
+        if let actions { o["actions"] = .array(actions.map(\.json)) }
+        if let canOpen { o["can_open"] = .bool(canOpen) }
+        if let progress { o["progress"] = progress.json }
+        if let live { o["live"] = live.json }
+        if let when { o["when"] = JSON(when) }
+        if let showWhen { o["show_when"] = .bool(showWhen) }
+        if let chronometer { o["chronometer"] = chronometer.json }
+        if let call { o["call"] = call.json }
+        if let group { o["group"] = group.json }
+        if let channel { o["channel"] = channel.json }
         return o
     }
 
@@ -200,6 +353,10 @@ public enum Message: Sendable, Equatable {
     case notificationDismiss(NotificationDismiss)
     case clipboardSet(ClipboardSet)
     case deviceStatus(DeviceStatus)
+    case notificationAction(NotificationAction)
+    case notificationActionResult(NotificationActionResult)
+    case mediaState(MediaState)
+    case mediaCommand(MediaCommand)
 
     /// Decodes a known type's body; nil when the body fails its schema (`bad_payload`).
     public init?(type: MessageType, body: JSONObject) {
@@ -209,6 +366,12 @@ public enum Message: Sendable, Equatable {
         case .notificationDismiss: guard let b = NotificationDismiss(json: body) else { return nil }; self = .notificationDismiss(b)
         case .clipboardSet: guard let b = ClipboardSet(json: body) else { return nil }; self = .clipboardSet(b)
         case .deviceStatus: guard let b = DeviceStatus(json: body) else { return nil }; self = .deviceStatus(b)
+        case .notificationAction:
+            guard let b = NotificationAction(json: body) else { return nil }; self = .notificationAction(b)
+        case .notificationActionResult:
+            guard let b = NotificationActionResult(json: body) else { return nil }; self = .notificationActionResult(b)
+        case .mediaState: guard let b = MediaState(json: body) else { return nil }; self = .mediaState(b)
+        case .mediaCommand: guard let b = MediaCommand(json: body) else { return nil }; self = .mediaCommand(b)
         }
     }
 
@@ -219,6 +382,10 @@ public enum Message: Sendable, Equatable {
         case .notificationDismiss: .notificationDismiss
         case .clipboardSet: .clipboardSet
         case .deviceStatus: .deviceStatus
+        case .notificationAction: .notificationAction
+        case .notificationActionResult: .notificationActionResult
+        case .mediaState: .mediaState
+        case .mediaCommand: .mediaCommand
         }
     }
 
@@ -229,6 +396,10 @@ public enum Message: Sendable, Equatable {
         case .notificationDismiss(let b): b
         case .clipboardSet(let b): b
         case .deviceStatus(let b): b
+        case .notificationAction(let b): b
+        case .notificationActionResult(let b): b
+        case .mediaState(let b): b
+        case .mediaCommand(let b): b
         }
     }
 }
@@ -243,4 +414,22 @@ public enum Collapse {
         let mac = Crypto.hmacSHA256(key: KDF.collapseKey(groupKey: groupKey), input(from: from, realKey: realKey))
         return B64.encode(mac.prefixData(16))
     }
+}
+
+// Content-free descriptions (Global Constraint: bodies print keys and ids only).
+
+extension NotificationPosted: CustomStringConvertible {
+    public var description: String { "NotificationPosted(key: \(key))" }
+}
+
+extension NotificationRemoved: CustomStringConvertible {
+    public var description: String { "NotificationRemoved(key: \(key))" }
+}
+
+extension NotificationDismiss: CustomStringConvertible {
+    public var description: String { "NotificationDismiss(key: \(key))" }
+}
+
+extension ClipboardSet: CustomStringConvertible {
+    public var description: String { "ClipboardSet(sensitive: \(sensitive))" }
 }

@@ -46,6 +46,47 @@
       "maximum": 9007199254740991,
       "description": "Unix epoch milliseconds."
     },
+    "int32": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "description": "Signed 32-bit integer (a Java int). ARGB colours with the alpha bit set are negative."
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647,
+      "description": "Non-negative signed 32-bit integer."
+    },
+    "ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "A duration or media position in milliseconds."
+    },
+    "blob_ref": {
+      "type": "object",
+      "description": "SPEC §11.1: reference to an encrypted blob. Receivers render without the image when they cannot fetch or verify it.",
+      "properties": {
+        "id": { "$ref": "#/$defs/b64_32", "description": "b64(SHA-256(ct))." },
+        "key": { "$ref": "#/$defs/b64_32", "description": "The 32-byte blob key." },
+        "mime": { "type": "string", "minLength": 1 },
+        "size": { "type": "integer", "minimum": 0, "maximum": 1044476, "description": "Plaintext bytes before padding." },
+        "hash": { "$ref": "#/$defs/b64_16", "description": "b64(SHA-256(plaintext)[0..16])." },
+        "w": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "h": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+      },
+      "required": ["id", "key", "mime", "size", "hash"]
+    },
+    "app": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Package name." },
+        "name": { "type": "string" },
+        "icon": { "$ref": "#/$defs/blob_ref", "description": "Convergent-key blob (SPEC §11.2)." }
+      },
+      "required": ["id", "name"]
+    },
     "box": {
       "type": "object",
       "description": "SPEC §2.4.",

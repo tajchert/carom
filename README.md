@@ -28,8 +28,9 @@ other. Think Pushbullet, but you own the server and nobody (including that serve
   on the free plan. There's nothing to patch, back up or keep online.
 - 🛡️ **No open ports, no LAN tricks.** Every device connects outward to your Hub, so it works on any
   network, home or not, and nothing on your devices listens for connections.
-- 🔋 **Light on battery.** The phone keeps no connection open and does no polling. Carom wakes
-  only when Android hands it a notification, or when you use it.
+- 🔋 **Light on battery.** The phone does no polling and has no push connection. Carom wakes
+  only when Android hands it a notification, or when you use it. After a notification it listens
+  for your Mac for a few minutes, so replies and buttons are quick. You can shorten or turn this off.
 - 🎛️ **You decide what's shared.** Forward, hide the content of, or block each app. Mute apps on the
   Mac. Pick which devices send and receive the clipboard.
 - 📱💻 **Any number of devices.** Pair phones and Macs with a QR code. Remove a lost one from any
@@ -39,7 +40,12 @@ other. Think Pushbullet, but you own the server and nobody (including that serve
 
 | | |
 |---|---|
-| **Notifications → Mac** | Live mirroring as native macOS notifications. **Dismiss on phone**, **Copy code** for one-time codes, and **Copy text**. Removed on the phone means removed on the Mac |
+| **Rich notifications → Mac** | The whole notification, close to how it looks on the phone: app and large icons, colours, big pictures, conversations with avatars, inbox and progress styles, and grouped stacks. Removed on the phone means removed on the Mac. A quiet copy also goes to Notification Center, and Focus is respected |
+| **Act from the Mac** | The app's own buttons, **Reply** inline (with suggested replies), **Open on phone**, **Dismiss on phone**, and **Copy text** |
+| **Live Updates and progress** | Android 16 Live Updates, progress bars and timers update in place, with an optional menu-bar chip |
+| **Media controls** | A Now Playing card with play/pause, previous, next and seek |
+| **Calls** | An incoming-call card with **Answer** and **Decline**. Audio stays on the phone |
+| **One-time codes** | 4 to 10 digit and letter-digit codes, a **Copy code** button, optional auto-copy that clears after 60 s, and a way through Android 15's code hiding |
 | **Clipboard, both ways** | Phone → Mac with one tap (button, Quick Settings tile or share sheet). Mac → phone automatically, by hotkey (⌃⌥⌘C) or from the menu, waiting for you the next time you open Carom on the phone |
 | **Per-app control** | Forward / Hide content / Off for each app, "only when locked", pause |
 | **Simple pairing** | Scan a QR code and confirm a short code on both screens. The Hub can't intercept it |
@@ -62,15 +68,20 @@ flowchart LR
 
     P -- "encrypted notifications & clipboard (HTTPS)" --> H
     H -- "live (WebSocket)" --> M
-    M -- "clipboard, dismiss (HTTPS)" --> H
-    H -. "picked up when Carom opens" .-> P
+    M -- "clipboard, dismiss, actions (HTTPS)" --> H
+    H -. "picked up when Carom opens,<br/>or during the action window (WebSocket)" .-> P
 ```
 
 1. **The phone** sees a notification, filters it by your rules, and encrypts and signs it for your other
    devices (Ed25519, X25519, ChaCha20-Poly1305).
 2. **Your Hub** is one Cloudflare Worker and one SQLite Durable Object. It checks who is allowed to post,
    queues the opaque envelope, and fans it out. It never holds a key.
-3. **The Mac** keeps a WebSocket to the Hub, verifies and decrypts, and shows a native notification.
+3. **The Mac** keeps a WebSocket to the Hub, verifies and decrypts, and shows the notification as a
+   card, with its images fetched and decrypted separately.
+
+Messages to the phone, such as a reply or a media command, wait at the Hub. Right after the phone
+sends a notification, it opens a connection for a few minutes (the *action window*), so they arrive
+at once. Outside the window they wait until you open Carom, and the Mac says the phone is asleep.
 
 Keys are exchanged by QR code when you pair, and never leave your devices. The Hub stores messages
 only until they're delivered (one or two days at most).
@@ -98,8 +109,8 @@ The **[setup guide](docs/SETUP.md)** walks through every step, permissions, dail
 
 The apps and the Hub share one small, versioned protocol. The Hub only routes encrypted envelopes and
 never looks at message types, so **new features are new message types and need no server change**.
-Notification replies, sending links, phone battery status, file transfer, a CLI, and Windows or Linux
-clients all fit the existing design.
+Sending links, phone battery status, file transfer, a CLI, and Windows or Linux clients all fit the
+existing design.
 
 - **[Protocol spec](protocol/SPEC.md):** envelope, cryptography, pairing, rekeying, Hub API
 - **Shared test vectors:** the TypeScript, Kotlin and Swift implementations, and the Hub, all pass

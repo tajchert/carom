@@ -2,11 +2,14 @@ package com.mtajchert.carom.app.feature.notifications.impl.apps
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
@@ -24,6 +27,7 @@ class AppsScreenTest {
     val composeRule = createComposeRule()
 
     private val modes = mutableListOf<Pair<String, AppForwardingMode>>()
+    private val ongoing = mutableListOf<Pair<String, Boolean>>()
     private val queries = mutableListOf<String>()
     private var paused: Boolean? = null
     private var accessClicks = 0
@@ -36,6 +40,7 @@ class AppsScreenTest {
                 onBack = { backs++ },
                 onQueryChange = { queries += it },
                 onModeChange = { pkg, mode -> modes += pkg to mode },
+                onForwardOngoingChange = { pkg, on -> ongoing += pkg to on },
                 onPausedChange = { paused = it },
                 onOnlyWhenLockedChange = {},
                 onOpenAccessSettings = { accessClicks++ },
@@ -66,6 +71,26 @@ class AppsScreenTest {
 
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
         assertEquals(1, backs)
+    }
+
+    @Test
+    fun ongoingSwitch() {
+        show(
+            AppsUiState(
+                loading = false,
+                apps = listOf(
+                    NotificationAppSetting("org.signal", "Signal", AppForwardingMode.FORWARD, 0),
+                    NotificationAppSetting("com.nav", "Maps", AppForwardingMode.FORWARD, 0, forwardOngoing = true),
+                ),
+                totalApps = 2,
+            ),
+        )
+        composeRule.onNodeWithText("Ongoing: Off").assertIsDisplayed().performClick()
+        assertEquals(listOf("org.signal" to true), ongoing)
+        // The second row sits below the fold of the test window.
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Ongoing: Forward"))
+        composeRule.onNodeWithText("Ongoing: Forward").assertIsDisplayed().performClick()
+        assertEquals(listOf("org.signal" to true, "com.nav" to false), ongoing)
     }
 
     @Test

@@ -50,4 +50,14 @@ class RoomNotificationAppsRepositoryTest {
         repo.recordSeen("com.chat", "Chat", now = NotificationAppsRepository.TOUCH_INTERVAL_MS)
         assertEquals(NotificationAppsRepository.TOUCH_INTERVAL_MS, repo.apps.first().single().lastPostedAt)
     }
+
+    @Test
+    fun `ongoing forwarding is off on first sight and kept across sightings`() = runTest {
+        assertEquals(false, repo.recordSeen("com.nav", "Maps", now = 1).forwardOngoing)
+        repo.setForwardOngoing("com.nav", true)
+        assertEquals(true, repo.recordSeen("com.nav", "Maps", now = 2).forwardOngoing)
+        assertEquals(true, repo.apps.first().single().forwardOngoing)
+        repo.setForwardOngoing("com.nav", false)
+        assertEquals(false, repo.apps.first().single().forwardOngoing)
+    }
 }

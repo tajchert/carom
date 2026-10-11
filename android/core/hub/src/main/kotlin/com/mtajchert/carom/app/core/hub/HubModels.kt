@@ -55,12 +55,21 @@ data class HubDevice(
 @Serializable
 internal data class DevicesResponse(val devices: List<HubDevice>)
 
-/** `POST /v1/messages`. `seq` is null when [superseded] (SPEC §3.2). */
+/** `POST /v1/messages`. `seq` is null when [superseded] (SPEC §3.2). [online] lists the recipients with a live WebSocket (SPEC V2 §3.7). */
 @Serializable
 data class PostMessageResult(
     val seq: Long? = null,
     val duplicate: Boolean = false,
     val superseded: Boolean = false,
+    val online: List<String> = emptyList(),
+)
+
+/** `PUT /v1/blobs/:id` (SPEC V2 §3.7). */
+@Serializable
+data class BlobInfo(
+    val id: String,
+    val size: Long,
+    @SerialName("expires_at") val expiresAt: Long,
 )
 
 /** One queued message; the envelope is untrusted until the SPEC §3.3 checks pass. */

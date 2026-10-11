@@ -1,6 +1,8 @@
 package com.mtajchert.carom.app.core.hub
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import java.io.IOException
 
 /** Hub API error codes (SPEC §6). [UNKNOWN] covers codes added by a newer Hub. */
@@ -47,7 +49,12 @@ sealed class HubException(message: String, cause: Throwable? = null) : IOExcepti
         /** `429 rate_limited` on `POST /v1/messages`: recipients whose queue is full (SPEC §6 rule 6). */
         val full: List<String> = emptyList(),
     ) : HubException("hub error $status ${code.code}") {
-        val isRetryable: Boolean get() = status >= 500 || (code == HubErrorCode.RATE_LIMITED && full.isEmpty())
+        /** `429 rate_limited` on `PUT /v1/blobs/:id`: the Hub's blob storage is full (SPEC V2 §3.7). */
+        val isQuotaExceeded: Boolean
+            get() = status == 429 && (body?.get("quota") as? JsonPrimitive)?.booleanOrNull == true
+
+        val isRetryable: Boolean
+            get() = status >= 500 || (code == HubErrorCode.RATE_LIMITED && full.isEmpty() && !isQuotaExceeded)
     }
 
     class MalformedResponse(detail: String, cause: Throwable? = null) : HubException("malformed hub response: $detail", cause)

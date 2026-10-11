@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:carom:v1:payload",
   "title": "Payload",
-  "description": "SPEC §3.1: the plaintext inside an envelope `ct`, possibly followed by ASCII-space padding. Receivers ignore unknown fields. For known v1 types the body must match that type's schema; unknown types are acknowledged and ignored.",
+  "description": "SPEC §3.1: the plaintext inside an envelope `ct`, possibly followed by ASCII-space padding. Receivers ignore unknown fields. For known types the body must match that type's schema, and dismiss, action, action_result and media.command need `reply_to`. Unknown types are acknowledged and ignored.",
   "type": "object",
   "properties": {
     "type": { "type": "string", "minLength": 1 },
@@ -37,6 +37,40 @@
     {
       "if": { "properties": { "type": { "const": "device.status@1" } } },
       "then": { "properties": { "body": { "$ref": "urn:carom:v1:device.status@1" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "notification.action@1" } } },
+      "then": {
+        "required": ["reply_to"],
+        "properties": {
+          "reply_to": { "$ref": "urn:carom:v1:common#/$defs/uuidv7" },
+          "body": { "$ref": "urn:carom:v1:notification.action@1" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "notification.action_result@1" } } },
+      "then": {
+        "required": ["reply_to"],
+        "properties": {
+          "reply_to": { "$ref": "urn:carom:v1:common#/$defs/uuidv7" },
+          "body": { "$ref": "urn:carom:v1:notification.action_result@1" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "media.state@1" } } },
+      "then": { "properties": { "body": { "$ref": "urn:carom:v1:media.state@1" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "media.command@1" } } },
+      "then": {
+        "required": ["reply_to"],
+        "properties": {
+          "reply_to": { "$ref": "urn:carom:v1:common#/$defs/uuidv7" },
+          "body": { "$ref": "urn:carom:v1:media.command@1" }
+        }
+      }
     }
   ]
 }

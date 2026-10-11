@@ -12,6 +12,7 @@ import {
   listActiveDevices,
   setRecord,
 } from "../store/devices";
+import { deleteBlobsOf } from "../store/blobs";
 import { dropRecipient } from "../store/messages";
 import { deletePairingsOf } from "../store/pairings";
 import { expectKeys, expectObject, readJson } from "../validate";
@@ -48,6 +49,7 @@ export const revoke: Handler = (call) => {
 
   deleteDevice(hub.sql, id);
   dropRecipient(hub.sql, id, device.cursor);
+  deleteBlobsOf(hub.sql, id);
   deletePairingsOf(hub.sql, id);
   revokeSockets(hub.ctx, id);
   broadcastDir(hub.ctx, id);

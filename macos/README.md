@@ -16,7 +16,8 @@ The contracts are [`protocol/SPEC.md`](../protocol/SPEC.md) (wire format) and
 
 - Xcode 27 (Swift 6.4), macOS 27 to build. The package targets **macOS 14** and later.
 - Swift 6 language mode with strict concurrency; every target treats warnings as errors.
-- Apple frameworks only: CryptoKit, Foundation, Security, Network. No third-party dependencies.
+- Apple frameworks only: CryptoKit, Foundation, Security, Network, and in `CaromDesktop` AppKit,
+  SwiftUI, UserNotifications, Intents, Carbon and ServiceManagement. No third-party dependencies.
 
 ## Layout
 
@@ -28,14 +29,18 @@ CaromKit/
     CaromHub/        SPEC §6–§7: HTTP client, WebSocket client, network path observer
     CaromStore/      Keychain secrets, sync state persistence
     CaromSync/       docs/CLIENTS.md sync engine (an actor)
+    CaromDesktop/    Desktop services and views: clipboard watcher, hotkey, login item, notification
+                     presenter and coordinator, rich cards, Live Updates, media, calls, blob store
   Tests/
     CaromProtocolTests/  every file in protocol/vectors + unit tests
     CaromHubTests/       HubClient over a URLProtocol stub, HubSocket with a fake transport
     CaromStoreTests/     vault, state file, Keychain attributes
     CaromSyncTests/      two in-memory devices against a fake Hub; optional real-Hub test
+    CaromDesktopTests/   coordinator routing, cards and stacks, Live maths, BlobStore, CodeExtractor
 ```
 
-Dependency graph: `CaromProtocol` ← `CaromHub`, `CaromStore` ← `CaromSync`.
+Dependency graph: `CaromProtocol` ← `CaromHub`, `CaromStore` ← `CaromSync`; `CaromDesktop` depends
+on `CaromProtocol` only.
 
 ### CaromProtocol
 
@@ -54,6 +59,24 @@ Dependency graph: `CaromProtocol` ← `CaromHub`, `CaromStore` ← `CaromSync`.
 
 Failures from untrusted input are `Result` values whose error `rawValue`s are the vector codes
 (`bad_signature`, `untrusted_sender`, …). Programmer errors trap.
+
+`Blobs.swift` (SPEC §11: seal and open, the convergent key) and `RichNotification.swift` /
+`RichMessages.swift` (the V2 `notification.posted@1` fields, `notification.action@1`,
+`notification.action_result@1`, `media.state@1`, `media.command@1`) hold the V2 types.
+
+### CaromDesktop
+
+| Path | Contents |
+|---|---|
+| `NotificationCoordinator.swift` | Routes every posted, removed, media and action-result event to the panel, native notifications, the Live chip and history. Owns the card timers ("Sending…", "Phone is asleep" after 30 s) |
+| `NotificationPresenter.swift` | The native macOS notification (passive while the panel is on), its categories (Copy code, Reply, Dismiss on phone, Copy text) |
+| `Rich/` | `RichPanel` (the non-activating `NSPanel`), `CardModel`, `CardStack` (grouping, order, "+N more"), card views and styles, `CardActionsRow` (buttons, reply field), `FocusStatus` (`INFocusStatusCenter`) |
+| `Live/` | `LiveUpdateCardView`, `LiveMath` (segments, chronometer, countdown), `LiveChip` (menu-bar item) |
+| `Media/` | `MediaSession` (state extrapolation), `NowPlayingView` |
+| `Call/` | `CallCardView`, `CallRinger` (looped sound) |
+| `BlobStore.swift` | Fetch, hash check, decrypt, disk cache (50 MB, LRU, icons last), 4 fetches at a time |
+| `CodeExtractor.swift` | One-time codes: 4 to 10 digits, letter-digit with keyword |
+| `ClipboardWatcher.swift`, `HotkeyManager.swift`, `LoginItem.swift` | Clipboard polling and writes, the global hotkey, the login item |
 
 ### CaromHub
 
@@ -93,7 +116,7 @@ Failures from untrusted input are `Result` values whose error `rawValue`s are th
 | Join | `beginJoin(uri:) -> JoinTicket` (show `fingerprint`), `completeJoin()`, `join(uri:)` |
 | Invite | `createPairingInvite() -> PairingInvite` (QR `uri`), `pollPairing(pairId:)`, `approvePairing(pairId:)`, `rejectPairing(pairId:)`, `cancelPairing(pairId:)` |
 | Directory | `refreshDirectory()`, `checkKeyring()`, `directory`, `rename(_:)`, `setReceiveRule(_:for:)` |
-| Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `flushOutbox()`, `outbox` |
+| Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `sendReturningMsgId(...)` (also the msg_id), `flushOutbox()`, `outbox` |
 | Receive | `fetchMessages()`, `process(_:)`, `handle(_ event: HubSocket.Event)` |
 | Realtime | `startRealtime(connector:configuration:) -> HubSocket?`, `stopRealtime()`, `realtimeState`, `realtimeStates()` (offline / connecting / connected; a fresh stream per call) |
 | Revoke | `revoke(deviceId:)` (another device: delete, then rekey; this device: rekey without itself, then delete, SPEC §5.4), `rekey(excluding:)`, `handleRevoked()` |
@@ -273,12 +296,26 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
 - **Connection state** comes from `SyncEngine.realtimeStates()` (connected after the first frame
   or pong; the engine pings once right away), combined with sleep and no-network from the system
   monitor. After 45 s without a connection a "Can't reach your Hub" banner appears.
-- **Notifications.** `notification.posted` → `NotificationPresenter.present` unless paused, the
+- **Notifications.** `notification.posted` → `NotificationCoordinator` (native copy via
+  `NotificationPresenter`) unless paused, the
   phone is turned off in our `receive` rules, or the app is muted locally. The phone name is shown
   only with more than one phone. `removed` withdraws it (and drops it from the menu). Redacted
   notifications with no text read "Content hidden on your phone." *Dismiss on phone* sends
   `notification.dismiss@1` with `reply_to`. Copying a code or text from a notification suppresses
   automatic sending for 2 s, so it is not sent straight back.
+- **Rich notifications.** `NotificationCoordinator` (CaromDesktop) receives every posted, removed
+  and action-result message. With *Show notifications as: Rich* (the default) a non-activating
+  `NSPanel` at the top right of the screen under the pointer shows Android-like cards: at most 4
+  stacks, then "+N more"; cards fade after 6 s unless the pointer is over them; conversations,
+  calls and Live Updates stay until handled or removed; one app's group collapses into
+  "App · N new". The native notification is posted at the passive level, so it lands in
+  Notification Center without a second banner. The panel takes the keyboard only while a reply
+  field is open. During a Focus only the native notification posts. The app's buttons, Reply and
+  Open on phone (`notification.action@1`) appear only for phones whose caps include it; a card
+  shows "Sending…", then the phone's result, or "Phone is asleep — will send when it wakes" after
+  30 s. When the phone re-posts a conversation with the user's own reply appended (newest
+  message without a sender), the card changes in place without a sound and still fades.
+  *Native only* uses banners and no panel.
 - **Clipboard.** `clipboard.set` is written with `ClipboardWatcher.write` (marker type, so the
   watcher skips it; the engine also suppresses echoes). Automatic sending defaults to on when
   pasteboard access is *Always allow* (`NSPasteboard.accessBehavior`, macOS 15.4+) and on macOS
@@ -315,10 +352,16 @@ Debug builds accept launch arguments (Release builds ignore them; see
 | `-caromAutoApprove YES` | approve a verified pairing candidate |
 | `-caromEventLog <path>` | append event names and message types, never content |
 | `-caromShowWindows menu,settings` | open the popover content in a window, and Settings, for screenshots |
+| `-caromAutoReply <text>` | load the images of the first card with a reply action, then reply on it |
+| `-caromAutoMedia <command>` | send `play`, `pause`, `next` or `previous` to the first media session offering it |
 
 `scripts/e2e.sh` uses them to run the real app against a local Hub with a simulated phone
 (`scripts/fake-phone.mjs`, real crypto from `@carom/protocol`): setup, pairing, notification
-posted and removed, clipboard. It checks the event log and the pasteboard:
+posted and removed, clipboard, and the V2 set: an encrypted avatar blob (uploaded and read
+back), a rich messaging card with a reply action that the app answers and the phone confirms
+with `notification.action_result@1`, a progress Live Update with two updates, and a
+`media.state@1` that the app answers with `media.command@1`. It checks the event log and the
+pasteboard, then prints a short list of things to check on screen:
 
 ```sh
 npm install && (cd protocol/ts && npm run build)      # once, at the repository root
@@ -328,6 +371,10 @@ printf '{"setupToken":"%s"}' "$TOKEN" > /tmp/carom-token.json
 macos/scripts/e2e.sh http://localhost:8790 /tmp/carom-token.json \
   ~/Library/Developer/Xcode/DerivedData/Carom-*/Build/Products/Debug/Carom.app
 ```
+
+The test Hub on Cloudflare works too: deploy it with `node hub/bin/carom-hub.mjs update --name
+carom-hub-dev` and pass its URL and `~/.config/carom-hub/carom-hub-dev.json` (it holds
+`setupToken`). Only use a throwaway Hub: the token ends up in the app's launch arguments.
 
 It resets the Hub, uses the `e2e` profile, and overwrites the clipboard with a test marker.
 Notification banners only appear once Carom is allowed to post notifications.

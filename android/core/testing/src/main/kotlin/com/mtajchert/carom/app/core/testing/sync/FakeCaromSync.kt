@@ -11,6 +11,7 @@ import com.mtajchert.carom.app.core.data.sync.SendResult
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.hub.HubMessage
 import com.mtajchert.carom.app.core.model.ConnectionStatus
+import com.mtajchert.carom.app.core.protocol.MessageBodies
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.JsonObject
 
@@ -18,7 +19,13 @@ import kotlinx.serialization.json.JsonObject
 class FakeCaromSync : CaromSync {
     override val status = MutableStateFlow(ConnectionStatus.IDLE)
 
-    data class Sent(val type: String, val body: JsonObject, val replyTo: String?, val onlyTo: Set<String>?)
+    data class Sent(
+        val type: String,
+        val body: JsonObject,
+        val replyTo: String?,
+        val onlyTo: Set<String>?,
+        val replyToSender: String? = null,
+    )
 
     val sent = mutableListOf<Sent>()
     var nextSendResult: SendResult = SendResult.Sent("01a1268a-e800-7000-8000-000000000000")
@@ -34,7 +41,7 @@ class FakeCaromSync : CaromSync {
     var wipes = 0
 
     override suspend fun send(type: String, body: JsonObject, replyTo: String?, replyToSender: String?, onlyTo: Set<String>?): SendResult {
-        sent += Sent(type, body, replyTo, onlyTo)
+        sent += Sent(type, body, replyTo, onlyTo, replyToSender)
         return nextSendResult
     }
 
@@ -68,6 +75,46 @@ class FakeCaromSync : CaromSync {
     override suspend fun publishOwnRecord(): Boolean {
         published++
         return true
+    }
+
+    class Upload(
+        val plain: ByteArray,
+        val mime: String,
+        val w: Int?,
+        val h: Int?,
+        val convergent: Boolean,
+        val ttlS: Long,
+        val msgId: String?,
+    )
+
+    /** Every [uploadBlob] call, in order. */
+    val uploads = mutableListOf<Upload>()
+
+    /** What [uploadBlob] returns; null simulates a failed upload. */
+    var uploadResult: (Upload) -> MessageBodies.BlobRef? = { u ->
+        MessageBodies.BlobRef(
+            id = "blob-${uploads.size}",
+            key = "fake-key",
+            mime = u.mime,
+            size = u.plain.size.toLong(),
+            hash = "fake-hash",
+            w = u.w,
+            h = u.h,
+        )
+    }
+
+    override suspend fun uploadBlob(
+        plain: ByteArray,
+        mime: String,
+        w: Int?,
+        h: Int?,
+        convergent: Boolean,
+        ttlS: Long,
+        msgId: String?,
+    ): MessageBodies.BlobRef? {
+        val upload = Upload(plain, mime, w, h, convergent, ttlS, msgId)
+        uploads += upload
+        return uploadResult(upload)
     }
 
     override suspend fun onRevoked() {

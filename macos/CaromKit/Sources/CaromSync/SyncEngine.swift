@@ -82,6 +82,7 @@ public actor SyncEngine {
             state = loadedState
             if let last = state.lastMsgId { generator.resume(after: last) }
             secrets?.pruneKeys(now: clock())
+            mergeV2ReceiveDefaults()
         } else {
             secrets = nil
             state = SyncState()
@@ -511,6 +512,27 @@ public actor SyncEngine {
 
     // MARK: - Own record
 
+    /// A device that wrote its `receive` rules before V2 has none for the V2 types, so no phone
+    /// would send it `media.state@1`. Adds those defaults once; later removals stay removed.
+    private func mergeV2ReceiveDefaults() {
+        guard !state.receiveV2Merged else { return }
+        if var rules = state.receive {
+            for (type, rule) in Routing.defaultReceive(config.kind) where Routing.v2Types.contains(type) && rules[type] == nil {
+                rules[type] = rule
+            }
+            state.receive = rules
+        }
+        state.receiveV2Merged = true
+        persist()
+    }
+
+    /// Republishes our record when the last one published advertised other `caps` (the first
+    /// launch after an upgrade). `startRealtime` calls it; it does nothing when the record is current.
+    public func publishRecordIfCapsChanged() async throws {
+        guard isConfigured, state.publishedCaps != config.caps else { return }
+        try await publishRecord()
+    }
+
     private func ownRecord(updated: Int) throws -> DeviceRecord {
         guard let s = secrets else { throw SyncError.notConfigured }
         return DeviceRecord(identity: s.identity, name: state.deviceName, kind: config.kind, platform: config.platform,
@@ -526,6 +548,7 @@ public actor SyncEngine {
         let sealed = RecordCodec.seal(record, groupKey: key.key, kv: key.kv, signSk: s.signSk, random: random)
         try await requireHub().putRecord(sealed)
         state.recordUpdated = max(state.recordUpdated, updated)
+        state.publishedCaps = config.caps
         persist()
     }
 
@@ -557,14 +580,23 @@ public actor SyncEngine {
     public func send<B: MessageBody>(_ body: B, replyTo: String? = nil, only: Set<String>? = nil) async throws
         -> SendOutcome
     {
+        try await sendReturningMsgId(body, replyTo: replyTo, only: only).outcome
+    }
+
+    /// `send`, also returning the msg_id the message was sealed under (nil when nothing was
+    /// sealed: an echo, or no recipients). A sender that waits for a reply matches the reply's
+    /// `reply_to` against it (`notification.action@1` -> `notification.action_result@1`).
+    public func sendReturningMsgId<B: MessageBody>(_ body: B, replyTo: String? = nil, only: Set<String>? = nil)
+        async throws -> (msgId: String?, outcome: SendOutcome)
+    {
         guard let s = secrets, let key = s.current, let selfId = state.deviceId else { throw SyncError.notConfigured }
         let now = clock()
-        if let clip = body as? ClipboardSet, echo.shouldSuppress(clip.text, now: now) { return .suppressedEcho }
+        if let clip = body as? ClipboardSet, echo.shouldSuppress(clip.text, now: now) { return (nil, .suppressedEcho) }
 
         var to: [String]
         if let replyTo {
             guard let original = state.received[replyTo]?.peers.first, state.directory[original] != nil else {
-                return .noRecipients
+                return (nil, .noRecipients)
             }
             to = Routing.recipients(type: B.type.rawValue, sender: selfId, directory: [], replyToSender: original)
         } else {
@@ -572,7 +604,7 @@ public actor SyncEngine {
                                     directory: state.directory.values.map(\.record))
             if let only { to = to.filter(only.contains) }
         }
-        guard !to.isEmpty else { return .noRecipients }
+        guard !to.isEmpty else { return (nil, .noRecipients) }
 
         let plaintext: Data
         do { plaintext = try Payload(type: B.type.rawValue, ts: now, replyTo: replyTo, body: body).encode() } catch {
@@ -585,9 +617,10 @@ public actor SyncEngine {
                                           ttlS: B.type.defaultTtlS, plaintext: plaintext, groupKey: key.key,
                                           kv: key.kv, signSk: s.signSk, random: random)
         state.outbox.append(OutboxItem(envelope: envelope, createdAt: now, nextAttemptAt: now,
-                                       notificationKey: (body as? NotificationPosted)?.key))
+                                       notificationKey: (body as? NotificationPosted)?.key,
+                                       messageType: B.type.rawValue, mediaSession: (body as? MediaState)?.session))
         persist()
-        return await deliver(msgId: msgId)
+        return (msgId, await deliver(msgId: msgId))
     }
 
     /// Retries queued messages that are due. Call on reconnect, on a timer, and after wake.
@@ -617,7 +650,8 @@ public actor SyncEngine {
                 removeFromOutbox(msgId)
                 state.sent[msgId] = MessageRef(peers: item.envelope.to,
                                                expiresAt: item.expiresAt + Carom.Limits.clockSkewMs,
-                                               key: item.notificationKey)
+                                               key: item.notificationKey, type: item.messageType,
+                                               session: item.mediaSession)
                 persist()
                 if result.superseded { return .superseded }
                 return .sent(seq: result.seq ?? 0, duplicate: result.duplicate)
@@ -729,7 +763,8 @@ public actor SyncEngine {
         let context = ReceiveContext(
             selfId: selfId, directory: trustedSignPubs(), keys: s.keysByVersion, now: now, seen: Set(state.seen.keys),
             knownTypes: Set(config.caps), lastClipboardTs: state.lastClipboardTs,
-            originalRecipients: state.sent.mapValues(\.peers), originalKeys: state.sent.compactMapValues(\.key))
+            originalRecipients: state.sent.mapValues(\.peers), originalKeys: state.sent.compactMapValues(\.key),
+            originalTypes: state.sent.compactMapValues(\.type), originalSessions: state.sent.compactMapValues(\.session))
         switch Receiver.receive(envelope, context: context) {
         case .success(let r):
             state.seen[r.envelope.msgId] = now + Carom.Limits.seenRetentionMs
@@ -746,6 +781,24 @@ public actor SyncEngine {
             log.info("message dropped: \(e.rawValue, privacy: .public)")
             await emit(.messageDropped(e))
         }
+    }
+
+    // MARK: - Blobs
+
+    /// Downloads, verifies and decrypts one image blob (SPEC §3.2). Nil on any failure: no token,
+    /// the Hub does not have it (404, expired), a network error, a wrong id, tag or hash. The
+    /// caller renders without the image. Nothing about the image is logged.
+    public func fetchBlob(_ ref: BlobRef) async -> Data? {
+        guard let hub = try? requireHub() else { return nil }
+        let ct: Data?
+        do throws(HubError) {
+            ct = try await hub.getBlob(id: ref.id)
+        } catch {
+            await noteAuthFailure(error)
+            return nil
+        }
+        guard let ct else { return nil }
+        return Blobs.open(ref, ct: ct)
     }
 
     // MARK: - Realtime (WebSocket)
@@ -766,6 +819,8 @@ public actor SyncEngine {
             for await event in ws.events { await self?.handle(event) }
         }
         await ws.start()
+        // After an upgrade the Hub still lists the V1 caps; tell the phones about the new types.
+        Task { [weak self] in _ = try? await self?.publishRecordIfCapsChanged() }
         return ws
     }
 

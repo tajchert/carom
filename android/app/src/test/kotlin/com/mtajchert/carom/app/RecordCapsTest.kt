@@ -1,13 +1,16 @@
 package com.mtajchert.carom.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
 import com.mtajchert.carom.app.core.data.sync.DefaultCaromSync
 import com.mtajchert.carom.app.core.data.sync.Enrollment
 import com.mtajchert.carom.app.core.data.sync.EnrollmentResult
 import com.mtajchert.carom.app.core.data.sync.HubProvider
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.protocol.DeviceKind
+import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.Outcome
 import com.mtajchert.carom.app.core.protocol.QrPayload
@@ -52,16 +55,52 @@ class RecordCapsTest {
     @Inject
     lateinit var profile: LocalDeviceProfileProvider
 
+    @Inject
+    lateinit var preferences: UserPreferencesRepository
+
     @Before
     fun setUp() = hiltRule.inject()
 
     @Test
-    fun `the app handles exactly clipboard and dismiss`() {
-        assertEquals(setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS), handlers.map { it.type }.toSet())
+    fun `the app handles exactly clipboard, dismiss, actions and media commands`() {
+        assertEquals(
+            setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS, MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND),
+            handlers.map { it.type }.toSet(),
+        )
     }
 
     @Test
     fun `the sealed record opens with exact caps and the phone receive defaults`() = runTest {
+        val record = publishedRecord()
+
+        assertEquals(DeviceKind.PHONE, record.kind)
+        // "Actions from Mac" defaults to After a notification, so both action types are advertised.
+        assertEquals(
+            listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND),
+            record.caps,
+        )
+        assertEquals(
+            mapOf(
+                MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone,
+                MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone,
+                MessageTypes.NOTIFICATION_ACTION to ReceiveRule.Everyone,
+                MessageTypes.MEDIA_COMMAND to ReceiveRule.Everyone,
+            ),
+            record.receive,
+        )
+    }
+
+    @Test
+    fun `with Actions from Mac off the record withholds the action types`() = runTest {
+        preferences.setActionsFromMac(ActionsFromMac.OFF)
+
+        val record = publishedRecord()
+
+        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET), record.caps)
+    }
+
+    /** Enrolls through the real engine on an in-memory Hub and opens this phone's published record. */
+    private suspend fun publishedRecord(): DeviceRecord {
         val hub = FakeHub()
         val vault = InMemorySecretVault()
         val state = InMemorySyncState()
@@ -86,13 +125,6 @@ class RecordCapsTest {
         val key = contents.currentKey!!
         val selfId = contents.identity!!.deviceId
         val published = hub.factory.client(hub.url) { contents.deviceToken }.devices().single { it.id == selfId }.record
-        val record = (Records.open(published, key.key, key.kv) as Outcome.Ok).value
-
-        assertEquals(DeviceKind.PHONE, record.kind)
-        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET), record.caps)
-        assertEquals(
-            mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone, MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone),
-            record.receive,
-        )
+        return (Records.open(published, key.key, key.kv) as Outcome.Ok).value
     }
 }

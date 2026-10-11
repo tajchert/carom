@@ -154,6 +154,20 @@ describe('receiver rules', () => {
     expect(receiveEnvelope(make(dismiss), ctx())).toEqual({ ok: false, error: 'bad_payload' });
   });
 
+  it('rejects an action, action result or media command without reply_to', () => {
+    const bodies: Array<[string, Record<string, unknown>]> = [
+      ['notification.action@1', { key: 'k', action: 'tap' }],
+      ['notification.action_result@1', { ok: true }],
+      ['media.command@1', { session: 's', command: 'play' }],
+    ];
+    for (const [type, body] of bodies) {
+      expect(receiveEnvelope(make({ type, ts: NOW, body }), ctx()), type).toEqual({ ok: false, error: 'bad_payload' });
+    }
+    // media.state is not a reply.
+    const state = { type: 'media.state@1', ts: NOW, body: { session: 's', app: { id: 'a', name: 'A' }, state: 'paused', controls: [] } };
+    expect(receiveEnvelope(make(state), ctx()).ok).toBe(true);
+  });
+
   it('accepts unknown types the receiver declares in knownTypes', () => {
     const custom = { type: 'example.custom@1', ts: NOW, body: { any: 1 } };
     expect(receiveEnvelope(make(custom), ctx()).ok).toBe(false);
