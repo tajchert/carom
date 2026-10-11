@@ -47,8 +47,10 @@ class EncodedImage(val bytes: ByteArray, val w: Int, val h: Int, val mime: Strin
     override fun toString() = "EncodedImage(${w}x$h, ${bytes.size} bytes)"
 }
 
-internal fun sha256Hex(bytes: ByteArray): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+internal fun sha256Hex(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
+
+/** Lower-case hex of these bytes, two digits per byte. */
+internal fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
 /** One message of a conversation, without its images (they are in [NotificationSnapshot.imageSources] by index). */
 data class SnapMessage(val senderName: String?, val senderKey: String?, val text: String, val ts: Long) {

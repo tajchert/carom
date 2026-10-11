@@ -115,7 +115,7 @@ object NotificationMapper {
         for ((slot, image) in images.entries.sortedBy { it.key.toString() }) {
             md.update("|$slot=${image.digest}".toByteArray(Charsets.UTF_8))
         }
-        return md.digest().joinToString("") { "%02x".format(it) }
+        return md.digest().toHex()
     }
 
     /**

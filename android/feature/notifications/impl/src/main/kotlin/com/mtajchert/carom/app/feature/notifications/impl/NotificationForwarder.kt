@@ -113,7 +113,10 @@ class NotificationForwarder(
                     handle(event)
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
+                    // Any failure (an IOException from the hub, a GeneralSecurityException from the keystore) is
+                    // logged and the loop goes on: a worker that died here would leave its slot marked running,
+                    // and every later state of this key would wait for it forever.
                     env.log("notification_failed", e.javaClass.simpleName)
                 }
             }
@@ -223,7 +226,10 @@ class NotificationForwarder(
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
+                    // Any failure (an IOException from the hub, a GeneralSecurityException from the keystore) is
+                    // logged and the loop goes on: a worker that died here would leave its slot marked running,
+                    // and every later state of this key would wait for it forever.
                     env.log("notification_failed", e.javaClass.simpleName)
                 }
             }

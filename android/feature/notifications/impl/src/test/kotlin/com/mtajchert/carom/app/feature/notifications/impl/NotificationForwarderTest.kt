@@ -507,6 +507,21 @@ class NotificationForwarderTest {
         assertEquals(listOf("notification_failed IllegalStateException"), logged)
     }
 
+    @Test
+    fun `a send that throws a checked exception does not wedge the key`() = runTest {
+        val f = forwarder()
+        sync.failNextSend = java.io.IOException("hub down")
+        f.onPosted { snapshot(text = "1") }
+        runCurrent()
+        assertEquals(0, fake.sent.size)
+        assertEquals(listOf("notification_failed IOException"), logged)
+
+        advanceTimeBy(2_000)
+        f.onPosted { snapshot(text = "2") }
+        runCurrent()
+        assertEquals(listOf("2"), fake.sent.indices.map { postedText(it) })
+    }
+
     private class RecordingSignal : ActivitySignal {
         val online = mutableListOf<Set<String>>()
         var activity = 0
@@ -542,6 +557,7 @@ class NotificationForwarderTest {
     private class CountingSync(private val inner: FakeCaromSync) : CaromSync by inner {
         var fetches = 0
         var tooLargeFirst = false
+        var failNextSend: Exception? = null
         val tooLargeBodies = mutableListOf<JsonObject>()
 
         override suspend fun fetchMessages(): FetchResult {
@@ -556,6 +572,10 @@ class NotificationForwarderTest {
             replyToSender: String?,
             onlyTo: Set<String>?,
         ): SendResult {
+            failNextSend?.let {
+                failNextSend = null
+                throw it
+            }
             if (tooLargeFirst && type == MessageTypes.NOTIFICATION_POSTED) {
                 tooLargeFirst = false
                 tooLargeBodies += body

@@ -1,6 +1,5 @@
 package com.mtajchert.carom.app.feature.notifications.impl.di
 
-import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.feature.notifications.impl.BlobUploader
@@ -22,7 +21,6 @@ import com.mtajchert.carom.app.feature.notifications.impl.VaultGroupKeySource
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
 import dagger.Binds
-import dagger.BindsOptionalOf
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -68,10 +66,6 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsClearIconCacheOnWipe(impl: ClearIconCacheOnWipe): WipeHook
-
-    /** The action window (M3) binds the real signal; until then the forwarder runs without one. */
-    @BindsOptionalOf
-    abstract fun optionalActivitySignal(): ActivitySignal
 
     companion object {
         @Provides
