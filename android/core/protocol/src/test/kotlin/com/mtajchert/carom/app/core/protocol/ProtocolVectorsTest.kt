@@ -487,7 +487,6 @@ class ProtocolVectorsTest {
         is QrPayload.Pair -> "pair"
     }
 
-    /** Decodes the body with the typed v1 class and re-encodes it, which must be lossless and ordered. */
     /** The V1 `notification.posted@1` keys. A body using only these keeps its V1 byte order. */
     private val v1PostedKeys = setOf("key", "app", "title", "text", "sub_text", "category", "posted_at", "redacted", "ongoing")
 

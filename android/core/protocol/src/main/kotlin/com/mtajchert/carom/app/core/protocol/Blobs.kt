@@ -56,9 +56,14 @@ object Blobs {
 
     /**
      * Encrypts [plain] under [key] (single use). [w] and [h] are the image size in pixels, when known.
-     * @throws IllegalArgumentException when [plain] exceeds [Protocol.Limits.MAX_BLOB_PLAINTEXT] or the key is not 32 bytes.
+     * @throws IllegalArgumentException when [plain] exceeds [Protocol.Limits.MAX_BLOB_PLAINTEXT], the key is
+     *   not 32 bytes, [mime] is empty, or [w] or [h] is below 1 (a receiver rejects such a reference).
      */
     fun seal(plain: ByteArray, mime: String, key: ByteArray, w: Int? = null, h: Int? = null): SealedBlob {
+        require(key.size == Protocol.KEY_LENGTH) { "blob key must be 32 bytes" }
+        require(mime.isNotEmpty()) { "mime must not be empty" }
+        require(w == null || w >= 1) { "w must be at least 1" }
+        require(h == null || h >= 1) { "h must be at least 1" }
         val ct = Crypto.aeadSeal(key, aad(mime), pad(plain))
         val ref = MessageBodies.BlobRef(
             id = B64.encode(Crypto.sha256(ct)),

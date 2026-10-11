@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
 /** Message types (SPEC §4, and SPEC V2 §3.4 for the last four). */
@@ -44,7 +43,6 @@ object MessageTypes {
     private const val DAY_S = 86_400L
     private const val ACTION_TTL_S = 600L
 
-    private val ACTION_WORDS = setOf("tap", "answer", "decline")
     private val MEDIA_COMMANDS = setOf("play", "pause", "next", "previous", "seek")
 
     /** Default TTL in seconds (SPEC §4 table, SPEC V2 §3.4). */
@@ -63,13 +61,17 @@ object MessageTypes {
         else -> null
     }
 
-    private fun isValidActionRef(element: JsonElement?): Boolean = when (element) {
-        is JsonPrimitive -> element.stringOrNull()?.let { it in ACTION_WORDS } == true
-        is JsonObject ->
-            element["index"].integerOrNull()?.let { it in 0..Int.MAX_VALUE.toLong() } == true &&
-                element["title"].stringOrNull() != null &&
-                ("reply_text" !in element || element["reply_text"].stringOrNull() != null)
-        else -> false
+    /** Decodes with [ActionRefSerializer], so the validator and the typed decoder share one rule. */
+    private fun isValidActionRef(element: JsonElement?): Boolean {
+        if (element == null) return false
+        return try {
+            ProtocolJson.decodeFromJsonElement(ActionRefSerializer, element)
+            true
+        } catch (_: SerializationException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
     }
 
     private const val MAX_LINES = 7
@@ -88,14 +90,24 @@ object MessageTypes {
     private fun JsonObject.int32(name: String) = this[name].integerOrNull()?.let { it in Int.MIN_VALUE..Int.MAX_VALUE } == true
     private fun JsonObject.optInt32(name: String) = !has(name) || int32(name)
     private fun JsonObject.uint31(name: String) = this[name].integerOrNull()?.let { it in 0..Int.MAX_VALUE.toLong() } == true
+    private fun JsonObject.optUint31(name: String) = !has(name) || uint31(name)
 
-    /** A blob reference (SPEC V2 §3.1): 32-byte id and key, 16-byte hash, all unpadded base64url. */
+    /** An image dimension: an int32 of at least 1. */
+    private fun JsonObject.optDimension(name: String) =
+        !has(name) || this[name].integerOrNull()?.let { it in 1..Int.MAX_VALUE.toLong() } == true
+
+    /**
+     * A blob reference (SPEC V2 §3.1): 32-byte id and key, 16-byte hash, all unpadded base64url; a
+     * non-empty mime, a size of at most [Protocol.Limits.MAX_BLOB_PLAINTEXT], and dimensions of at least 1.
+     */
     private fun isValidBlob(element: JsonElement?): Boolean {
         val o = element.objectOrNull() ?: return false
         return B64.decodeLength(o["id"].stringOrNull(), BLOB_ID_LENGTH) != null &&
             B64.decodeLength(o["key"].stringOrNull(), Protocol.KEY_LENGTH) != null &&
             B64.decodeLength(o["hash"].stringOrNull(), BLOB_HASH_LENGTH) != null &&
-            o.str("mime") && o["size"].safeUintOrNull() != null && o.optUint("w") && o.optUint("h")
+            o["mime"].stringOrNull()?.isNotEmpty() == true &&
+            o["size"].safeUintOrNull()?.let { it <= Protocol.Limits.MAX_BLOB_PLAINTEXT } == true &&
+            o.optDimension("w") && o.optDimension("h")
     }
 
     private fun JsonObject.optBlob(name: String) = !has(name) || isValidBlob(this[name])
@@ -137,12 +149,12 @@ object MessageTypes {
             } &&
             body.optList("actions", MAX_ACTIONS) { a ->
                 val o = a.objectOrNull()
-                o != null && o.uint31("index") && o.str("title") && o.optInt32("semantic") &&
+                o != null && o.uint31("index") && o.str("title") && o.optUint31("semantic") &&
                     o.optSub("reply") { r -> r.optStr("label") && r.optList("choices", Int.MAX_VALUE) { c -> c.stringOrNull() != null } }
             } &&
             body.optBool("can_open") &&
             body.optSub("progress") { p ->
-                p.int32("value") && p.int32("max") && p["indeterminate"].booleanOrNull() != null &&
+                p.uint31("value") && p.uint31("max") && p["indeterminate"].booleanOrNull() != null &&
                     p.optList("segments", MAX_SEGMENTS) { s ->
                         val o = s.objectOrNull()
                         o != null && o.uint31("length") && o.optInt32("color")

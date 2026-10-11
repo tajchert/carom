@@ -66,6 +66,23 @@ class BlobsTest {
     }
 
     @Test
+    fun `seal refuses a reference the receiver would reject`() {
+        val key = Blobs.randomKey()
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "", key) }
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "image/webp", key, 0, 64) }
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "image/webp", key, 96, 0) }
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "image/webp", key, -1, 64) }
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "image/webp", key, 96, -1) }
+        assertEquals(1, Blobs.seal(picture, "image/webp", key, 1, 1).ref.w)
+    }
+
+    @Test
+    fun `seal refuses a key that is not 32 bytes`() {
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "image/webp", ByteArray(31)) }
+        assertThrows(IllegalArgumentException::class.java) { Blobs.seal(picture, "image/webp", ByteArray(33)) }
+    }
+
+    @Test
     fun `two random keys give different ids`() {
         val a = Blobs.seal(picture, "image/webp", Blobs.randomKey())
         val b = Blobs.seal(picture, "image/webp", Blobs.randomKey())

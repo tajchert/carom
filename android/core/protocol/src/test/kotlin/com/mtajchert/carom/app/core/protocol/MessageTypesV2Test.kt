@@ -130,6 +130,24 @@ class MessageTypesV2Test {
         assertFalse("when", valid(t, """{$base,"when":-1}"""))
         assertFalse("show_when", valid(t, """{$base,"show_when":"x"}"""))
         assertFalse("call", valid(t, """{$base,"call":"incoming"}"""))
+
+        // Blob refs, counts and semantics follow the TS reference exactly (isValidBlobRef, isCount).
+        fun withBlob(fields: String) =
+            """{$base,"picture":{"id":"tT5tW3C6Ml-2C_r0EOM8wSuu4uLu5gDund1sTZ9d3oY","key":"XLfWkU9Em1UrcVnxbDj1xvSUv5FDF72XSz6qZVhetGg",""" +
+                """"hash":"3uAY9siCMMBjuA0RTcsyeA",$fields}}"""
+        assertTrue("blob dims", valid(t, withBlob(""""mime":"image/webp","size":1000,"w":1,"h":2147483647""")))
+        assertTrue("blob at the size cap", valid(t, withBlob(""""mime":"image/webp","size":1044476""")))
+        assertFalse("empty mime", valid(t, withBlob(""""mime":"","size":1000""")))
+        assertFalse("size past the cap", valid(t, withBlob(""""mime":"image/webp","size":1044477""")))
+        assertFalse("size 2000000", valid(t, withBlob(""""mime":"image/webp","size":2000000""")))
+        assertFalse("w zero", valid(t, withBlob(""""mime":"image/webp","size":1000,"w":0""")))
+        assertFalse("h zero", valid(t, withBlob(""""mime":"image/webp","size":1000,"h":0""")))
+        assertFalse("w past Int", valid(t, withBlob(""""mime":"image/webp","size":1000,"w":2147483648""")))
+        assertFalse("h past Int", valid(t, withBlob(""""mime":"image/webp","size":1000,"h":2147483648""")))
+        assertFalse("negative progress value", valid(t, """{$base,"progress":{"value":-1,"max":2,"indeterminate":false}}"""))
+        assertFalse("negative progress max", valid(t, """{$base,"progress":{"value":1,"max":-2,"indeterminate":false}}"""))
+        assertTrue("semantic zero", valid(t, """{$base,"actions":[{"index":0,"title":"x","semantic":0}]}"""))
+        assertFalse("negative semantic", valid(t, """{$base,"actions":[{"index":0,"title":"x","semantic":-1}]}"""))
     }
 
     private fun receive(type: String, body: JsonObject, replyTo: String?, original: List<String>? = listOf(phone.deviceId)): String {

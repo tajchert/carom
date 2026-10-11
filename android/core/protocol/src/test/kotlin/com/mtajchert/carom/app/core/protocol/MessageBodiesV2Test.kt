@@ -1,5 +1,7 @@
 package com.mtajchert.carom.app.core.protocol
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
@@ -39,8 +41,8 @@ class MessageBodiesV2Test {
         assertEquals("messaging", typed.template)
         assertEquals(-16776961, typed.color)
         assertEquals("appicon", typed.app.icon!!.id)
-        assertEquals(6, typed.actions!!.size + 4)
-        assertEquals("Yes", typed.actions!![0].reply!!.choices!![0])
+        assertEquals(2, typed.actions!!.size)
+        assertEquals("Yes", typed.actions[0].reply!!.choices!![0])
         assertEquals(1791648000000L, typed.`when`)
         assertEquals(true, typed.live!!.promoted)
         assertEquals("incoming", typed.call!!.type)
@@ -65,11 +67,40 @@ class MessageBodiesV2Test {
         assertNotNull(MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), json))
     }
 
+    /** The V1 `notification.posted@1` body exactly as a V1 receiver declares it (V1 fields only). */
+    @Serializable
+    private data class V1App(val id: String, val name: String)
+
+    @Serializable
+    private data class V1NotificationPosted(
+        val key: String,
+        val app: V1App,
+        val title: String? = null,
+        val text: String? = null,
+        @SerialName("sub_text") val subText: String? = null,
+        val category: String? = null,
+        @SerialName("posted_at") val postedAt: Long,
+        val redacted: Boolean,
+        val ongoing: Boolean? = null,
+    )
+
     @Test
     fun `a v1 receiver view of a v2 body ignores the new fields`() {
-        val typed = MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), rich)!!
-        assertEquals("Alice", typed.title)
-        assertEquals(1791648000000L, typed.postedAt)
+        val v1 = ProtocolJson.decodeFromJsonElement(V1NotificationPosted.serializer(), rich)
+        assertEquals(
+            V1NotificationPosted(
+                key = "0|com.chat|7|null|10",
+                app = V1App("com.chat", "Chat"),
+                title = "Alice",
+                text = "hunter2 hi",
+                subText = "2 new",
+                category = "msg",
+                postedAt = 1791648000000L,
+                redacted = false,
+                ongoing = false,
+            ),
+            v1,
+        )
     }
 
     @Test
@@ -156,10 +187,10 @@ class MessageBodiesV2Test {
             typed.toString(),
             typed.app.icon.toString(),
             typed.messages!!.single().toString(),
-            typed.messages!!.single().sender.toString(),
+            typed.messages.single().sender.toString(),
             typed.conversation.toString(),
             typed.actions!![0].toString(),
-            typed.actions!![0].reply.toString(),
+            typed.actions[0].reply.toString(),
             typed.live.toString(),
             typed.call.toString(),
             typed.call!!.person.toString(),
