@@ -29,8 +29,8 @@ let package = Package(
             swiftSettings: strict
         ),
         // macOS-only services: notifications, pasteboard, global hotkey, login item.
-        .target(name: "CaromDesktop", swiftSettings: strict),
-        .testTarget(name: "CaromDesktopTests", dependencies: ["CaromDesktop"], swiftSettings: strict),
+        .target(name: "CaromDesktop", dependencies: ["CaromProtocol"], swiftSettings: strict),
+        .testTarget(name: "CaromDesktopTests", dependencies: ["CaromDesktop", "CaromProtocol"], swiftSettings: strict),
         .testTarget(name: "CaromProtocolTests", dependencies: ["CaromProtocol"], swiftSettings: strict),
         .testTarget(name: "CaromHubTests", dependencies: ["CaromHub"], swiftSettings: strict),
         .testTarget(name: "CaromStoreTests", dependencies: ["CaromStore"], swiftSettings: strict),
