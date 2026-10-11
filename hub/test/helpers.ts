@@ -364,3 +364,21 @@ export async function heldRequest(device: TestDevice, method: string, path: stri
     },
   };
 }
+
+export function filled(length: number, value: number): Uint8Array {
+  return new Uint8Array(length).fill(value);
+}
+
+/** b64(sha256(ct)): the id a blob is stored under (SPEC §11.2). */
+export function blobId(bytes: Uint8Array): string {
+  return b64(sha256(bytes));
+}
+
+/** PUT /v1/blobs/:id with raw bytes; `id` defaults to the content hash. */
+export function putBlob(device: TestDevice, bytes: Uint8Array, query = "ttl_s=3600", id = blobId(bytes)): Promise<Response> {
+  return api("PUT", `/v1/blobs/${id}?${query}`, {
+    token: device.token,
+    rawBody: bytes,
+    headers: { "Content-Type": "application/octet-stream" },
+  });
+}
