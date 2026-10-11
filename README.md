@@ -1,22 +1,120 @@
-# Carom
+<h1 align="center">Carom</h1>
 
-Open-source phone-to-desktop sync for notifications and clipboard, running on your own
-Cloudflare account. An Android app mirrors notifications and clipboard to a macOS
-menu-bar app through a small Worker and one Durable Object (the *Hub*) that you deploy
-yourself. Everything is end-to-end encrypted: the Hub only ever sees ciphertext.
+<p align="center">
+  <b>Your phone's notifications on your Mac.</b><br>
+  End-to-end encrypted, open source, and running on your own Cloudflare account, for free.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
+  <img alt="Android 10+" src="https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white">
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white">
+  <img alt="Cloudflare Workers" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white">
+</p>
+
+<p align="center">
+  <img src="docs/images/hero.png" alt="A notification on an Android phone appears on a Mac through your own Carom Hub" width="900">
+</p>
+
+A message arrives on your phone and shows up on your Mac a moment later, so you can read it, copy the
+login code or dismiss it without picking up the phone. Copy text on one device and send it to the
+other. Think Pushbullet, but you own the server and nobody (including that server) can read your data.
+
+## Why Carom
+
+- 🔒 **Private by design.** Notifications and clipboard are encrypted on your phone and decrypted on
+  your Mac. The server in between only ever sees ciphertext.
+- ☁️ **Your server, zero maintenance.** One command deploys a tiny Hub to *your* Cloudflare account
+  on the free plan. There's nothing to patch, back up or keep online.
+- 🛡️ **No open ports, no LAN tricks.** Every device connects outward to your Hub, so it works on any
+  network, home or not, and nothing on your devices listens for connections.
+- 🔋 **Light on battery.** The phone keeps no connection open and does no polling. Carom wakes
+  only when Android hands it a notification, or when you use it.
+- 🎛️ **You decide what's shared.** Forward, hide the content of, or block each app. Mute apps on the
+  Mac. Pick which devices send and receive the clipboard.
+- 📱💻 **Any number of devices.** Pair phones and Macs with a QR code. Remove a lost one from any
+  other device, and the rest switch to a new key.
+
+## Features
+
+| | |
+|---|---|
+| **Notifications → Mac** | Live mirroring as native macOS notifications. **Dismiss on phone**, **Copy code** for one-time codes, and **Copy text**. Removed on the phone means removed on the Mac |
+| **Clipboard, both ways** | Phone → Mac with one tap (button, Quick Settings tile or share sheet). Mac → phone automatically, by hotkey (⌃⌥⌘C) or from the menu, waiting for you the next time you open Carom on the phone |
+| **Per-app control** | Forward / Hide content / Off for each app, "only when locked", pause |
+| **Simple pairing** | Scan a QR code and confirm a short code on both screens. The Hub can't intercept it |
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/mac-menu.png" width="360" alt="Carom menu-bar app on macOS"><br><sub>macOS menu-bar app</sub></td>
+    <td align="center"><img src="docs/images/android-home.png" width="230" alt="Carom Android home screen"><br><sub>Android app</sub></td>
+    <td align="center"><img src="docs/images/android-apps.png" width="230" alt="Per-app forwarding settings"><br><sub>Per-app control</sub></td>
+  </tr>
+</table>
+
+## How it works
+
+```mermaid
+flowchart LR
+    P["📱 Android app<br/>notification listener"]
+    H[("☁️ Your Hub<br/>Cloudflare Worker +<br/>Durable Object")]
+    M["💻 Mac menu-bar app"]
+
+    P -- "encrypted notifications & clipboard (HTTPS)" --> H
+    H -- "live (WebSocket)" --> M
+    M -- "clipboard, dismiss (HTTPS)" --> H
+    H -. "picked up when Carom opens" .-> P
+```
+
+1. **The phone** sees a notification, filters it by your rules, and encrypts and signs it for your other
+   devices (Ed25519, X25519, ChaCha20-Poly1305).
+2. **Your Hub** is one Cloudflare Worker and one SQLite Durable Object. It checks who is allowed to post,
+   queues the opaque envelope, and fans it out. It never holds a key.
+3. **The Mac** keeps a WebSocket to the Hub, verifies and decrypts, and shows a native notification.
+
+Keys are exchanged by QR code when you pair, and never leave your devices. The Hub stores messages
+only until they're delivered (one or two days at most).
+
+## Quick start
+
+You need a free Cloudflare account, Node.js 22+, a Mac with macOS 14+, and an Android 10+ phone.
+
+```sh
+git clone https://github.com/tajchert/carom.git && cd carom
+npm install
+node hub/bin/carom-hub.mjs deploy      # logs in to Cloudflare, deploys, prints a setup QR code
+```
+
+1. **Mac:** open Carom → *Set Up a New Hub* → paste the `carom://setup…` link → *Add a Phone*.
+2. **Phone:** open Carom → *Join with a code* → scan the QR code → grant notification access.
+3. That's it. Your next notification appears on the Mac.
+
+The **[setup guide](docs/SETUP.md)** walks through every step, permissions, daily use and troubleshooting.
+
+> **Early development.** There are no prebuilt app downloads yet, so build them from source (see the
+> [setup guide](docs/SETUP.md#building-from-source)).
+
+## Built to grow
+
+The apps and the Hub share one small, versioned protocol. The Hub only routes encrypted envelopes and
+never looks at message types, so **new features are new message types and need no server change**.
+Notification replies, sending links, phone battery status, file transfer, a CLI, and Windows or Linux
+clients all fit the existing design.
+
+- **[Protocol spec](protocol/SPEC.md):** envelope, cryptography, pairing, rekeying, Hub API
+- **Shared test vectors:** the TypeScript, Kotlin and Swift implementations, and the Hub, all pass
+  the same vectors
+
+## Repository
 
 | Folder | What |
 |---|---|
-| [`protocol/`](protocol/) | Protocol spec, JSON Schemas, test vectors, TypeScript reference implementation |
-| [`hub/`](hub/) | Cloudflare Worker + Durable Object, and the `carom-hub` deploy CLI |
-| [`android/`](android/) | Kotlin Android app (in development) |
-| [`macos/`](macos/) | Swift menu-bar app; `CaromKit` core package (in development) |
-| [`docs/`](docs/) | [Setup guide](docs/SETUP.md), [client behaviour contract](docs/CLIENTS.md); threat model (planned) |
-
-**Get started:** [Setup guide](docs/SETUP.md) (deploy your Hub → Mac → phone).
-
-Status: early development. Read [`protocol/SPEC.md`](protocol/SPEC.md) for the contract.
+| [`hub/`](hub/) | Cloudflare Worker + Durable Object (TypeScript), and the `carom-hub` deploy CLI |
+| [`android/`](android/) | Android app (Kotlin, Jetpack Compose) |
+| [`macos/`](macos/) | macOS menu-bar app (SwiftUI) and the `CaromKit` package |
+| [`protocol/`](protocol/) | Spec, JSON Schemas, test vectors, TypeScript reference implementation |
+| [`docs/`](docs/) | [Setup guide](docs/SETUP.md), [client behaviour](docs/CLIENTS.md) |
 
 ## License
 
-Carom is licensed under the [GNU General Public License v3.0](LICENSE).
+[GPL-3.0](LICENSE). Contributions welcome.
