@@ -95,8 +95,8 @@ app ── feature/*/impl ── feature/*/api
 | Module | What belongs there |
 |---|---|
 | `:app` | `MainActivity`, `CaromNavHost` (Home is the start), `CaromApplication` (Hilt root, WorkManager `Configuration.Provider`), manifest, backup/network XML |
-| `:core:protocol` | SPEC as code: `B64`, `lp`/`u64`, `Crypto` (Ed25519, X25519, HKDF, ChaCha20-Poly1305), `Envelopes`, `Payload`, `MessageTypes`/`MessageBodies`, `Receiver` (§3.3), `Records`, `Routing`, `Boxes`, `Pairing`, `Rekey`, `Tokens`, `QrUri`, `UuidV7Generator`, `Collapse` |
-| `:core:hub` | `HubClient` (one suspend function per route, `HubException` errors), `HubSocket`, `Backoff`, `HubClientFactory` |
+| `:core:protocol` | SPEC as code: `B64`, `lp`/`u64`, `Crypto` (Ed25519, X25519, HKDF, ChaCha20-Poly1305), `Envelopes`, `Payload`, `MessageTypes`/`MessageBodies` (V2 rich bodies, actions, media), `Blobs` (encrypted image blobs), `Receiver` (§3.3), `Records`, `Routing`, `Boxes`, `Pairing`, `Rekey`, `Tokens`, `QrUri`, `UuidV7Generator`, `Collapse` |
+| `:core:hub` | `HubClient` (one suspend function per route, including `putBlob`/`headBlob`/`getBlob`, `HubException` errors), `HubSocket`, `Backoff`, `HubClientFactory` |
 | `:core:security` | `SecretVault` / `FileSecretVault` / `AndroidKeystoreCipher` |
 | `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items) |
 | `:core:datastore` | `UserPreferencesDataSource` (Hub URL, device id/name, toggles, theme, last clipboard ts) |
@@ -105,7 +105,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:model` | App models (`SessionState`, `ConnectionStatus`, `DeviceSummary`, `UserPreferences`, …) |
 | `:core:ui`, `:core:designsystem` | Shared composables and the Carom theme |
 | `:core:common` | Dispatcher qualifiers, `Result` |
-| `:core:testing` | `FakeHub` (in-memory Hub), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
+| `:core:testing` | `FakeHub` (in-memory Hub with a blob store and `online` recipients), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
 | `:feature:{home,onboarding,pairing,devices,settings,notifications}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
 | `:feature:clipboard:{api,impl}` | Two-way clipboard: `ClipboardSend.intent`, transparent `ClipboardSendActivity`, exported share target `ShareTargetActivity` and Quick Settings tile, `clipboard.set@1` handler (sensitive flag, 10 s echo guard, optional quiet notification with "Copy again"), clipboard settings screen (`ClipboardSettingsRoute`; "Send clipboard to" is stored locally, "Receive clipboard from" goes through `SetReceiveRuleUseCase`), the optional ongoing "Carom" notification with a Send clipboard action |
 | `:benchmark` | Startup Macrobenchmark, Baseline Profile generator, `StartupSmokeTest` |

@@ -91,7 +91,12 @@ class RecordCapsTest {
         assertEquals(DeviceKind.PHONE, record.kind)
         assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET), record.caps)
         assertEquals(
-            mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone, MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone),
+            mapOf(
+                MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone,
+                MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone,
+                MessageTypes.NOTIFICATION_ACTION to ReceiveRule.Everyone,
+                MessageTypes.MEDIA_COMMAND to ReceiveRule.Everyone,
+            ),
             record.receive,
         )
     }
