@@ -11,7 +11,9 @@ yourself. Everything is end-to-end encrypted: the Hub only ever sees ciphertext.
 | [`hub/`](hub/) | Cloudflare Worker + Durable Object, and the `carom-hub` deploy CLI |
 | [`android/`](android/) | Kotlin Android app (in development) |
 | [`macos/`](macos/) | Swift menu-bar app; `CaromKit` core package (in development) |
-| [`docs/`](docs/) | Client behaviour contract; setup guide and threat model (planned) |
+| [`docs/`](docs/) | [Setup guide](docs/SETUP.md), [client behaviour contract](docs/CLIENTS.md); threat model (planned) |
+
+**Get started:** [Setup guide](docs/SETUP.md) (deploy your Hub → Mac → phone).
 
 Status: early development. Read [`protocol/SPEC.md`](protocol/SPEC.md) for the contract.
 
