@@ -6,8 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Process
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
@@ -21,6 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -340,6 +343,172 @@ class RichExtractorTest {
         assertTrue(s.rich.canOpen)
         assertTrue(s.rich.messages.isEmpty())
         assertNull(s.rich.conversation)
+    }
+
+    private val promotedFlag = 0x00040000
+
+    private fun segmentBundle(length: Int, id: Int, color: Int = 0) =
+        Bundle().apply {
+            putInt("length", length)
+            putInt("id", id)
+            putInt("colorInt", color)
+        }
+
+    private fun pointBundle(position: Int, id: Int, color: Int = 0) =
+        Bundle().apply {
+            putInt("position", position)
+            putInt("id", id)
+            putInt("colorInt", color)
+        }
+
+    @Test
+    fun `legacy progress is the progress template with its value and maximum`() {
+        val s = extract(builder().setContentTitle("Download").setProgress(100, 40, false).setOngoing(true).build())
+        assertEquals(RichContent.TEMPLATE_PROGRESS, s.rich.template)
+        assertEquals(SnapProgress(value = 40, max = 100, indeterminate = false), s.rich.progress)
+        assertNull(NotificationFilter.ongoing(s, forwardOngoing = false))
+
+        val spinner = extract(builder().setProgress(0, 0, true).build())
+        assertEquals(SnapProgress(value = 0, max = 0, indeterminate = true), spinner.rich.progress)
+
+        assertNull(extract(builder().setProgress(0, 0, false).build()).rich.progress)
+        assertNull(extract(builder().build()).rich.progress)
+    }
+
+    @Test
+    fun `progress keeps a style's template when it has one`() {
+        val s = extract(
+            builder().setStyle(NotificationCompat.BigTextStyle().bigText("x")).setProgress(10, 5, false).build(),
+        )
+        assertEquals(RichContent.TEMPLATE_BIG_TEXT, s.rich.template)
+        assertEquals(5, s.rich.progress!!.value)
+    }
+
+    @Test
+    fun `ProgressStyle extras are read by string key with segments, points and icons`() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
+        val extras = Bundle().apply {
+            putString(Notification.EXTRA_TEMPLATE, "android.app.Notification\$ProgressStyle")
+            putInt("android.progress", 40)
+            putInt("android.progressMax", 100)
+            putParcelableArrayList(
+                "android.progressSegments",
+                ArrayList((1..12).map { segmentBundle(length = it * 10, id = it, color = if (it == 1) Color.RED else 0) }),
+            )
+            putParcelableArrayList(
+                "android.progressPoints",
+                ArrayList((1..6).map { pointBundle(position = it * 10, id = it, color = Color.GREEN) }),
+            )
+            putParcelable("android.progressTrackerIcon", Icon.createWithBitmap(Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)))
+            putParcelable("android.progressStartIcon", Icon.createWithBitmap(Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)))
+        }
+        val s = extract(builder().addExtras(extras).build())
+        assertEquals(RichContent.TEMPLATE_PROGRESS, s.rich.template)
+        val p = s.rich.progress!!
+        assertEquals(40, p.value)
+        assertEquals(100, p.max)
+        assertEquals(10, p.segments.size)
+        assertEquals(MessageBodies.Segment(length = 10, color = Color.RED), p.segments[0])
+        assertEquals(MessageBodies.Segment(length = 20, color = null), p.segments[1])
+        assertEquals(4, p.points.size)
+        assertEquals(MessageBodies.Point(position = 10, color = Color.GREEN), p.points[0])
+        assertTrue(ImageSlot.TrackerIcon in s.imageSources)
+        assertTrue(ImageSlot.StartIcon in s.imageSources)
+        assertFalse(ImageSlot.EndIcon in s.imageSources)
+    }
+
+    @Test
+    fun `a real ProgressStyle notification is read through the same keys`() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
+        val style = Notification.ProgressStyle()
+            .setProgress(40)
+            .setProgressSegments(
+                listOf(
+                    Notification.ProgressStyle.Segment(30).setColor(Color.RED),
+                    Notification.ProgressStyle.Segment(70),
+                ),
+            )
+            .setProgressPoints(listOf(Notification.ProgressStyle.Point(25).setColor(Color.GREEN)))
+        val n = Notification.Builder(context, "channel").setSmallIcon(android.R.drawable.ic_dialog_info).setStyle(style).build()
+        val s = extract(n)
+        assertEquals(RichContent.TEMPLATE_PROGRESS, s.rich.template)
+        val p = s.rich.progress!!
+        assertEquals(40, p.value)
+        assertEquals(100, p.max)
+        assertEquals(listOf(30, 70), p.segments.map { it.length })
+        assertEquals(listOf(25), p.points.map { it.position })
+    }
+
+    @Test
+    fun `malformed segments are dropped but the progress is still sent`() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
+        val extras = Bundle().apply {
+            putInt("android.progress", 3)
+            putInt("android.progressMax", 10)
+            putStringArrayList("android.progressSegments", arrayListOf("not", "bundles"))
+            putString("android.progressPoints", "also wrong")
+        }
+        val s = extract(builder().setContentTitle("Sync").addExtras(extras).build())
+        assertEquals("Sync", s.title)
+        val p = s.rich.progress!!
+        assertEquals(3, p.value)
+        assertEquals(10, p.max)
+        assertTrue(p.segments.isEmpty())
+        assertTrue(p.points.isEmpty())
+    }
+
+    @Test
+    fun `a promoted Live Update carries its short critical text and passes the ongoing filter`() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
+        val extras = Bundle().apply { putString("android.shortCriticalText", "12 min") }
+        val n = builder().setOngoing(true).addExtras(extras).build().apply { flags = flags or promotedFlag }
+        val s = extract(n)
+        assertTrue(s.promoted)
+        assertEquals(MessageBodies.Live(promoted = true, shortCriticalText = "12 min"), s.rich.live)
+        assertNull(NotificationFilter.ongoing(s, forwardOngoing = false))
+
+        val plain = extract(builder().setOngoing(true).build())
+        assertFalse(plain.promoted)
+        assertNull(plain.rich.live)
+        assertEquals(SkipReason.ONGOING, NotificationFilter.ongoing(plain, forwardOngoing = false))
+
+        val onlyText = extract(builder().addExtras(extras).build())
+        assertEquals(MessageBodies.Live(promoted = false, shortCriticalText = "12 min"), onlyText.rich.live)
+    }
+
+    @Test
+    fun `call style reads the type, caller, video flag and verification text`() {
+        val caller = android.app.Person.Builder()
+            .setName("Anna")
+            .setIcon(Icon.createWithBitmap(Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)))
+            .build()
+        val extras = Bundle().apply {
+            putString(Notification.EXTRA_TEMPLATE, "android.app.Notification\$CallStyle")
+            putInt(Notification.EXTRA_CALL_TYPE, Notification.CallStyle.CALL_TYPE_INCOMING)
+            putParcelable(Notification.EXTRA_CALL_PERSON, caller)
+            putBoolean(Notification.EXTRA_CALL_IS_VIDEO, true)
+            putCharSequence(Notification.EXTRA_VERIFICATION_TEXT, "Verified caller")
+        }
+        val s = extract(builder().setOngoing(true).addExtras(extras).build())
+        assertEquals(RichContent.TEMPLATE_CALL, s.rich.template)
+        assertEquals(
+            SnapCall(type = "incoming", personName = "Anna", isVideo = true, verification = "Verified caller"),
+            s.rich.call,
+        )
+        assertTrue(ImageSlot.CallPersonIcon in s.imageSources)
+        assertNull(NotificationFilter.ongoing(s, forwardOngoing = false))
+
+        fun typeOf(code: Int) = extract(
+            builder().addExtras(
+                Bundle().apply {
+                    putString(Notification.EXTRA_TEMPLATE, "android.app.Notification\$CallStyle")
+                    putInt(Notification.EXTRA_CALL_TYPE, code)
+                },
+            ).build(),
+        ).rich.call!!.type
+        assertEquals("ongoing", typeOf(Notification.CallStyle.CALL_TYPE_ONGOING))
+        assertEquals("screening", typeOf(Notification.CallStyle.CALL_TYPE_SCREENING))
+        assertEquals("unknown", typeOf(Notification.CallStyle.CALL_TYPE_UNKNOWN))
     }
 
     private fun builder() = NotificationCompat.Builder(context, "channel").setSmallIcon(android.R.drawable.ic_dialog_info)
