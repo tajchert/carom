@@ -331,3 +331,11 @@ macos/scripts/e2e.sh http://localhost:8790 /tmp/carom-token.json \
 
 It resets the Hub, uses the `e2e` profile, and overwrites the clipboard with a test marker.
 Notification banners only appear once Carom is allowed to post notifications.
+
+### README images
+
+The PNGs in [`docs/images/`](../docs/images/) are rendered by `App/Tests/ReadmeImages.swift`, a
+test that is skipped unless `CAROM_README_IMAGES=1`. Run `App/Tools/readme-images.sh` to
+regenerate them: it draws the real `MenuBarView` on an `AppModel` wired to the test fakes,
+illustrates the macOS notification banners, and frames the Android screenshot-test references
+(regenerate those first if the Android UI changed). Times follow the Mac's locale.

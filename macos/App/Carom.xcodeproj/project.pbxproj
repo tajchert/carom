@@ -22,6 +22,7 @@
 		5A50109E165BF1A183070C07 /* DesktopPorts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7707F3DF45D7CBC8A3A755 /* DesktopPorts.swift */; };
 		72C14863FE8D68CA8D2DB587 /* DebugLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44A69EB8E70E0B1409F77C2 /* DebugLaunch.swift */; };
 		72F2107312AE605A0A048D7F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52CDC70E96A32632C4C6B6F /* OnboardingView.swift */; };
+		86B724076904E397C2B0F41B /* ReadmeImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FCFF81F36A77812A10FB37 /* ReadmeImages.swift */; };
 		90D3082BD4F9EF70011C69F6 /* CaromHub in Frameworks */ = {isa = PBXBuildFile; productRef = CE8BAFA1AE1113A6718F4CAC /* CaromHub */; };
 		9D1A5F81F5BAD2143A6387A4 /* AboutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694429B750CC3936EB02DD96 /* AboutSettings.swift */; };
 		AA566AB94F206C4496389039 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C2F71FAD4D652965D6C999 /* AppModel.swift */; };
@@ -75,6 +76,7 @@
 		AA9085169BBFDC7B19051941 /* Carom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Carom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA9E27C379CE0C0C2DF67310 /* Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Activity.swift; sourceTree = "<group>"; };
 		C3D08CDEE1E0A38EAA3D7C8F /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		D2FCFF81F36A77812A10FB37 /* ReadmeImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadmeImages.swift; sourceTree = "<group>"; };
 		D3F1C8311CBD1D199D6081A0 /* CaromApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaromApp.swift; sourceTree = "<group>"; };
 		D67EE5C0B38E4B0DAD9BBEF9 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		D73EBD0F3E832BE4D36BB1D7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 				43523F8D934E0F28AAC18A3A /* AppModelTests.swift */,
 				5925FB86143CAF9160A7600B /* Fakes.swift */,
 				EB3596D36159F8F7DCC172E3 /* PolicyTests.swift */,
+				D2FCFF81F36A77812A10FB37 /* ReadmeImages.swift */,
 				0606F3A3A6291B060E6F8431 /* SecretStoreFactoryTests.swift */,
 			);
 			path = Tests;
@@ -369,6 +372,7 @@
 				2DAF3451102E36B44D4EAC7D /* AppModelTests.swift in Sources */,
 				48302A9E76E5038A917FB6F7 /* Fakes.swift in Sources */,
 				DF9F21CCE145B11D83CA2EC3 /* PolicyTests.swift in Sources */,
+				86B724076904E397C2B0F41B /* ReadmeImages.swift in Sources */,
 				F9C7EC9CE8277957626D7D80 /* SecretStoreFactoryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
