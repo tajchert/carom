@@ -38,10 +38,17 @@ public struct ReceiveContext: Sendable {
     /// (rule 7: a dismiss must name the key of the message it replies to). `nil` means the caller
     /// does not track keys (the shared vectors), and the key check is skipped.
     public var originalKeys: [String: String]?
+    /// Message type of every message this device sent, by msg_id (rule 7: a
+    /// `notification.action_result@1` must reply to a `notification.action@1`). `nil` skips the check.
+    public var originalTypes: [String: String]?
+    /// `session` of the `media.state@1` messages this device sent, by msg_id (rule 7: a
+    /// `media.command@1` must name the session of the state it replies to). `nil` skips the check.
+    public var originalSessions: [String: String]?
 
     public init(selfId: String, directory: [String: Data], keys: [Int: Data], now: Int, seen: Set<String> = [],
                 knownTypes: Set<String> = Set(MessageType.allCases.map(\.rawValue)), lastClipboardTs: Int? = nil,
-                originalRecipients: [String: [String]] = [:], originalKeys: [String: String]? = nil) {
+                originalRecipients: [String: [String]] = [:], originalKeys: [String: String]? = nil,
+                originalTypes: [String: String]? = nil, originalSessions: [String: String]? = nil) {
         self.selfId = selfId
         self.directory = directory
         self.keys = keys
@@ -51,6 +58,8 @@ public struct ReceiveContext: Sendable {
         self.lastClipboardTs = lastClipboardTs
         self.originalRecipients = originalRecipients
         self.originalKeys = originalKeys
+        self.originalTypes = originalTypes
+        self.originalSessions = originalSessions
     }
 }
 
@@ -92,11 +101,25 @@ public enum Receiver {
         originalTo?.contains(from) ?? false
     }
 
-    /// Rule 7, second half: a `notification.dismiss@1` must name the key of the message it
-    /// replies to. `originalKeys == nil` means keys are not tracked by the caller.
+    /// Rule 7, second half: a `notification.dismiss@1` or `notification.action@1` must name the
+    /// key of the message it replies to. `originalKeys == nil` means keys are not tracked by the caller.
     public static func isDismissKeyAllowed(_ key: String, replyTo: String, originalKeys: [String: String]?) -> Bool {
         guard let originalKeys else { return true }
         return originalKeys[replyTo] == key
+    }
+
+    /// Rule 7 for `notification.action_result@1`: it must reply to a `notification.action@1` this
+    /// device sent. `originalTypes == nil` means types are not tracked by the caller.
+    public static func isActionResultAllowed(replyTo: String, originalTypes: [String: String]?) -> Bool {
+        guard let originalTypes else { return true }
+        return originalTypes[replyTo] == MessageType.notificationAction.rawValue
+    }
+
+    /// Rule 7 for `media.command@1`: it must name the session of the `media.state@1` it replies
+    /// to. `originalSessions == nil` means sessions are not tracked by the caller.
+    public static func isMediaCommandAllowed(session: String, replyTo: String, originalSessions: [String: String]?) -> Bool {
+        guard let originalSessions else { return true }
+        return originalSessions[replyTo] == session
     }
 
     /// Applies SPEC §3.3 rules 1–7 in order and returns the first failure, or the message.
@@ -123,7 +146,7 @@ public enum Receiver {
             return .failure(.unknownType)
         }
         guard let message = Message(type: type, body: payload.body) else { return .failure(.badPayload) }
-        if type == .notificationDismiss, payload.replyTo == nil { return .failure(.badPayload) }
+        if type.requiresReplyTo, payload.replyTo == nil { return .failure(.badPayload) }
 
         if type == .clipboardSet, isStaleClipboard(ts: payload.ts, last: ctx.lastClipboardTs) {
             return .failure(.staleClipboard)
@@ -132,10 +155,21 @@ public enum Receiver {
             guard isReplyAllowed(from: env.from, originalTo: ctx.originalRecipients[replyTo]) else {
                 return .failure(.replyNotAllowed)
             }
-            if case .notificationDismiss(let dismiss) = message,
-               !isDismissKeyAllowed(dismiss.key, replyTo: replyTo, originalKeys: ctx.originalKeys) {
-                return .failure(.replyNotAllowed)
+            let allowed: Bool
+            switch message {
+            case .notificationDismiss(let dismiss):
+                allowed = isDismissKeyAllowed(dismiss.key, replyTo: replyTo, originalKeys: ctx.originalKeys)
+            case .notificationAction(let action):
+                allowed = isDismissKeyAllowed(action.key, replyTo: replyTo, originalKeys: ctx.originalKeys)
+            case .notificationActionResult:
+                allowed = isActionResultAllowed(replyTo: replyTo, originalTypes: ctx.originalTypes)
+            case .mediaCommand(let command):
+                allowed = isMediaCommandAllowed(session: command.session, replyTo: replyTo,
+                                                originalSessions: ctx.originalSessions)
+            case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState:
+                allowed = true
             }
+            if !allowed { return .failure(.replyNotAllowed) }
         }
         return .success(ReceivedMessage(envelope: env, payload: payload, message: message))
     }
