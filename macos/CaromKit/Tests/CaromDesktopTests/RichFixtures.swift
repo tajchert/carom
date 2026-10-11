@@ -121,3 +121,66 @@ enum Fixture {
         return p
     }
 }
+
+@MainActor
+final class FakeNative: NativeNotifying {
+    var presented: [(notification: PresentedNotification, showPhoneName: Bool)] = []
+    var withdrawn: [String] = []
+    var withdrawnAll: [String] = []
+
+    func present(_ notification: PresentedNotification, showPhoneName: Bool) async {
+        presented.append((notification, showPhoneName))
+    }
+    func withdraw(phoneId: String, key: String) { withdrawn.append(key) }
+    func withdrawAll(phoneId: String) { withdrawnAll.append(phoneId) }
+}
+
+@MainActor
+final class FakePanel: CardPanelHosting {
+    var bound = false
+    var shows = 0
+    var hides = 0
+    var replyModes: [Bool] = []
+    var alerts: [(announcement: String, sound: Bool)] = []
+
+    func bind(_ coordinator: NotificationCoordinator) { bound = true }
+    func show() { shows += 1 }
+    func hide() { hides += 1 }
+    func setReplyMode(_ on: Bool) { replyModes.append(on) }
+    func alert(announcement: String, sound: Bool) { alerts.append((announcement, sound)) }
+}
+
+@MainActor
+final class FakeFocus: FocusStatusProviding {
+    var isFocused = false
+    var authorizationRequests = 0
+    func requestAuthorization() async { authorizationRequests += 1 }
+}
+
+/// A clock that moves one second per reading, so cards shown one after another order strictly.
+@MainActor
+final class TickClock {
+    private var now = Date(timeIntervalSince1970: 1_800_000_000)
+    func next() -> Date {
+        now = now.addingTimeInterval(1)
+        return now
+    }
+}
+
+@MainActor
+func makeCoordinator(focused: Bool = false, fade: Duration = .milliseconds(40),
+                     asleep: Duration = .milliseconds(40))
+    -> (NotificationCoordinator, FakeNative, FakePanel, FakeFocus)
+{
+    let native = FakeNative(), panel = FakePanel(), focus = FakeFocus(), clock = TickClock()
+    focus.isFocused = focused
+    var options = NotificationCoordinator.Options()
+    options.fadeAfter = fade
+    options.asleepAfter = asleep
+    let coordinator = NotificationCoordinator(native: native, panel: panel, focus: focus, options: options,
+                                              now: { clock.next() })
+    return (coordinator, native, panel, focus)
+}
+
+/// Waits real time for fade and asleep timers (40 ms in tests).
+func pause(_ ms: Int) async { try? await Task.sleep(for: .milliseconds(ms)) }
