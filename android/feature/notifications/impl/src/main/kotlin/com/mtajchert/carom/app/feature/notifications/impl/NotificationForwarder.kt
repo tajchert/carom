@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.feature.notifications.impl
 
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.SendResult
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
@@ -11,17 +12,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Optional
 import javax.inject.Inject
 
 /** What the forwarder needs from the platform; [CaromListenerService] supplies the Android one. */
 interface ForwardingEnvironment {
     val ownPackage: String
-
-    /** "New notification", sent instead of the content for apps set to *Hide content*. */
-    val hiddenText: String
 
     fun isScreenLocked(): Boolean
 
@@ -31,12 +30,26 @@ interface ForwardingEnvironment {
     fun log(event: String, detail: String? = null) = Unit
 }
 
+/** Used until the action window (M3) is bound. */
+internal object NoActivitySignal : ActivitySignal {
+    override fun onForwarded(online: Set<String>) = Unit
+
+    override fun onActivity() = Unit
+}
+
 /**
- * The phone side of notification mirroring (docs/CLIENTS.md "Notifications").
+ * The phone side of notification mirroring (V2 spec §5.1).
  *
- * Listener callbacks only enqueue (O(1) on the main thread); one consumer coroutine in [scope]
- * reads, filters, maps and sends events in order, so a `removed` never overtakes its `posted`.
- * Everything stops when [scope] is cancelled (the listener disconnected).
+ * Listener callbacks only enqueue (O(1) on the main thread). One consumer coroutine in [scope]
+ * reads each notification, runs the filters, loads its images and hands the result to a per-key
+ * worker. Everything stops when [scope] is cancelled (the listener disconnected).
+ *
+ * **Per-key ordering.** `msg_id` is assigned when a message is sent, so two sends for one key
+ * must never overlap: a slow image upload could otherwise let an older state reach the Mac after
+ * a newer one. Each key has at most one worker. The worker takes the newest state (earlier ones
+ * that were not yet started are discarded), waits for the throttle window, uploads, sends, and
+ * only then looks at the next state. A removal replaces whatever is waiting and runs after the
+ * send in flight. Different keys run in parallel; uploads are bounded by [BlobUploader].
  *
  * Sending goes through [CaromSync.send], which routes, seals and stores in the outbox; a queued
  * message is left to WorkManager. `removed` is sent only for keys this phone forwarded; they are
@@ -52,19 +65,44 @@ class NotificationForwarder(
     private val forwarded: ForwardedKeys,
     private val env: ForwardingEnvironment,
     private val throttle: UpdateThrottle = UpdateThrottle(),
+    private val images: ImageLoader = ImageLoader.None,
+    private val uploader: BlobUploader = BlobUploader.None,
+    private val activity: ActivitySignal = NoActivitySignal,
 ) {
     private sealed interface Event {
-        class Posted(val read: () -> NotificationSnapshot?) : Event
+        class Posted(val read: suspend () -> NotificationSnapshot?) : Event
         class Removed(val key: String) : Event
-        class SendThrottled(val key: String) : Event
         class Reconcile(val activeKeys: () -> Set<String>?) : Event
+    }
+
+    private sealed interface Work {
+        class Post(
+            val n: NotificationSnapshot,
+            val appName: String,
+            val hide: Boolean,
+            val images: Map<ImageSlot, EncodedImage>,
+            val traits: UpdateThrottle.Traits,
+            val hash: String,
+        ) : Work
+
+        data object Remove : Work
+    }
+
+    /** The newest waiting [Work] of one key and whether its worker is running. Guarded by [lock]. */
+    private class Slot {
+        var work: Work? = null
+        var running = false
+
+        /** Wakes a worker that waits for the throttle window: a newer state may skip the wait. */
+        val wake = Channel<Unit>(Channel.CONFLATED)
     }
 
     private val events = Channel<Event>(Channel.UNLIMITED)
 
-    // Owned by the consumer coroutine only.
-    private val pending = HashMap<String, MessageBodies.NotificationPosted>()
-    private val trailing = HashMap<String, Job>()
+    private val lock = Any()
+    private val slots = HashMap<String, Slot>()
+
+    private val fetchLock = Any()
     private var lastFetchAt = Long.MIN_VALUE / 2
     private var fetchJob: Job? = null
 
@@ -83,7 +121,7 @@ class NotificationForwarder(
     }
 
     /** Called on the listener's thread; [read] runs later on the consumer, off the main thread. */
-    fun onPosted(read: () -> NotificationSnapshot?) {
+    fun onPosted(read: suspend () -> NotificationSnapshot?) {
         events.trySend(Event.Posted(read))
     }
 
@@ -99,15 +137,13 @@ class NotificationForwarder(
         events.trySend(Event.Reconcile(activeKeys))
     }
 
-    private suspend fun handle(event: Event) = when (event) {
-        is Event.Posted -> event.read()?.let { posted(it) }
-        is Event.Removed -> removed(event.key)
-        is Event.SendThrottled -> {
-            trailing.remove(event.key)
-            pending.remove(event.key)?.let { sendPosted(it) }
-        }
-        is Event.Reconcile -> event.activeKeys()?.let { active ->
-            for (key in forwarded.all() - active) removed(key)
+    private suspend fun handle(event: Event) {
+        when (event) {
+            is Event.Posted -> event.read()?.let { posted(it) }
+            is Event.Removed -> submit(event.key, Work.Remove)
+            is Event.Reconcile -> event.activeKeys()?.let { active ->
+                for (key in forwarded.all() - active) submit(key, Work.Remove)
+            }
         }
     }
 
@@ -124,46 +160,116 @@ class NotificationForwarder(
         ) ?: NotificationFilter.ongoing(n, app.forwardOngoing)
         if (skip != null) return
 
-        val body = NotificationMapper.posted(
-            n = n,
-            appName = app.label,
-            hideContent = app.mode == AppForwardingMode.HIDE_CONTENT,
+        val hide = app.mode == AppForwardingMode.HIDE_CONTENT
+        // Content-URI grants end with the notification, so images are loaded now, before any upload.
+        // Hide content shows the app icon only: nothing else is loaded, let alone uploaded.
+        val sources = if (hide) n.imageSources.filterKeys { it == ImageSlot.AppIcon } else n.imageSources
+        val encoded = if (sources.isEmpty()) emptyMap() else images.load(sources)
+        val plain = NotificationMapper.posted(n, app.label, hide)
+        submit(
+            n.key,
+            Work.Post(
+                n = n.copy(imageSources = emptyMap()),
+                appName = app.label,
+                hide = hide,
+                images = encoded,
+                traits = UpdateThrottle.Traits(
+                    progressComplete = n.rich.progress?.complete == true,
+                    callType = n.rich.call?.type,
+                ),
+                hash = NotificationMapper.contentHash(plain, encoded),
+            ),
         )
-        val wait = throttle.delayFor(n.key, now)
-        if (wait > 0) {
-            // Keep only the newest update and send it when the window ends.
-            pending[n.key] = body
-            if (trailing[n.key]?.isActive != true) {
-                trailing[n.key] = scope.launch {
-                    delay(wait)
-                    events.send(Event.SendThrottled(n.key))
-                }
-            }
-            return
-        }
-        sendPosted(body)
     }
 
-    private suspend fun sendPosted(body: MessageBodies.NotificationPosted) {
-        throttle.markSent(body.key, env.now())
-        var result = sync.send(MessageTypes.NOTIFICATION_POSTED, NotificationMapper.postedJson(body))
-        if (result == SendResult.TooLarge) {
-            // Only JSON escaping can push 3 x 4000 characters past the limit; send a shorter copy.
-            val short = body.copy(
-                title = body.title?.let { NotificationMapper.truncate(it, FALLBACK_CHARS) },
-                text = body.text?.let { NotificationMapper.truncate(it, FALLBACK_CHARS) },
-                subText = body.subText?.let { NotificationMapper.truncate(it, FALLBACK_CHARS) },
-            )
-            result = sync.send(MessageTypes.NOTIFICATION_POSTED, NotificationMapper.postedJson(short))
+    /** Makes [work] the newest state of [key] and starts the key's worker if none is running. */
+    private fun submit(key: String, work: Work) {
+        var start = false
+        val slot = synchronized(lock) {
+            val s = slots.getOrPut(key) { Slot() }
+            s.work = work
+            if (!s.running) {
+                s.running = true
+                start = true
+            }
+            s
         }
-        if (result is SendResult.Sent || result is SendResult.Queued) forwarded.add(body.key, env.now())
+        if (start) launchWorker(key, slot) else slot.wake.trySend(Unit)
+    }
+
+    private fun launchWorker(key: String, slot: Slot) {
+        scope.launch {
+            while (true) {
+                val work = synchronized(lock) {
+                    slot.work ?: run {
+                        slot.running = false
+                        slots.remove(key)
+                        null
+                    }
+                } ?: break
+                try {
+                    when (work) {
+                        Work.Remove -> if (claim(slot, work)) sendRemoved(key)
+                        is Work.Post -> {
+                            val wait = synchronized(throttle) { throttle.delayFor(key, env.now(), work.traits) }
+                            if (wait > 0) {
+                                // Trailing edge: look at the newest state again when the window ends, or earlier when
+                                // a newer state arrives (it may be a completed progress bar or a call change).
+                                withTimeoutOrNull(wait) { slot.wake.receive() }
+                            } else if (claim(slot, work)) {
+                                sendPosted(work)
+                            }
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: RuntimeException) {
+                    env.log("notification_failed", e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    /** Takes [work] out of the slot unless a newer state replaced it meanwhile. */
+    private fun claim(slot: Slot, work: Work): Boolean = synchronized(lock) {
+        if (slot.work === work) {
+            slot.work = null
+            true
+        } else {
+            false
+        }
+    }
+
+    private suspend fun sendPosted(work: Work.Post) {
+        val key = work.n.key
+        if (synchronized(throttle) { throttle.isDuplicate(key, work.hash) }) return
+        val refs = if (work.images.isEmpty()) emptyMap() else uploader.upload(work.images)
+        synchronized(throttle) { throttle.markSent(key, env.now(), work.hash, work.traits) }
+        var result = sendBody(work, refs, NotificationMapper.MAX_BODY_BYTES)
+        if (result == SendResult.TooLarge) {
+            // The 64 KB budget leaves headroom, but JSON escaping can still push a body over; retry with a smaller one.
+            result = sendBody(work, refs, NotificationMapper.FALLBACK_BODY_BYTES)
+        }
+        if (result is SendResult.Sent || result is SendResult.Queued) {
+            forwarded.add(key, env.now())
+        } else {
+            synchronized(throttle) { throttle.forgetContent(key) }
+        }
+        if (result is SendResult.Sent) activity.onForwarded(result.online)
         after(result)
     }
 
-    private suspend fun removed(key: String) {
-        trailing.remove(key)?.cancel()
-        pending.remove(key)
-        throttle.forget(key)
+    private suspend fun sendBody(
+        work: Work.Post,
+        refs: Map<ImageSlot, MessageBodies.BlobRef>,
+        maxBodyBytes: Int,
+    ): SendResult {
+        val body = NotificationMapper.posted(work.n, work.appName, work.hide, refs, maxBodyBytes = maxBodyBytes)
+        return sync.send(MessageTypes.NOTIFICATION_POSTED, NotificationMapper.postedJson(body))
+    }
+
+    private suspend fun sendRemoved(key: String) {
+        synchronized(throttle) { throttle.forget(key) }
         if (!forwarded.remove(key)) return
         after(sync.send(MessageTypes.NOTIFICATION_REMOVED, NotificationMapper.removedJson(key)))
     }
@@ -181,9 +287,11 @@ class NotificationForwarder(
     /** "Fetch after each successful send", coalesced so a burst of notifications fetches once. */
     private fun piggybackFetch() {
         val now = env.now()
-        if (fetchJob?.isActive == true || now - lastFetchAt < FETCH_INTERVAL_MS) return
-        lastFetchAt = now
-        fetchJob = scope.launch { sync.fetchMessages() }
+        synchronized(fetchLock) {
+            if (fetchJob?.isActive == true || now - lastFetchAt < FETCH_INTERVAL_MS) return
+            lastFetchAt = now
+            fetchJob = scope.launch { sync.fetchMessages() }
+        }
     }
 
     /** Creates a forwarder bound to one listener connection's scope. */
@@ -193,13 +301,25 @@ class NotificationForwarder(
         private val apps: NotificationAppsRepository,
         private val preferences: UserPreferencesRepository,
         private val forwarded: ForwardedKeys,
+        private val images: ImageLoader,
+        private val uploader: BlobUploader,
+        private val activity: Optional<ActivitySignal>,
     ) {
-        fun create(scope: CoroutineScope, env: ForwardingEnvironment) =
-            NotificationForwarder(scope, sync, scheduler, apps, preferences, forwarded, env)
+        fun create(scope: CoroutineScope, env: ForwardingEnvironment) = NotificationForwarder(
+            scope = scope,
+            sync = sync,
+            scheduler = scheduler,
+            apps = apps,
+            preferences = preferences,
+            forwarded = forwarded,
+            env = env,
+            images = images,
+            uploader = uploader,
+            activity = activity.orElse(NoActivitySignal),
+        )
     }
 
     companion object {
         const val FETCH_INTERVAL_MS = 15_000L
-        private const val FALLBACK_CHARS = 1000
     }
 }

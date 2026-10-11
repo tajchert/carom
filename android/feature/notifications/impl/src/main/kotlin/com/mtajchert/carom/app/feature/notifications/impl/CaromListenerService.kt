@@ -107,7 +107,6 @@ class CaromListenerService : NotificationListenerService() {
         private val keyguard = getSystemService(KeyguardManager::class.java)
 
         override val ownPackage: String = packageName
-        override val hiddenText: String = getString(R.string.feature_notifications_hidden_text)
 
         override fun isScreenLocked(): Boolean = keyguard?.isKeyguardLocked == true
 
