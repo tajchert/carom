@@ -46,6 +46,9 @@ enum class ActionsFromMac {
     companion object {
         val WINDOW_MINUTES: List<Int> = listOf(2, 5, 15)
         const val DEFAULT_WINDOW_MINUTES: Int = 5
+
+        /** [minutes] when it is one of [WINDOW_MINUTES], otherwise [DEFAULT_WINDOW_MINUTES]. */
+        fun windowOrDefault(minutes: Int?): Int = minutes?.takeIf { it in WINDOW_MINUTES } ?: DEFAULT_WINDOW_MINUTES
     }
 }
 

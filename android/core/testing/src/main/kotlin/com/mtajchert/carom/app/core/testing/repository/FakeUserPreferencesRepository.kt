@@ -30,6 +30,6 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
     override suspend fun setOngoingNotification(enabled: Boolean) = state.update { it.copy(ongoingNotification = enabled) }
     override suspend fun setActionsFromMac(mode: ActionsFromMac) = state.update { it.copy(actionsFromMac = mode) }
     override suspend fun setActionWindowMinutes(minutes: Int) = state.update {
-        it.copy(actionWindowMinutes = minutes.takeIf { m -> m in ActionsFromMac.WINDOW_MINUTES } ?: ActionsFromMac.DEFAULT_WINDOW_MINUTES)
+        it.copy(actionWindowMinutes = ActionsFromMac.windowOrDefault(minutes))
     }
 }

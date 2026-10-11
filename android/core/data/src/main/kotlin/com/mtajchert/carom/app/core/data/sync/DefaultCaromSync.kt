@@ -100,10 +100,7 @@ class DefaultCaromSync(
     }
 
     /** The `caps` this device publishes: what it handles, minus what the user's settings withhold. */
-    private suspend fun advertisedCaps(): List<String> {
-        val withheld = profileProvider.profile().withheldCaps
-        return knownTypes.filterNot { it in withheld }
-    }
+    private fun advertisedCaps(profile: LocalDeviceProfile): List<String> = knownTypes.filterNot { it in profile.withheldCaps }
 
     /** Identity, current key and client, or null when this device is not paired. */
     private class Session(val contents: VaultContents, val identity: Identity, val key: StoredGroupKey, val client: HubClient)
@@ -497,7 +494,7 @@ class DefaultCaromSync(
         retryPendingRekey(s)
         val currentKv = vault.load().currentKey?.kv
         val self = directory.all().firstOrNull { it.id == s.identity.deviceId }
-        if (self?.record == null || self.recordKv != currentKv || self.record?.caps != advertisedCaps()) publishOwnRecordLocked()
+        if (self?.record == null || self.recordKv != currentKv || self.record?.caps != advertisedCaps(profileProvider.profile())) publishOwnRecordLocked()
         statusFlow.value = ConnectionStatus.IDLE
         val all = directory.all()
         return DirectoryResult.Refreshed(all.count { it.trusted }, all.count { !it.trusted }, removed.map { it.id })
@@ -844,7 +841,7 @@ class DefaultCaromSync(
             appVersion = profile.appVersion,
             signPub = B64.encode(s.identity.signPub),
             kxPub = B64.encode(s.identity.kxPub),
-            caps = knownTypes.filterNot { it in profile.withheldCaps },
+            caps = advertisedCaps(profile),
             receive = profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind),
             updated = maxOf(clock.now(), (previous?.updated ?: 0) + 1),
         )

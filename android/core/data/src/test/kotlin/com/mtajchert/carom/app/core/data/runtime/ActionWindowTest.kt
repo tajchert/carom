@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.core.data.runtime
 
+import com.mtajchert.carom.app.core.hub.Backoff
 import com.mtajchert.carom.app.core.model.ActionsFromMac
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,6 +38,8 @@ class ActionWindowTest {
                 cancelled++
             }
         },
+        // No jitter: the reopen delays are exactly 1 s, 2 s, 4 s, ...
+        reopenBackoff = Backoff(maxMs = ActionWindow.ALWAYS_BACKOFF_MAX_MS, random = { 1.0 }),
     ).also {
         it.start()
         runCurrent()
@@ -242,5 +245,46 @@ class ActionWindowTest {
         assertEquals(2, opened)
         pass(4 * minute)
         assertTrue(window.isOpen.value)
+    }
+
+    @Test
+    fun `in Always a session that ends on its own is started again after a backoff`() = runTest {
+        settings.value = settings.value.copy(mode = ActionsFromMac.ALWAYS)
+        val window = window()
+        assertEquals(1, opened)
+
+        gates.last().complete(Unit) // runSession returned (an error or a moment without credentials)
+        runCurrent()
+        assertFalse(window.isOpen.value)
+        assertTrue(window.alwaysOn.value)
+
+        pass(999)
+        assertEquals(1, opened)
+        pass(1)
+        assertEquals(2, opened)
+        assertTrue(window.isOpen.value)
+        assertEquals(listOf(ActionWindow.ALWAYS_BACKOFF_MAX_MS, ActionWindow.ALWAYS_BACKOFF_MAX_MS), backoffCaps)
+
+        gates.last().complete(Unit) // the next delay doubles
+        runCurrent()
+        pass(1_999)
+        assertEquals(2, opened)
+        pass(1)
+        assertEquals(3, opened)
+        assertTrue(window.isOpen.value)
+    }
+
+    @Test
+    fun `leaving Always during the reopen delay cancels the reopen`() = runTest {
+        settings.value = settings.value.copy(mode = ActionsFromMac.ALWAYS)
+        val window = window()
+        gates.last().complete(Unit)
+        runCurrent()
+
+        settings.value = settings.value.copy(mode = ActionsFromMac.OFF)
+        runCurrent()
+        pass(60 * minute)
+        assertEquals(1, opened)
+        assertFalse(window.isOpen.value)
     }
 }

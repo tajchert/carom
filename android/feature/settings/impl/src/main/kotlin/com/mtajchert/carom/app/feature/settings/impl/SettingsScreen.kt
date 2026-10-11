@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -121,32 +122,35 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
         }
 
         Section(stringResource(R.string.feature_settings_section_actions)) {
-            ActionsMode(
-                mode = ActionsFromMac.OFF,
-                title = R.string.feature_settings_actions_off,
-                summary = R.string.feature_settings_actions_off_summary,
-                selected = state.actionsFromMac,
-                onSelect = actions.onActionsFromMacChanged,
-            )
-            HorizontalDivider()
-            ActionsMode(
-                mode = ActionsFromMac.AFTER_NOTIFICATION,
-                title = R.string.feature_settings_actions_after,
-                summary = R.string.feature_settings_actions_after_summary,
-                selected = state.actionsFromMac,
-                onSelect = actions.onActionsFromMacChanged,
-            )
-            if (state.actionsFromMac == ActionsFromMac.AFTER_NOTIFICATION) {
-                WindowChoices(selected = state.actionWindowMinutes, onSelect = actions.onActionWindowChanged)
+            // One group, so TalkBack announces the three modes as a single radio group.
+            Column(Modifier.selectableGroup()) {
+                ActionsMode(
+                    mode = ActionsFromMac.OFF,
+                    title = R.string.feature_settings_actions_off,
+                    summary = R.string.feature_settings_actions_off_summary,
+                    selected = state.actionsFromMac,
+                    onSelect = actions.onActionsFromMacChanged,
+                )
+                HorizontalDivider()
+                ActionsMode(
+                    mode = ActionsFromMac.AFTER_NOTIFICATION,
+                    title = R.string.feature_settings_actions_after,
+                    summary = R.string.feature_settings_actions_after_summary,
+                    selected = state.actionsFromMac,
+                    onSelect = actions.onActionsFromMacChanged,
+                )
+                if (state.actionsFromMac == ActionsFromMac.AFTER_NOTIFICATION) {
+                    WindowChoices(selected = state.actionWindowMinutes, onSelect = actions.onActionWindowChanged)
+                }
+                HorizontalDivider()
+                ActionsMode(
+                    mode = ActionsFromMac.ALWAYS,
+                    title = R.string.feature_settings_actions_always,
+                    summary = R.string.feature_settings_actions_always_summary,
+                    selected = state.actionsFromMac,
+                    onSelect = actions.onActionsFromMacChanged,
+                )
             }
-            HorizontalDivider()
-            ActionsMode(
-                mode = ActionsFromMac.ALWAYS,
-                title = R.string.feature_settings_actions_always,
-                summary = R.string.feature_settings_actions_always_summary,
-                selected = state.actionsFromMac,
-                onSelect = actions.onActionsFromMacChanged,
-            )
         }
 
         Section(stringResource(R.string.feature_settings_section_about)) {

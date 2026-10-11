@@ -64,6 +64,14 @@ class CaromListenerService : NotificationListenerService() {
         val f = forwarderFactory.create(newScope, AndroidForwardingEnvironment())
         forwarder = f
         bridge.attach(control)
+        // A call or player that was already showing before we connected holds the window now.
+        try {
+            activeNotifications?.forEach { if (it.packageName != packageName) callTracker.onPosted(it) }
+        } catch (_: SecurityException) {
+            // access was revoked; the next connection replays the list
+        } catch (_: RuntimeException) {
+            // the binder went away before we read the list
+        }
         // Removals that happened while we were not bound (reconnect, process death) are sent now.
         f.reconcile {
             try {
@@ -109,6 +117,8 @@ class CaromListenerService : NotificationListenerService() {
 
     private fun stop() {
         bridge.detach(control)
+        // No removals arrive while unbound, so holds taken now would never be released.
+        callTracker.releaseAll()
         forwarder = null
         scope?.cancel()
         scope = null

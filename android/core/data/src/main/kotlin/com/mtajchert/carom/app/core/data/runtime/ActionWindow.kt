@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.core.data.runtime
 
 import com.mtajchert.carom.app.core.data.sync.SyncLog
+import com.mtajchert.carom.app.core.hub.Backoff
 import com.mtajchert.carom.app.core.model.ActionsFromMac
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +49,8 @@ data class ActionWindowSettings(val mode: ActionsFromMac, val windowMinutes: Int
  *   `windowMinutes` without a forward, received action or media change, and never closes while a
  *   hold is active. A hold release starts a full window again.
  * - Always: open whenever the phone is paired; the session retries with a backoff of up to 15 min.
+ *   A session that ends on its own (an error, or no credentials for a moment) is started again
+ *   after a delay from [reopenBackoff], so the foreground service never sits without a socket.
  * - Off or unpaired: closed.
  *
  * Everything is serialized through one consumer coroutine, so the plain `fun` callbacks are safe
@@ -60,6 +63,7 @@ class ActionWindow(
     private val hasDesktopOnline: suspend (Set<String>) -> Boolean,
     private val runSession: suspend (maxBackoffMs: Long) -> Unit,
     private val log: SyncLog = SyncLog.NONE,
+    private val reopenBackoff: Backoff = Backoff(maxMs = ALWAYS_BACKOFF_MAX_MS),
 ) : ActivitySignal, ActionWindowHold, AlwaysOnState {
 
     private sealed interface Event {
@@ -69,6 +73,7 @@ class ActionWindow(
         data class Held(val source: String, val held: Boolean) : Event
         data class Expired(val timer: Long) : Event
         data class SessionEnded(val session: Long) : Event
+        data class Reopen(val session: Long) : Event
     }
 
     private val events = Channel<Event>(Channel.UNLIMITED)
@@ -86,6 +91,7 @@ class ActionWindow(
     private var sessionId = 0L
     private var timer: Job? = null
     private var timerId = 0L
+    private var reopen: Job? = null
 
     /** Starts consuming settings and events. Events sent before this are kept and handled after it. */
     fun start() {
@@ -113,6 +119,9 @@ class ActionWindow(
     private val afterNotification: Boolean
         get() = config.paired && config.mode == ActionsFromMac.AFTER_NOTIFICATION
 
+    private val always: Boolean
+        get() = config.paired && config.mode == ActionsFromMac.ALWAYS
+
     private suspend fun handle(event: Event) {
         when (event) {
             is Event.Configured -> configure(event.value)
@@ -135,20 +144,24 @@ class ActionWindow(
                 timer = null
                 session = null
                 openState.value = false
+                if (always) scheduleReopen(event.session)
             }
+            // close() and open() bump sessionId, so a reopen scheduled before either is dropped.
+            is Event.Reopen -> if (event.session == sessionId && always && session == null) open()
         }
     }
 
     private fun configure(next: ActionWindowSettings) {
-        val wasAlways = config.paired && config.mode == ActionsFromMac.ALWAYS
+        val wasAlways = always
         config = next
-        val always = next.paired && next.mode == ActionsFromMac.ALWAYS
         alwaysOnState.value = always
         when {
             always -> if (!wasAlways) {
                 close()
+                reopenBackoff.reset()
                 open()
             } else if (session == null) {
+                cancelReopen()
                 open()
             }
             afterNotification -> if (wasAlways) close() else if (openState.value) arm()
@@ -178,11 +191,28 @@ class ActionWindow(
     private fun close() {
         timer?.cancel()
         timer = null
+        cancelReopen()
         session?.cancel()
         session = null
         sessionId++
         if (openState.value) log.log("action_window_closed", null)
         openState.value = false
+    }
+
+    /** Always mode: starts the ended session [ended] again after the next backoff delay. */
+    private fun scheduleReopen(ended: Long) {
+        cancelReopen()
+        val delayMs = reopenBackoff.next()
+        log.log("action_window_reopen", "${delayMs}ms")
+        reopen = scope.launch {
+            delay(delayMs)
+            events.send(Event.Reopen(ended))
+        }
+    }
+
+    private fun cancelReopen() {
+        reopen?.cancel()
+        reopen = null
     }
 
     /** (Re)starts the idle timer; with a hold active there is no timer until the last release. */

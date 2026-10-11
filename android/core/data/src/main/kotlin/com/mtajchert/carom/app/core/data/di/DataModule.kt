@@ -216,7 +216,8 @@ abstract class DataModule {
             preferences: UserPreferencesRepository,
             session: SessionRepository,
             directory: DirectoryStore,
-            sync: CaromSync,
+            // Lazy: CaromSync's handlers reach the ActivitySignal (media commands), which is this window.
+            sync: dagger.Lazy<CaromSync>,
             opener: HubSocketOpener,
             log: SyncLog,
         ): ActionWindow {
@@ -231,7 +232,7 @@ abstract class DataModule {
                 },
                 runSession = { maxBackoffMs ->
                     ForegroundSocketSession(
-                        sync = sync,
+                        sync = sync.get(),
                         state = LiveConnectionState(),
                         connect = opener::open,
                         backoff = Backoff(maxMs = maxBackoffMs),

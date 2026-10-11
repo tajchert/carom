@@ -46,8 +46,7 @@ class UserPreferencesDataSource @Inject constructor(
             clipboardArrivalNotification = p[CLIPBOARD_ARRIVAL_NOTIFICATION] ?: true,
             ongoingNotification = p[ONGOING_NOTIFICATION] ?: false,
             actionsFromMac = p[ACTIONS_FROM_MAC]?.let { enumValueOrNull<ActionsFromMac>(it) } ?: ActionsFromMac.AFTER_NOTIFICATION,
-            actionWindowMinutes = p[ACTION_WINDOW_MINUTES]?.takeIf { it in ActionsFromMac.WINDOW_MINUTES }
-                ?: ActionsFromMac.DEFAULT_WINDOW_MINUTES,
+            actionWindowMinutes = ActionsFromMac.windowOrDefault(p[ACTION_WINDOW_MINUTES]),
         )
     }
 
@@ -74,7 +73,7 @@ class UserPreferencesDataSource @Inject constructor(
     suspend fun setActionsFromMac(mode: ActionsFromMac) = edit { it[ACTIONS_FROM_MAC] = mode.name }
 
     suspend fun setActionWindowMinutes(minutes: Int) = edit {
-        it[ACTION_WINDOW_MINUTES] = minutes.takeIf { m -> m in ActionsFromMac.WINDOW_MINUTES } ?: ActionsFromMac.DEFAULT_WINDOW_MINUTES
+        it[ACTION_WINDOW_MINUTES] = ActionsFromMac.windowOrDefault(minutes)
     }
 
     /** `ts` of the last clipboard item applied locally (SPEC §3.3 rule 6). */
