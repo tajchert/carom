@@ -24,7 +24,7 @@ class CaromListenerService : NotificationListenerService() {
 
     @Inject lateinit var forwarderFactory: NotificationForwarder.Factory
 
-    @Inject lateinit var extractor: NotificationExtractor
+    @Inject lateinit var extractor: RichExtractor
 
     @Inject lateinit var bridge: ActiveNotificationsBridge
 
