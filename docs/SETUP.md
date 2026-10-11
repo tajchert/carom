@@ -145,6 +145,24 @@ There is nothing to back up. The Hub deletes message content once every recipien
 case after 1–2 days. The keys live only on your devices. If you lose every device, run `reset`.
 Without the state file, use `deploy --new-token` instead. Then set up again.
 
+## One-time codes on Android 15 and later
+
+Android 15 hides verification codes from notification apps. Without help, a code reaches the Mac as "Sensitive notification content hidden". Carom can ask Android to trust it with those notifications:
+
+1. During setup, the permissions step offers **Verification codes → Enable**. Later, when Carom sees a hidden code, it shows a quiet notification: "Android hides verification codes from notification apps. Tap to enable."
+2. Tap it, choose **Enable code forwarding** and accept Android's prompt.
+3. Send yourself a test code. If it still arrives hidden, Carom shows the command below.
+
+### If Android still hides codes
+
+Connect the phone with USB debugging turned on and run this on a computer:
+
+```bash
+adb shell cmd appops set --user 0 com.mtajchert.carom.app RECEIVE_SENSITIVE_NOTIFICATIONS allow
+```
+
+Use `com.mtajchert.carom.app.debug` for a debug build. Android may reset this after a reboot or an app update, so run it again if codes are hidden again. Carom asks for no SMS permission.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -157,7 +175,7 @@ Without the state file, use `deploy --new-token` instead. Then set up again.
 | Phone forwards nothing | The home screen shows a banner if notification access is off. Check **Settings → Apps**: the app may be **Off**, **Pause forwarding** may be on, or **Forward only when the screen is locked** is on while the screen is unlocked |
 | Notifications arrive late or stop | Your phone's battery saver is restricting Carom. Allow **Unrestricted battery use**, and see [dontkillmyapp.com](https://dontkillmyapp.com) for your phone brand |
 | Mac clipboard never reaches the phone | Expected until you open Carom on the phone, or until it next sends something |
-| One-time codes show as "Sensitive notification content hidden" | Android 15+ hides OTPs from notification apps, and Carom forwards the hidden card. To see codes, turn off **Enhanced notifications** in system settings, or run `adb shell cmd appops set --user 0 com.mtajchert.carom.app RECEIVE_SENSITIVE_NOTIFICATIONS allow` (use `com.mtajchert.carom.app.debug` for a debug build; may need repeating after a reboot or update) |
+| One-time codes show as "Sensitive notification content hidden" | Android 15+ hides OTPs from notification apps. Enable code forwarding as described in [One-time codes on Android 15 and later](#one-time-codes-on-android-15-and-later). Turning off **Enhanced notifications** in system settings also works |
 | Automatic clipboard sending is off on the Mac | Choose **Always Allow** under **Privacy & Security → Paste from Other Apps**, then turn on **Send what I copy automatically** in **Settings → Clipboard** |
 
 ## Building from source

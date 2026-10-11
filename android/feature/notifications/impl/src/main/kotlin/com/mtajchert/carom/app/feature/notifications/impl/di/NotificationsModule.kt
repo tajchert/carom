@@ -3,6 +3,7 @@ package com.mtajchert.carom.app.feature.notifications.impl.di
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.feature.notifications.impl.BlobUploader
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingAccess
 import com.mtajchert.carom.app.feature.notifications.impl.ClearForwardedKeysOnWipe
 import com.mtajchert.carom.app.feature.notifications.impl.ClearIconCacheOnWipe
 import com.mtajchert.carom.app.feature.notifications.impl.DefaultBlobUploader
@@ -20,6 +21,18 @@ import com.mtajchert.carom.app.feature.notifications.impl.RoomNotificationAppsRe
 import com.mtajchert.carom.app.feature.notifications.impl.VaultGroupKeySource
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidAssociationApi
+import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidCodeForwardingAccess
+import com.mtajchert.carom.app.feature.notifications.impl.codes.AppOpsSensitiveAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidRedactionPromptNotifier
+import com.mtajchert.carom.app.feature.notifications.impl.codes.AssociationApi
+import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPromptNotifier
+import com.mtajchert.carom.app.feature.notifications.impl.codes.SensitiveAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.media.AndroidMediaSessionSource
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaArtUploader
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaCommandHandler
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaSessionSource
+import com.mtajchert.carom.app.feature.notifications.impl.media.SyncMediaArtUploader
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -66,6 +79,30 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsClearIconCacheOnWipe(impl: ClearIconCacheOnWipe): WipeHook
+
+    /** Adds `media.command@1` to this device's caps and known types. */
+    @Binds
+    @IntoSet
+    abstract fun bindsMediaCommandHandler(impl: MediaCommandHandler): IncomingMessageHandler
+
+    @Binds
+    abstract fun bindsMediaSessionSource(impl: AndroidMediaSessionSource): MediaSessionSource
+
+    @Binds
+    abstract fun bindsMediaArtUploader(impl: SyncMediaArtUploader): MediaArtUploader
+
+    @Binds
+    abstract fun bindsAssociationApi(impl: AndroidAssociationApi): AssociationApi
+
+    @Binds
+    abstract fun bindsSensitiveAccessChecker(impl: AppOpsSensitiveAccessChecker): SensitiveAccessChecker
+
+    /** Used by onboarding, which depends on `:feature:notifications:api` only. */
+    @Binds
+    abstract fun bindsCodeForwardingAccess(impl: AndroidCodeForwardingAccess): CodeForwardingAccess
+
+    @Binds
+    abstract fun bindsRedactionPromptNotifier(impl: AndroidRedactionPromptNotifier): RedactionPromptNotifier
 
     companion object {
         @Provides

@@ -8,6 +8,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPrompt
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaBridge
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -27,6 +30,10 @@ class CaromListenerService : NotificationListenerService() {
     @Inject lateinit var extractor: RichExtractor
 
     @Inject lateinit var bridge: ActiveNotificationsBridge
+
+    @Inject lateinit var mediaBridge: MediaBridge
+
+    @Inject lateinit var redactionPrompt: RedactionPrompt
 
     private var scope: CoroutineScope? = null
     private var forwarder: NotificationForwarder? = null
@@ -52,9 +59,13 @@ class CaromListenerService : NotificationListenerService() {
         scope?.cancel()
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope = newScope
-        val f = forwarderFactory.create(newScope, AndroidForwardingEnvironment())
+        val env = AndroidForwardingEnvironment()
+        val f = forwarderFactory.create(newScope, env)
         forwarder = f
         bridge.attach(control)
+        mediaBridge.start(newScope, env)
+        // Media that is already playing when the listener (re)connects.
+        newScope.launch { activeNotificationsOrEmpty().forEach(mediaBridge::onPosted) }
         // Removals that happened while we were not bound (reconnect, process death) are sent now.
         f.reconcile {
             try {
@@ -81,23 +92,37 @@ class CaromListenerService : NotificationListenerService() {
         val f = forwarder ?: return
         // Cheapest possible check on the main thread; everything else happens on the consumer.
         if (sbn.packageName == packageName) return
+        mediaBridge.onPosted(sbn)
         f.onPosted {
             val ranking = Ranking()
             val map = rankingMap ?: currentRanking
-            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true })
+            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true }).also {
+                // Android 15+ hid the content: offer code forwarding (spec §5.2). No content is passed on.
+                if (it.redacted) redactionPrompt.onRedacted()
+            }
         }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) = onNotificationPosted(sbn, null)
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
+        mediaBridge.onRemoved(sbn)
         forwarder?.onRemoved(sbn.key)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) = onNotificationRemoved(sbn, null)
 
+    private fun activeNotificationsOrEmpty(): List<StatusBarNotification> = try {
+        activeNotifications?.toList().orEmpty()
+    } catch (_: SecurityException) {
+        emptyList() // access was revoked
+    } catch (_: RuntimeException) {
+        emptyList() // the binder went away
+    }
+
     private fun stop() {
         bridge.detach(control)
+        mediaBridge.stop()
         forwarder = null
         scope?.cancel()
         scope = null

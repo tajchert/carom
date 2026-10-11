@@ -56,8 +56,8 @@ class RecordCapsTest {
     fun setUp() = hiltRule.inject()
 
     @Test
-    fun `the app handles exactly clipboard and dismiss`() {
-        assertEquals(setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS), handlers.map { it.type }.toSet())
+    fun `the app handles exactly clipboard, dismiss and media command`() {
+        assertEquals(setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS, MessageTypes.MEDIA_COMMAND), handlers.map { it.type }.toSet())
     }
 
     @Test
@@ -89,7 +89,7 @@ class RecordCapsTest {
         val record = (Records.open(published, key.key, key.kv) as Outcome.Ok).value
 
         assertEquals(DeviceKind.PHONE, record.kind)
-        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET), record.caps)
+        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET, MessageTypes.MEDIA_COMMAND), record.caps)
         assertEquals(
             mapOf(
                 MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone,

@@ -76,6 +76,9 @@
     <string name="feature_onboarding_post_body">Lets Carom tell you when a clipboard item arrives from another device.</string>
     <string name="feature_onboarding_battery_title">Unrestricted battery use</string>
     <string name="feature_onboarding_battery_body">Carom uses little battery and works without this. On some phones it helps notifications go out without delay. Find Carom in the list and choose Don\'t optimise.</string>
+    <string name="feature_onboarding_codes_title">Verification codes</string>
+    <string name="feature_onboarding_codes_body">Android 15 and later hides one-time codes from notification apps. Allow Carom to see them so you can copy a code on your computer.</string>
+    <string name="feature_onboarding_codes_action">Enable</string>
     <string name="feature_onboarding_optional">Optional</string>
     <string name="feature_onboarding_allow">Allow</string>
     <string name="feature_onboarding_allowed">Allowed</string>

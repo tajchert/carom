@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import com.mtajchert.carom.app.core.data.sync.EnrollmentError
 import com.mtajchert.carom.app.core.designsystem.component.CaromTextButton
 import com.mtajchert.carom.app.core.ui.DeviceFingerprint
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 
 @Composable
 internal fun WelcomeStep(actions: OnboardingActions) {
@@ -420,6 +421,16 @@ internal fun PermissionsStep(status: PermissionStatus, actions: OnboardingAction
                 granted = granted,
                 action = stringResource(R.string.feature_onboarding_allow),
                 onAction = actions.onRequestPostNotifications,
+            )
+        }
+        if (status.codeForwarding != CodeForwardingState.UNSUPPORTED) {
+            PermissionCard(
+                title = stringResource(R.string.feature_onboarding_codes_title),
+                body = stringResource(R.string.feature_onboarding_codes_body),
+                granted = status.codeForwarding == CodeForwardingState.ENABLED,
+                action = stringResource(R.string.feature_onboarding_codes_action),
+                onAction = actions.onEnableCodeForwarding,
+                optional = true,
             )
         }
         PermissionCard(
