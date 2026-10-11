@@ -35,4 +35,9 @@
     <string name="feature_notifications_codes_adb_clip_label">adb command</string>
     <string name="feature_notifications_codes_unsupported">This version of Android does not hide verification codes. There is nothing to turn on.</string>
     <string name="feature_notifications_codes_done">Done</string>
+
+    <string name="feature_notifications_codes_channel_name">Verification code access</string>
+    <string name="feature_notifications_codes_channel_description">A quiet reminder when Android hides verification codes from Carom</string>
+    <string name="feature_notifications_codes_prompt_title">One-time codes</string>
+    <string name="feature_notifications_codes_prompt_text">Android hides verification codes from notification apps. Tap to enable.</string>
 </resources>

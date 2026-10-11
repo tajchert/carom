@@ -15,7 +15,9 @@ import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAcces
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidAssociationApi
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidCodeForwardingAccess
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AppOpsSensitiveAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidRedactionPromptNotifier
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AssociationApi
+import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPromptNotifier
 import com.mtajchert.carom.app.feature.notifications.impl.codes.SensitiveAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.media.AndroidMediaSessionSource
 import com.mtajchert.carom.app.feature.notifications.impl.media.MediaArtUploader
@@ -72,6 +74,9 @@ internal abstract class NotificationsModule {
     /** Used by onboarding, which depends on `:feature:notifications:api` only. */
     @Binds
     abstract fun bindsCodeForwardingAccess(impl: AndroidCodeForwardingAccess): CodeForwardingAccess
+
+    @Binds
+    abstract fun bindsRedactionPromptNotifier(impl: AndroidRedactionPromptNotifier): RedactionPromptNotifier
 
     companion object {
         @Provides

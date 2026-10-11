@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPrompt
 import com.mtajchert.carom.app.feature.notifications.impl.media.MediaBridge
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -31,6 +32,8 @@ class CaromListenerService : NotificationListenerService() {
     @Inject lateinit var bridge: ActiveNotificationsBridge
 
     @Inject lateinit var mediaBridge: MediaBridge
+
+    @Inject lateinit var redactionPrompt: RedactionPrompt
 
     private var scope: CoroutineScope? = null
     private var forwarder: NotificationForwarder? = null
@@ -93,7 +96,10 @@ class CaromListenerService : NotificationListenerService() {
         f.onPosted {
             val ranking = Ranking()
             val map = rankingMap ?: currentRanking
-            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true })
+            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true }).also {
+                // Android 15+ hid the content: offer code forwarding (spec §5.2). No content is passed on.
+                if (it.redacted) redactionPrompt.onRedacted()
+            }
         }
     }
 
