@@ -59,6 +59,11 @@ setup QR again until a device has used it.
      automatically, choose **Always Allow** for Carom in **System Settings → Privacy & Security →
      Paste from Other Apps**. Without it you can still send on demand with **⌃⌥⌘C** or
      **Send Clipboard** in the menu.
+   - **Focus status.** macOS asks once, when Carom starts with its own notification panel turned on (the default),
+     whether Carom may see if a Focus is on. Choose **Allow**. While a Focus is on, Carom then
+     shows only the quiet macOS notification. If you refuse, Carom can't see your Focus, so the
+     panel still appears. You can change this later in **System Settings → Privacy & Security →
+     Focus**.
 6. **You're All Set → Add a Phone.** A pairing QR code appears. It's valid for 5 minutes and for one
    device. Continue on the phone.
 
@@ -77,6 +82,8 @@ setup QR again until a device has used it.
      forwarding**. If the switch is greyed out, Android is blocking it for apps installed outside an app
      store: tap **Open App info → ⋮ → Allow restricted settings**, then try again.
    - **Notifications from Carom → Allow.** Carom uses this to tell you when clipboard text arrives.
+   - **Verification codes → Enable** (Android 15 and later). See
+     [One-time codes on Android 15 and later](#one-time-codes-on-android-15-and-later). You can skip it.
    - **Unrestricted battery use** (optional). Carom uses little battery without it, but on some
      phones (Xiaomi, Samsung, Huawei and others) it prevents notifications going out late. Choose
      **Don't optimise** for Carom.
@@ -89,16 +96,47 @@ open **Settings…** (⌘,) from the menu-bar menu.
 
 | You want to… | How |
 |---|---|
-| Act on a phone notification on the Mac | Expand the notification for **Dismiss on phone**, **Copy code** (when Carom detects a one-time code) or **Copy text**. Right-clicking an item in the menu-bar list offers the same actions, plus muting the app |
+| Act on a phone notification on the Mac | The card shows the app's own buttons, **Reply** (type a reply or pick a suggestion), **Copy code** (when Carom detects a one-time code), **Dismiss on phone**, and **Copy text**. Click the card to open the notification on the phone. Right-clicking an item in the menu-bar list offers some of the same actions, plus muting the app. See [Actions from Mac](#actions-from-mac) |
+| Control music from the Mac | The **Now Playing** card in the menu shows what the phone plays, with play/pause, previous, next and a seek bar. It needs **Actions from Mac** on the phone |
+| Answer or decline a call | Incoming calls show a card with **Answer** and **Decline**. The call audio stays on the phone |
+| Choose how notifications look on the Mac | Mac: **Settings → Notifications → Show notifications as**: **Rich** (Carom's panel plus a quiet copy in Notification Center) or **Native only** (plain macOS banners) |
 | Send the Mac clipboard to the phone | Copy (automatic with *Always Allow*, or turn on **Send what I copy automatically** in **Settings → Clipboard**), press **⌃⌥⌘C**, or choose **Send Clipboard** in the menu. **It arrives when you next open Carom on the phone**, or when the phone next sends something. There are no push wake-ups, to save battery |
 | Send the phone clipboard to the Mac | **Send clipboard** on Carom's home screen, the **Send clipboard** Quick Settings tile (add it via Quick Settings → edit ✎), **Share → Send to Carom** (plain text), or the ongoing notification (turn on **Keep a Carom notification with a Send clipboard button** in **Settings → Clipboard**). Android doesn't let apps read the clipboard in the background, so it always takes one tap |
-| Choose which apps forward | Phone: **Settings → Apps**, then **Forward / Hide content / Off** per app. Apps appear after their first notification. *Hide content* sends only "New notification". **Forward only when the screen is locked** is on the same screen. Mac: **Settings → Notifications** turns phones on or off and mutes apps on that Mac only |
+| Choose which apps forward | Phone: **Settings → Apps**, then **Forward / Hide content / Off** per app. Apps appear after their first notification. *Hide content* sends only the app name, and the Mac shows "Content hidden on your phone". **Ongoing: Forward** lets that app's ongoing notifications through (see below). **Forward only when the screen is locked** is on the same screen. Mac: **Settings → Notifications** turns phones on or off and mutes apps on that Mac only |
 | Pause | Phone: **Settings → Pause notification forwarding**. Mac: **Pause** (then **Resume**) in the menu, or **Pause syncing** in **Settings → General**. While paused, **Send Clipboard** still works |
 | Choose who gets your clipboard | Phone: **Settings → Clipboard → Send clipboard to / Receive clipboard from** (or **Any device**). Mac: **Settings → Clipboard → Send To / Receive From**. Devices paired later are only included where **Any device** is on |
 
 Some system apps (Android system, System UI, Settings, Play Store, Google Play services and similar)
-start as **Off**. Ongoing, foreground-service, group-summary, media and Silent-channel
-notifications are never forwarded.
+start as **Off**. Carom forwards silent notifications too, but not those from channels Android marks
+as minimum importance. Ongoing notifications (music players, navigation, downloads) are skipped
+unless they are a Live Update, show progress or are a call, or you turn on **Ongoing: Forward** for
+that app. Media players are not forwarded as notifications: they appear as the Now Playing card.
+You don't need to grant anything more for this. It all runs under notification access.
+
+## Actions from Mac
+
+On the phone, **Settings → Actions from Mac** decides whether your Mac can tap, reply to or
+control things on the phone.
+
+| Choice | What it means |
+|---|---|
+| **Off** | Your Mac gets no buttons, reply field or media controls for this phone |
+| **After a notification** (default) | The phone listens for your Mac for a few minutes after it sends a notification. **Stay ready for** 2, 5 or 15 minutes. Costs very little battery |
+| **Always while a Mac is online** | The phone is always ready. It shows a permanent notification ("Ready for your Mac") and uses more battery |
+
+Actions work only while the phone is listening. If you click a button when the phone isn't, the
+Mac shows "Phone is asleep — will send when it wakes". The action waits for up to 10 minutes. It
+runs when the phone next listens, or is dropped if the notification is gone by then.
+
+Two things to know:
+- **Open on phone** starts the app on the phone. Android 14 and later can block that when the
+  phone is locked or the screen is off. The Mac then says the action failed or was blocked.
+- Some apps drop the text of a reply sent this way. Carom can't tell, so the Mac still shows "Sent".
+
+Android 16 shows **Live Updates** from apps that support them (a ride, a delivery, a timer). Carom
+shows these as a pinned card on the Mac, and in the menu bar if the app marks them as promoted.
+Whether an app shows its Live Update is a per-app choice in Android's own notification settings,
+not in Carom.
 
 ## Adding more devices
 
@@ -150,8 +188,11 @@ Without the state file, use `deploy --new-token` instead. Then set up again.
 Android 15 hides verification codes from notification apps. Without help, a code reaches the Mac as "Sensitive notification content hidden". Carom can ask Android to trust it with those notifications:
 
 1. During setup, the permissions step offers **Verification codes → Enable**. Later, when Carom sees a hidden code, it shows a quiet notification: "Android hides verification codes from notification apps. Tap to enable."
-2. Tap it, choose **Enable code forwarding** and accept Android's prompt.
+2. Tap it, choose **Enable code forwarding** and accept Android's prompt. Carom creates a *companion device* association, which makes Android treat it as trusted for these notifications.
 3. Send yourself a test code. If it still arrives hidden, Carom shows the command below.
+
+Some phones and Android versions don't let the association unlock codes. Then the screen reads
+"Turn it on from a computer" and shows the command below. Use it.
 
 ### If Android still hides codes
 
@@ -176,6 +217,9 @@ Use `com.mtajchert.carom.app.debug` for a debug build. Android may reset this af
 | Notifications arrive late or stop | Your phone's battery saver is restricting Carom. Allow **Unrestricted battery use**, and see [dontkillmyapp.com](https://dontkillmyapp.com) for your phone brand |
 | Mac clipboard never reaches the phone | Expected until you open Carom on the phone, or until it next sends something |
 | One-time codes show as "Sensitive notification content hidden" | Android 15+ hides OTPs from notification apps. Enable code forwarding as described in [One-time codes on Android 15 and later](#one-time-codes-on-android-15-and-later). Turning off **Enhanced notifications** in system settings also works |
+| Reply, Answer or the app's buttons don't show on the Mac | The phone must list the action types: set **Settings → Actions from Mac** on the phone to something other than **Off**, then wait a moment for the Mac to see the change |
+| A button says "Phone is asleep — will send when it wakes" | The phone isn't listening. Open Carom on the phone, or use **After a notification** or **Always while a Mac is online** |
+| Live Update, music or call is missing on the Mac | Check **Settings → Apps** on the phone (the app can't be **Off**), and for Live Updates the app's own Live Updates switch in Android |
 | Automatic clipboard sending is off on the Mac | Choose **Always Allow** under **Privacy & Security → Paste from Other Apps**, then turn on **Send what I copy automatically** in **Settings → Clipboard** |
 
 ## Building from source

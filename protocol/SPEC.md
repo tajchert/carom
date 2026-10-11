@@ -174,12 +174,13 @@ stored one, the Hub answers `200 {seq: null, superseded: true}` and stores nothi
 stops a late retry from overwriting a fresher clipboard item.
 
 Collapse values depend on `kv`, so a message sent before a rekey is not replaced by one
-sent after it. This is harmless. Real keys used in v1:
+sent after it. This is harmless. Real keys used:
 
 - `clip` for clipboard
 - `n:<android notification key>` for notification posted/removed, which share one slot so
   a removal replaces the pending post
 - `status` for device status
+- `m:<session>` for `media.state`, so the newest state of a session replaces the older ones
 
 ### 3.3 Receiver rules
 
