@@ -129,7 +129,8 @@ class NotificationForwarderTest {
         runCurrent()
         assertEquals(1, fake.sent.size)
         val body = MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), fake.sent.single().body)!!
-        assertEquals("New notification", body.text)
+        assertEquals(null, body.text)
+        assertEquals(true, body.redacted)
         assertEquals(null, body.title)
         assertEquals(AppForwardingMode.OFF, apps.settings["com.android.systemui"]!!.mode) // deny list default
     }

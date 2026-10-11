@@ -128,7 +128,6 @@ class NotificationForwarder(
             n = n,
             appName = app.label,
             hideContent = app.mode == AppForwardingMode.HIDE_CONTENT,
-            hiddenText = env.hiddenText,
         )
         val wait = throttle.delayFor(n.key, now)
         if (wait > 0) {
