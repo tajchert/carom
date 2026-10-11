@@ -15,7 +15,7 @@ public enum ActionRef: Sendable, Equatable {
         case .string("answer"): self = .answer
         case .string("decline"): self = .decline
         case .object(let o)?:
-            guard let index = o["index"]?.safeInt, index >= 0, let title = o["title"]?.stringValue else { return nil }
+            guard let index = o["index"]?.count32, let title = o["title"]?.stringValue else { return nil }
             var replyText: String?
             if let r = o["reply_text"] {
                 guard let s = r.stringValue else { return nil }
@@ -125,19 +125,16 @@ public struct MediaState: MessageBody {
     }
 
     public init?(json b: JSONObject) {
-        guard let session = b["session"]?.stringValue, !session.isEmpty,
-              case .object(let app)? = b["app"], let appId = app["id"]?.stringValue,
-              let appName = app["name"]?.stringValue,
-              let state = b["state"]?.stringValue,
-              let controls = b["controls"]?.arrayValue
-        else { return nil }
-        func nonNegative(_ key: String) -> Int? { b[key]?.safeInt.flatMap { $0 >= 0 ? $0 : nil } }
-        self.init(
-            session: session, app: .init(id: appId, name: appName, icon: BlobRef(json: app["icon"])),
-            title: b["title"]?.stringValue, artist: b["artist"]?.stringValue, album: b["album"]?.stringValue,
-            art: BlobRef(json: b["art"]), state: state, positionMs: nonNegative("position_ms"),
-            positionAt: nonNegative("position_at"), durationMs: nonNegative("duration_ms"),
-            controls: controls.compactMap(\.stringValue))
+        do {
+            let session = try b.need("session", { $0.stringValue.flatMap { $0.isEmpty ? nil : $0 } })
+            self.init(
+                session: session, app: try b.need("app", { NotificationPosted.App(json: $0) }),
+                title: try b.opt("title", \.stringValue), artist: try b.opt("artist", \.stringValue),
+                album: try b.opt("album", \.stringValue), art: try b.opt("art", { BlobRef(json: $0) }),
+                state: try b.need("state", \.stringValue), positionMs: try b.opt("position_ms", \.ms),
+                positionAt: try b.opt("position_at", \.ms), durationMs: try b.opt("duration_ms", \.ms),
+                controls: try b.optList("controls", \.stringValue) ?? { throw InvalidBody() }())
+        } catch { return nil }
     }
 
     public var json: JSONObject {
@@ -173,15 +170,17 @@ public struct MediaCommand: MessageBody {
         self.positionMs = positionMs
     }
 
+    /// The commands a Mac can send.
+    public static let commands: Set<String> = ["play", "pause", "next", "previous", "seek"]
+
     public init?(json b: JSONObject) {
-        guard let session = b["session"]?.stringValue, !session.isEmpty, let command = b["command"]?.stringValue
-        else { return nil }
-        var positionMs: Int?
-        if let p = b["position_ms"] {
-            guard let n = p.safeInt, n >= 0 else { return nil }
-            positionMs = n
-        }
-        self.init(session: session, command: command, positionMs: positionMs)
+        do {
+            let session = try b.need("session", { $0.stringValue.flatMap { $0.isEmpty ? nil : $0 } })
+            let command = try b.need("command", { $0.stringValue.flatMap { Self.commands.contains($0) ? $0 : nil } })
+            let positionMs = try b.opt("position_ms", \.ms)
+            guard command != "seek" || positionMs != nil else { return nil }
+            self.init(session: session, command: command, positionMs: positionMs)
+        } catch { return nil }
     }
 
     public var json: JSONObject {

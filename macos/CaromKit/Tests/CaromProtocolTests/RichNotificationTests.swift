@@ -82,47 +82,45 @@ struct RichNotificationTests {
         #expect(NotificationPosted(json: n.json) == n)
     }
 
-    @Test("a malformed V2 field is dropped and the rest of the notification survives")
-    func lenient() throws {
+    @Test("a V2 field with the wrong type or shape fails the body (bad_payload)")
+    func strict() throws {
+        let bad: [(String, JSON)] = [
+            ("color", "red"), ("color", .number(1.5)), ("small_icon", ["id": "short"]), ("conversation", ["title": "x"]),
+            ("progress", ["value": 1]), ("call", 5), ("lines", ["ok", 3, "fine"]),
+            ("messages", [["text": "no ts"], ["text": "good", "ts": 7]]),
+            ("messages", [["text": "hi", "ts": 1, "image": ["id": "x"]]]),
+        ]
+        for (key, value) in bad {
+            var body = Self.full().json
+            #expect(NotificationPosted(json: body) != nil)
+            body[key] = value
+            #expect(NotificationPosted(json: body) == nil, "\(key)")
+        }
+        // The V1 fields are strict too.
         var body = Self.full().json
-        body["color"] = "red"
-        body["small_icon"] = ["id": "short"]
-        body["conversation"] = ["title": "x"]  // is_group missing
-        body["progress"] = ["value": 1]
-        body["call"] = 5
-        body["lines"] = ["ok", 3, "fine"]
-        body["messages"] = [["text": "no ts"], ["text": "good", "ts": 7]]
-        let n = try #require(NotificationPosted(json: body))
-        #expect(n.color == nil && n.smallIcon == nil && n.conversation == nil && n.progress == nil && n.call == nil)
-        #expect(n.lines == ["ok", "fine"])
-        #expect(n.messages == [.init(text: "good", ts: 7)])
-        #expect(n.title == "Team" && n.largeIcon != nil && n.actions?.count == 2)
-        // The V1 fields stay strict.
         body["title"] = 5
         #expect(NotificationPosted(json: body) == nil)
     }
 
-    @Test("lists longer than the SPEC caps are cut; messages keep the newest")
+    @Test("lists longer than the SPEC caps fail the body; lists at the caps pass")
     func caps() throws {
-        var body = Self.base.json
-        body["lines"] = JSON((0..<20).map { "l\($0)" })
-        body["messages"] = .array((0..<10).map { ["text": .string("m\($0)"), "ts": JSON($0)] })
-        body["actions"] = .array((0..<9).map { ["index": JSON($0), "title": .string("a\($0)")] })
-        body["progress"] = ["value": 1, "max": 2, "indeterminate": false,
-                            "segments": .array((0..<12).map { ["length": JSON($0)] }),
-                            "points": .array((0..<6).map { ["position": JSON($0)] })]
-        let n = try #require(NotificationPosted(json: body))
-        #expect(n.lines?.count == NotificationPosted.Limits.lines)
-        #expect(n.messages?.map(\.text) == ["m4", "m5", "m6", "m7", "m8", "m9"])
-        #expect(n.actions?.map(\.index) == [0, 1, 2, 3, 4, 5])
-        #expect(n.progress?.segments?.count == 10 && n.progress?.points?.count == 4)
-    }
-
-    @Test("an invalid blob ref inside a message drops only that image")
-    func badBlobInsideMessage() throws {
-        var body = Self.base.json
-        body["messages"] = [["text": "hi", "ts": 1, "image": ["id": "x"]]]
-        let n = try #require(NotificationPosted(json: body))
-        #expect(n.messages == [.init(text: "hi", ts: 1)])
+        func body(lines: Int, messages: Int, actions: Int, segments: Int, points: Int) -> JSONObject {
+            var b = Self.base.json
+            b["lines"] = JSON((0..<lines).map { "l\($0)" })
+            b["messages"] = .array((0..<messages).map { ["text": .string("m\($0)"), "ts": JSON($0)] })
+            b["actions"] = .array((0..<actions).map { ["index": JSON($0), "title": .string("a\($0)")] })
+            b["progress"] = ["value": 1, "max": 2, "indeterminate": false,
+                             "segments": .array((0..<segments).map { ["length": JSON($0)] }),
+                             "points": .array((0..<points).map { ["position": JSON($0)] })]
+            return b
+        }
+        let ok = try #require(NotificationPosted(json: body(lines: 7, messages: 6, actions: 6, segments: 10, points: 4)))
+        #expect(ok.lines?.count == 7 && ok.messages?.count == 6 && ok.actions?.count == 6)
+        #expect(ok.progress?.segments?.count == 10 && ok.progress?.points?.count == 4)
+        #expect(NotificationPosted(json: body(lines: 8, messages: 6, actions: 6, segments: 10, points: 4)) == nil)
+        #expect(NotificationPosted(json: body(lines: 7, messages: 7, actions: 6, segments: 10, points: 4)) == nil)
+        #expect(NotificationPosted(json: body(lines: 7, messages: 6, actions: 7, segments: 10, points: 4)) == nil)
+        #expect(NotificationPosted(json: body(lines: 7, messages: 6, actions: 6, segments: 11, points: 4)) == nil)
+        #expect(NotificationPosted(json: body(lines: 7, messages: 6, actions: 6, segments: 10, points: 5)) == nil)
     }
 }

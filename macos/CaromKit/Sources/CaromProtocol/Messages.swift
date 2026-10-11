@@ -30,6 +30,41 @@ public enum MessageType: String, Sendable, CaseIterable, Codable {
     }
 }
 
+/// Strict field access for body decoders: an absent field is fine when optional, but a present field
+/// of the wrong type or shape fails the whole body (`bad_payload`, SPEC §3.3 rule 5).
+struct InvalidBody: Error {}
+
+extension JSONObject {
+    /// An optional field: nil when absent; throws when present and `parse` rejects it.
+    func opt<T>(_ key: String, _ parse: (JSON) -> T?) throws -> T? {
+        guard let v = self[key] else { return nil }
+        guard let r = parse(v) else { throw InvalidBody() }
+        return r
+    }
+
+    /// A required field: throws when absent or rejected by `parse`.
+    func need<T>(_ key: String, _ parse: (JSON) -> T?) throws -> T {
+        guard let v = self[key], let r = parse(v) else { throw InvalidBody() }
+        return r
+    }
+
+    /// An optional array of at most `max` items that all pass `parse`.
+    func optList<T>(_ key: String, max: Int = .max, _ parse: (JSON) -> T?) throws -> [T]? {
+        guard let a = try opt(key, { $0.arrayValue }) else { return nil }
+        guard a.count <= max else { throw InvalidBody() }
+        return try a.map { guard let r = parse($0) else { throw InvalidBody() }; return r }
+    }
+}
+
+extension JSON {
+    /// A signed 32-bit integer (SPEC §3.3: colours, importance, semantics).
+    var int32: Int? { int(in: Int(Int32.min)...Int(Int32.max)) }
+    /// A non-negative 32-bit integer.
+    var count32: Int? { int(in: 0...Int(Int32.max)) }
+    /// A non-negative safe integer (epoch milliseconds, durations).
+    var ms: Int? { safeInt.flatMap { $0 >= 0 ? $0 : nil } }
+}
+
 /// A typed v1 message body. Receivers ignore unknown fields, so `init?(json:)` only checks
 /// the fields it knows.
 public protocol MessageBody: Sendable, Equatable {
@@ -60,6 +95,14 @@ public struct NotificationPosted: MessageBody {
         public var name: String
         /// The app icon (V2).
         public var icon: BlobRef?
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(id: try o.need("id", \.stringValue), name: try o.need("name", \.stringValue),
+                          icon: try o.opt("icon", { BlobRef(json: $0) }))
+            } catch { return nil }
+        }
+
         public init(id: String, name: String, icon: BlobRef? = nil) {
             self.id = id
             self.name = name
@@ -149,35 +192,31 @@ public struct NotificationPosted: MessageBody {
     }
 
     public init?(json b: JSONObject) {
-        guard let key = b["key"]?.stringValue,
-              case .object(let app)? = b["app"],
-              let appId = app["id"]?.stringValue, let appName = app["name"]?.stringValue,
-              let postedAt = b["posted_at"]?.safeInt, postedAt >= 0,
-              let redacted = b["redacted"]?.boolValue
-        else { return nil }
-        let title = optString(b["title"]), text = optString(b["text"])
-        let subText = optString(b["sub_text"]), category = optString(b["category"])
-        let ongoing = optBool(b["ongoing"])
-        guard title.ok, text.ok, subText.ok, category.ok, ongoing.ok else { return nil }
-        self.init(key: key, app: App(id: appId, name: appName, icon: BlobRef(json: app["icon"])),
-                  title: title.value, text: text.value, subText: subText.value, category: category.value,
-                  postedAt: postedAt, redacted: redacted, ongoing: ongoing.value,
-                  template: b["template"]?.stringValue, color: b["color"]?.safeInt,
-                  colorized: b["colorized"]?.boolValue, smallIcon: BlobRef(json: b["small_icon"]),
-                  largeIcon: BlobRef(json: b["large_icon"]), picture: BlobRef(json: b["picture"]),
-                  pictureDesc: b["picture_desc"]?.stringValue, bigText: b["big_text"]?.stringValue,
-                  lines: b["lines"]?.arrayValue.map { Array($0.compactMap(\.stringValue).prefix(Limits.lines)) },
-                  summaryText: b["summary_text"]?.stringValue, conversation: Conversation(json: b["conversation"]),
-                  messages: b["messages"]?.arrayValue.map {
-                      Array($0.compactMap { ConversationMessage(json: $0) }.suffix(Limits.messages))
-                  },
-                  actions: b["actions"]?.arrayValue.map {
-                      Array($0.compactMap { Action(json: $0) }.prefix(Limits.actions))
-                  },
-                  canOpen: b["can_open"]?.boolValue, progress: Progress(json: b["progress"]),
-                  live: Live(json: b["live"]), when: b["when"]?.safeInt, showWhen: b["show_when"]?.boolValue,
-                  chronometer: Chronometer(json: b["chronometer"]), call: Call(json: b["call"]),
-                  group: Group(json: b["group"]), channel: Channel(json: b["channel"]))
+        do {
+            let app = try b.need("app", { App(json: $0) })
+            self.init(
+                key: try b.need("key", \.stringValue), app: app,
+                title: try b.opt("title", \.stringValue), text: try b.opt("text", \.stringValue),
+                subText: try b.opt("sub_text", \.stringValue), category: try b.opt("category", \.stringValue),
+                postedAt: try b.need("posted_at", \.ms), redacted: try b.need("redacted", \.boolValue),
+                ongoing: try b.opt("ongoing", \.boolValue), template: try b.opt("template", \.stringValue),
+                color: try b.opt("color", \.int32), colorized: try b.opt("colorized", \.boolValue),
+                smallIcon: try b.opt("small_icon", { BlobRef(json: $0) }),
+                largeIcon: try b.opt("large_icon", { BlobRef(json: $0) }),
+                picture: try b.opt("picture", { BlobRef(json: $0) }),
+                pictureDesc: try b.opt("picture_desc", \.stringValue), bigText: try b.opt("big_text", \.stringValue),
+                lines: try b.optList("lines", max: Limits.lines, \.stringValue),
+                summaryText: try b.opt("summary_text", \.stringValue),
+                conversation: try b.opt("conversation", { Conversation(json: $0) }),
+                messages: try b.optList("messages", max: Limits.messages, { ConversationMessage(json: $0) }),
+                actions: try b.optList("actions", max: Limits.actions, { Action(json: $0) }),
+                canOpen: try b.opt("can_open", \.boolValue), progress: try b.opt("progress", { Progress(json: $0) }),
+                live: try b.opt("live", { Live(json: $0) }), when: try b.opt("when", \.ms),
+                showWhen: try b.opt("show_when", \.boolValue),
+                chronometer: try b.opt("chronometer", { Chronometer(json: $0) }),
+                call: try b.opt("call", { Call(json: $0) }), group: try b.opt("group", { Group(json: $0) }),
+                channel: try b.opt("channel", { Channel(json: $0) }))
+        } catch { return nil }
     }
 
     public var json: JSONObject {

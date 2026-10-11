@@ -31,16 +31,16 @@ public struct BlobRef: Sendable, Equatable, Hashable, CustomStringConvertible {
               let id = o["id"]?.stringValue, B64.decode(id, length: 32) != nil,
               let key = o["key"]?.stringValue, B64.decode(key, length: 32) != nil,
               let mime = o["mime"]?.stringValue, !mime.isEmpty,
-              let size = o["size"]?.safeInt, size >= 0,
+              let size = o["size"]?.safeInt, size >= 0, size <= Blobs.maxPlaintext,
               let hash = o["hash"]?.stringValue, B64.decode(hash, length: 16) != nil
         else { return nil }
         var w: Int?, h: Int?
         if let jw = o["w"] {
-            guard let n = jw.safeInt, n >= 0 else { return nil }
+            guard let n = jw.int(in: 1...Int(Int32.max)) else { return nil }
             w = n
         }
         if let jh = o["h"] {
-            guard let n = jh.safeInt, n >= 0 else { return nil }
+            guard let n = jh.int(in: 1...Int(Int32.max)) else { return nil }
             h = n
         }
         self.init(id: id, key: key, mime: mime, size: size, hash: hash, w: w, h: h)
@@ -72,6 +72,8 @@ public struct SealedBlob: Sendable {
 public enum Blobs {
     /// The Hub accepts at most 1 MiB + 1 KiB of ciphertext (SPEC §6).
     public static let maxCiphertext = 1_048_576 + 1_024
+    /// Senders cap the plaintext so the padded ciphertext stays within 1 MiB (SPEC §11).
+    public static let maxPlaintext = 1_044_476
 
     public static func randomKey() -> Data { Wire.randomBytes(Carom.keyLength) }
 
@@ -127,7 +129,7 @@ public enum Blobs {
         guard ct.count <= maxCiphertext, B64.encode(Crypto.sha256(ct)) == ref.id,
               let key = B64.decode(ref.key, length: Carom.keyLength),
               let padded = Crypto.aeadOpen(key: key, aad: aad(mime: ref.mime), ciphertext: ct),
-              let plain = unpad(padded),
+              let plain = unpad(padded), plain.count == ref.size,
               B64.encode(Crypto.sha256(plain).prefixData(16)) == ref.hash
         else { return nil }
         return plain

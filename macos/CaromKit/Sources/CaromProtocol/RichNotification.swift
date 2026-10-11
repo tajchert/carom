@@ -2,9 +2,10 @@ import Foundation
 
 /// The V2 additions to `notification.posted@1` (SPEC §3.3). Every field is optional.
 ///
-/// Decoding is lenient, because a receiver must show what it can (SPEC §3.1, §7): a V2 field
-/// with the wrong type or shape is dropped, an invalid list item is skipped, and a list longer
-/// than its cap is cut. The V1 fields keep their strict checks. Nothing here prints text or keys.
+/// Decoding follows the reference validator (protocol/ts/src/messages.ts): an absent field is fine,
+/// but a field that is present with the wrong type or shape, an invalid list item or a list longer
+/// than its cap fails the whole body (`bad_payload`). Unknown fields are ignored. Nothing here
+/// prints text or keys.
 extension NotificationPosted {
     /// Caps from SPEC §3.3. The sender keeps within them; a receiver cuts anything longer.
     public enum Limits {
@@ -26,9 +27,12 @@ extension NotificationPosted {
             self.icon = icon
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let name = o["name"]?.stringValue else { return nil }
-            self.init(name: name, key: o["key"]?.stringValue, icon: BlobRef(json: o["icon"]))
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(name: try o.need("name", \.stringValue), key: try o.opt("key", \.stringValue),
+                          icon: try o.opt("icon", { BlobRef(json: $0) }))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -50,9 +54,12 @@ extension NotificationPosted {
             self.icon = icon
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let isGroup = o["is_group"]?.boolValue else { return nil }
-            self.init(title: o["title"]?.stringValue, isGroup: isGroup, icon: BlobRef(json: o["icon"]))
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(title: try o.opt("title", \.stringValue), isGroup: try o.need("is_group", \.boolValue),
+                          icon: try o.opt("icon", { BlobRef(json: $0) }))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -77,10 +84,12 @@ extension NotificationPosted {
             self.image = image
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let text = o["text"]?.stringValue, let ts = o["ts"]?.safeInt, ts >= 0
-            else { return nil }
-            self.init(sender: Person(json: o["sender"]), text: text, ts: ts, image: BlobRef(json: o["image"]))
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(sender: try o.opt("sender", { Person(json: $0) }), text: try o.need("text", \.stringValue),
+                          ts: try o.need("ts", \.ms), image: try o.opt("image", { BlobRef(json: $0) }))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -102,9 +111,11 @@ extension NotificationPosted {
             self.choices = choices
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v else { return nil }
-            self.init(label: o["label"]?.stringValue, choices: o["choices"]?.arrayValue?.compactMap(\.stringValue))
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(label: try o.opt("label", \.stringValue), choices: try o.optList("choices", \.stringValue))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -129,11 +140,12 @@ extension NotificationPosted {
             self.reply = reply
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let index = o["index"]?.safeInt, index >= 0,
-                  let title = o["title"]?.stringValue
-            else { return nil }
-            self.init(index: index, title: title, semantic: o["semantic"]?.safeInt, reply: ReplySpec(json: o["reply"]))
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(index: try o.need("index", \.count32), title: try o.need("title", \.stringValue),
+                          semantic: try o.opt("semantic", \.count32), reply: try o.opt("reply", { ReplySpec(json: $0) }))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -154,9 +166,11 @@ extension NotificationPosted {
                 self.color = color
             }
 
-            init?(json v: JSON?) {
-                guard case .object(let o)? = v, let length = o["length"]?.safeInt, length >= 0 else { return nil }
-                self.init(length: length, color: o["color"]?.safeInt)
+            init?(json v: JSON) {
+                guard let o = v.objectValue else { return nil }
+                do {
+                    self.init(length: try o.need("length", \.count32), color: try o.opt("color", \.int32))
+                } catch { return nil }
             }
 
             var json: JSON {
@@ -175,9 +189,11 @@ extension NotificationPosted {
                 self.color = color
             }
 
-            init?(json v: JSON?) {
-                guard case .object(let o)? = v, let position = o["position"]?.safeInt, position >= 0 else { return nil }
-                self.init(position: position, color: o["color"]?.safeInt)
+            init?(json v: JSON) {
+                guard let o = v.objectValue else { return nil }
+                do {
+                    self.init(position: try o.need("position", \.count32), color: try o.opt("color", \.int32))
+                } catch { return nil }
             }
 
             var json: JSON {
@@ -208,16 +224,18 @@ extension NotificationPosted {
             self.endIcon = endIcon
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let value = o["value"]?.safeInt, let max = o["max"]?.safeInt,
-                  let indeterminate = o["indeterminate"]?.boolValue
-            else { return nil }
-            self.init(
-                value: value, max: max, indeterminate: indeterminate,
-                segments: o["segments"]?.arrayValue.map { Array($0.compactMap { Segment(json: $0) }.prefix(Limits.segments)) },
-                points: o["points"]?.arrayValue.map { Array($0.compactMap { Point(json: $0) }.prefix(Limits.points)) },
-                trackerIcon: BlobRef(json: o["tracker_icon"]), startIcon: BlobRef(json: o["start_icon"]),
-                endIcon: BlobRef(json: o["end_icon"]))
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(
+                    value: try o.need("value", \.count32), max: try o.need("max", \.count32),
+                    indeterminate: try o.need("indeterminate", \.boolValue),
+                    segments: try o.optList("segments", max: Limits.segments, { Segment(json: $0) }),
+                    points: try o.optList("points", max: Limits.points, { Point(json: $0) }),
+                    trackerIcon: try o.opt("tracker_icon", { BlobRef(json: $0) }),
+                    startIcon: try o.opt("start_icon", { BlobRef(json: $0) }),
+                    endIcon: try o.opt("end_icon", { BlobRef(json: $0) }))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -240,9 +258,12 @@ extension NotificationPosted {
             self.shortCriticalText = shortCriticalText
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let promoted = o["promoted"]?.boolValue else { return nil }
-            self.init(promoted: promoted, shortCriticalText: o["short_critical_text"]?.stringValue)
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(promoted: try o.need("promoted", \.boolValue),
+                          shortCriticalText: try o.opt("short_critical_text", \.stringValue))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -257,8 +278,8 @@ extension NotificationPosted {
 
         public init(countDown: Bool) { self.countDown = countDown }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let countDown = o["count_down"]?.boolValue else { return nil }
+        init?(json v: JSON) {
+            guard let o = v.objectValue, let countDown = o["count_down"]?.boolValue else { return nil }
             self.init(countDown: countDown)
         }
 
@@ -279,10 +300,13 @@ extension NotificationPosted {
             self.verification = verification
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let type = o["type"]?.stringValue else { return nil }
-            self.init(type: type, person: Person(json: o["person"]), isVideo: o["is_video"]?.boolValue,
-                      verification: o["verification"]?.stringValue)
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(type: try o.need("type", \.stringValue), person: try o.opt("person", { Person(json: $0) }),
+                          isVideo: try o.opt("is_video", \.boolValue),
+                          verification: try o.opt("verification", \.stringValue))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -308,11 +332,12 @@ extension NotificationPosted {
             self.alert = alert
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let key = o["key"]?.stringValue, let summary = o["summary"]?.boolValue,
-                  let alert = o["alert"]?.stringValue
-            else { return nil }
-            self.init(key: key, summary: summary, sortKey: o["sort_key"]?.stringValue, alert: alert)
+        init?(json v: JSON) {
+            guard let o = v.objectValue else { return nil }
+            do {
+                self.init(key: try o.need("key", \.stringValue), summary: try o.need("summary", \.boolValue),
+                          sortKey: try o.opt("sort_key", \.stringValue), alert: try o.need("alert", \.stringValue))
+            } catch { return nil }
         }
 
         var json: JSON {
@@ -332,8 +357,8 @@ extension NotificationPosted {
             self.importance = importance
         }
 
-        init?(json v: JSON?) {
-            guard case .object(let o)? = v, let id = o["id"]?.stringValue, let importance = o["importance"]?.safeInt
+        init?(json v: JSON) {
+            guard let o = v.objectValue, let id = o["id"]?.stringValue, let importance = o["importance"]?.int32
             else { return nil }
             self.init(id: id, importance: importance)
         }
