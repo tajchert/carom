@@ -8,6 +8,7 @@ import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.mtajchert.carom.app.core.database.entity.DirectoryDeviceEntity
 import com.mtajchert.carom.app.core.database.entity.ForwardedNotificationEntity
+import com.mtajchert.carom.app.core.database.entity.IconUploadEntity
 import com.mtajchert.carom.app.core.database.entity.NotificationAppEntity
 import com.mtajchert.carom.app.core.database.entity.OutboxEntity
 import com.mtajchert.carom.app.core.database.entity.RecentItemEntity
@@ -95,6 +96,9 @@ interface NotificationAppDao {
     @Query("UPDATE notification_apps SET mode = :mode WHERE package_name = :packageName")
     suspend fun setMode(packageName: String, mode: String)
 
+    @Query("UPDATE notification_apps SET forward_ongoing = :enabled WHERE package_name = :packageName")
+    suspend fun setForwardOngoing(packageName: String, enabled: Boolean)
+
     /** Records an app on first sight; an existing row (and the user's mode) is kept. Returns -1 when it existed. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(item: NotificationAppEntity): Long
@@ -140,5 +144,28 @@ interface RecentItemDao {
     suspend fun trim(keep: Int)
 
     @Query("DELETE FROM recent_items")
+    suspend fun clear()
+}
+
+@Dao
+interface IconUploadDao {
+    @Upsert
+    suspend fun upsert(item: IconUploadEntity)
+
+    @Query("SELECT uploaded_at FROM icon_uploads WHERE id = :id")
+    suspend fun uploadedAt(id: String): Long?
+
+    /** Drops ids uploaded under a group key older than [kv]. */
+    @Query("DELETE FROM icon_uploads WHERE kv < :kv")
+    suspend fun deleteOlderKeys(kv: Long)
+
+    /** Keeps the [keep] most recently uploaded ids. */
+    @Query(
+        "DELETE FROM icon_uploads WHERE id NOT IN " +
+            "(SELECT id FROM icon_uploads ORDER BY uploaded_at DESC LIMIT :keep)",
+    )
+    suspend fun trim(keep: Int)
+
+    @Query("DELETE FROM icon_uploads")
     suspend fun clear()
 }

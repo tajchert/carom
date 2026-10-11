@@ -71,6 +71,17 @@ class AppsViewModelTest {
     }
 
     @Test
+    fun `the ongoing switch is written through`() = runTest {
+        viewModel.uiState.test {
+            skipItems(2)
+            viewModel.setForwardOngoing("org.signal", true)
+            assertTrue(awaitItem().apps.first { it.packageName == "org.signal" }.forwardOngoing)
+            viewModel.setForwardOngoing("org.signal", false)
+            assertFalse(awaitItem().apps.first { it.packageName == "org.signal" }.forwardOngoing)
+        }
+    }
+
+    @Test
     fun `access is re-checked on demand`() = runTest {
         viewModel.uiState.test {
             skipItems(1)

@@ -90,6 +90,9 @@ data class NotificationAppEntity(
     val mode: String,
     @ColumnInfo(name = "last_posted_at")
     val lastPostedAt: Long,
+    /** "Ongoing: Forward": also forward this app's ongoing notifications that are not Live Updates, progress or calls. Added in schema 4. */
+    @ColumnInfo(name = "forward_ongoing", defaultValue = "0")
+    val forwardOngoing: Boolean = false,
 )
 
 /** A short activity line or notice for Home. Never stores full clipboard or notification content. */
@@ -116,4 +119,18 @@ data class ForwardedNotificationEntity(
     val key: String,
     @ColumnInfo(name = "forwarded_at")
     val forwardedAt: Long,
+)
+
+/**
+ * A convergent icon blob this phone uploaded (V2 spec §3.2). The id already depends on the group
+ * key, so a rekey makes old ids unreachable; [kv] only lets old rows be dropped. Holds only the
+ * public blob id, never a key. Added in schema version 4.
+ */
+@Entity(tableName = "icon_uploads", indices = [Index(value = ["uploaded_at"])])
+data class IconUploadEntity(
+    @PrimaryKey
+    val id: String,
+    val kv: Long,
+    @ColumnInfo(name = "uploaded_at")
+    val uploadedAt: Long,
 )

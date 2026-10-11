@@ -8,8 +8,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtajchert.carom.app.core.database.entity.ForwardedNotificationEntity
+import com.mtajchert.carom.app.core.database.entity.IconUploadEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -80,6 +82,33 @@ class MigrationTest {
             assertEquals(2L, device.lastSeen)
             assertEquals("{}", device.recordJson)
             assertEquals(4L, device.recordKv)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun `3 to 4 adds forward_ongoing and icon_uploads and keeps existing rows`() = runTest {
+        helper.createDatabase(3).apply {
+            execSQL(
+                "INSERT INTO notification_apps (package_name, label, mode, last_posted_at) " +
+                    "VALUES ('com.example', 'Example', 'HIDE_CONTENT', 5)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(4, CaromMigrations.ALL.toList()).close()
+
+        val db = Room.databaseBuilder<CaromDatabase>(context, dbFile.absolutePath)
+            .setDriver(AndroidSQLiteDriver())
+            .addMigrations(*CaromMigrations.ALL)
+            .build()
+        try {
+            val app = db.notificationAppDao().get("com.example")!!
+            assertEquals("HIDE_CONTENT", app.mode)
+            assertFalse(app.forwardOngoing)
+            db.iconUploadDao().upsert(IconUploadEntity("icon-1", kv = 2, uploadedAt = 7))
+            assertEquals(7L, db.iconUploadDao().uploadedAt("icon-1"))
         } finally {
             db.close()
         }

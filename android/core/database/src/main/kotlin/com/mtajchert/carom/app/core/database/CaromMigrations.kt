@@ -40,5 +40,19 @@ object CaromMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /** 3 to 4: adds `notification_apps.forward_ongoing` (default off) and `icon_uploads`. */
+    val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("ALTER TABLE `notification_apps` ADD COLUMN `forward_ongoing` INTEGER NOT NULL DEFAULT 0")
+            connection.execSQL(
+                "CREATE TABLE IF NOT EXISTS `icon_uploads` " +
+                    "(`id` TEXT NOT NULL, `kv` INTEGER NOT NULL, `uploaded_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_icon_uploads_uploaded_at` ON `icon_uploads` (`uploaded_at`)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }

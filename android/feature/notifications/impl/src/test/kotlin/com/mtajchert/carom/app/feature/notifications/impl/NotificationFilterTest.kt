@@ -17,18 +17,46 @@ class NotificationFilterTest {
     }
 
     @Test
-    fun `skips every case listed in CLIENTS md`() {
+    fun `skips only the cases spec 5_1 keeps`() {
         val cases = mapOf(
             base.copy(packageName = own) to SkipReason.OWN,
-            base.copy(ongoing = true) to SkipReason.ONGOING,
-            base.copy(ongoing = true, foregroundService = true) to SkipReason.FOREGROUND_SERVICE,
-            base.copy(groupSummary = true) to SkipReason.GROUP_SUMMARY,
+            base.copy(groupSummary = true, autogroupSummary = true) to SkipReason.AUTOGROUP_SUMMARY,
             base.copy(localOnly = true) to SkipReason.LOCAL_ONLY,
             base.copy(mediaStyle = true) to SkipReason.MEDIA,
-            base.copy(importance = 2) to SkipReason.SILENT,
-            base.copy(importance = 1) to SkipReason.SILENT,
+            base.copy(importance = 1) to SkipReason.MIN_IMPORTANCE,
+            base.copy(importance = 0) to SkipReason.MIN_IMPORTANCE,
         )
         cases.forEach { (n, reason) -> assertEquals(reason, NotificationFilter.structural(n, own)) }
+    }
+
+    @Test
+    fun `silent channels, app group summaries and ongoing notifications pass the structural check`() {
+        assertNull(NotificationFilter.structural(base.copy(importance = 2), own))
+        assertNull(NotificationFilter.structural(base.copy(groupSummary = true), own))
+        assertNull(NotificationFilter.structural(base.copy(ongoing = true), own))
+        assertNull(NotificationFilter.structural(base.copy(foregroundService = true, ongoing = true), own))
+    }
+
+    @Test
+    fun `ongoing notifications need a Live Update, progress, a call or the app setting`() {
+        assertNull(NotificationFilter.ongoing(base, forwardOngoing = false))
+        val ongoing = base.copy(ongoing = true)
+        assertEquals(SkipReason.ONGOING, NotificationFilter.ongoing(ongoing, forwardOngoing = false))
+        assertEquals(SkipReason.ONGOING, NotificationFilter.ongoing(ongoing.copy(foregroundService = true), forwardOngoing = false))
+        assertNull(NotificationFilter.ongoing(ongoing, forwardOngoing = true))
+        assertNull(NotificationFilter.ongoing(ongoing.copy(promoted = true), forwardOngoing = false))
+        assertNull(
+            NotificationFilter.ongoing(
+                ongoing.copy(rich = RichContent(progress = SnapProgress(value = 1, max = 10, indeterminate = false))),
+                forwardOngoing = false,
+            ),
+        )
+        assertNull(
+            NotificationFilter.ongoing(
+                ongoing.copy(rich = RichContent(template = RichContent.TEMPLATE_CALL, call = SnapCall(type = "incoming"))),
+                forwardOngoing = false,
+            ),
+        )
     }
 
     @Test
@@ -51,7 +79,11 @@ class NotificationFilterTest {
 
     @Test
     fun `snapshot toString never prints content`() {
-        val s = base.copy(title = "secret title", text = "secret text").toString()
+        val s = base.copy(
+            title = "secret title",
+            text = "secret text",
+            rich = RichContent(bigText = "secret big", lines = listOf("secret line")),
+        ).toString()
         assertEquals(false, "secret" in s)
     }
 }

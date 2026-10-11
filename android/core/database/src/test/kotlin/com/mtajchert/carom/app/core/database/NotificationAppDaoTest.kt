@@ -46,6 +46,16 @@ class NotificationAppDaoTest {
         }
     }
 
+    @Test
+    fun `forwarding ongoing notifications is off by default and survives later sightings`() = runTest {
+        dao.insertIfAbsent(app("com.nav", "Maps", "FORWARD", 1))
+        assertEquals(false, dao.get("com.nav")!!.forwardOngoing)
+        dao.setForwardOngoing("com.nav", true)
+        dao.insertIfAbsent(app("com.nav", "Maps", "FORWARD", 2))
+        dao.touch("com.nav", "Maps 2", 3)
+        assertEquals(true, dao.get("com.nav")!!.forwardOngoing)
+    }
+
     private fun app(pkg: String, label: String, mode: String, at: Long) =
         NotificationAppEntity(packageName = pkg, label = label, mode = mode, lastPostedAt = at)
 }
