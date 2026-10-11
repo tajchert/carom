@@ -9,6 +9,12 @@
         tools:ignore="ProtectedPermissions" />
 
     <application>
+        <!-- Not exported: started by our own prompt notification and by onboarding. -->
+        <activity
+            android:name=".codes.CodeForwardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CaromCodeForwarding" />
+
         <!--
             Deliberately exported (AGENTS.md): the system binds notification listeners, and only
             holders of BIND_NOTIFICATION_LISTENER_SERVICE (the system) may bind it. The default

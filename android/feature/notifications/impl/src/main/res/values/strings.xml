@@ -21,4 +21,18 @@
 
     <!-- Shown by Android in its association dialog. -->
     <string name="feature_notifications_codes_association_name">Carom</string>
+
+    <!-- Code forwarding (Android 15+ hides verification codes from notification apps). -->
+    <string name="feature_notifications_codes_title">Verification codes</string>
+    <string name="feature_notifications_codes_intro">Android 15 and later hides verification codes from notification apps. Allow Carom to see them so you can copy a code on your computer.</string>
+    <string name="feature_notifications_codes_enable">Enable code forwarding</string>
+    <string name="feature_notifications_codes_working">Waiting for Android…</string>
+    <string name="feature_notifications_codes_enabled">Code forwarding is on.</string>
+    <string name="feature_notifications_codes_adb_title">Turn it on from a computer</string>
+    <string name="feature_notifications_codes_adb_body">Android did not allow it on the phone. Connect the phone with USB debugging on and run this command.</string>
+    <string name="feature_notifications_codes_adb_repeat">Android may reset it after a reboot or an update. Run it again if codes are hidden again.</string>
+    <string name="feature_notifications_codes_adb_copy">Copy command</string>
+    <string name="feature_notifications_codes_adb_clip_label">adb command</string>
+    <string name="feature_notifications_codes_unsupported">This version of Android does not hide verification codes. There is nothing to turn on.</string>
+    <string name="feature_notifications_codes_done">Done</string>
 </resources>
