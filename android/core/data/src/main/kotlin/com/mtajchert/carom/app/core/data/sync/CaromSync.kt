@@ -172,6 +172,8 @@ data class LocalDeviceProfile(
     val appVersion: String,
     /** Overrides of the default receive rules (SPEC §5.1), by type. */
     val receive: Map<String, ReceiveRule>? = null,
+    /** Types this device handles but does not advertise in `caps` (spec §3.6: actions while "Actions from Mac" is Off). */
+    val withheldCaps: Set<String> = emptySet(),
 )
 
 fun interface LocalDeviceProfileProvider {

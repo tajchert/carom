@@ -292,4 +292,37 @@ class DefaultCaromSyncTest {
         assertEquals(FetchResult.Fetched(handled = 0, dropped = 1), mac.sync.fetchMessages())
         assertEquals(0, h.hub.pendingFor(mac.id))
     }
+
+    @Test
+    fun `withheld caps are left out of the record and republished when they change`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val actionTypes = setOf(MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND)
+        fun phoneRecord() = phone.directory.current.first { it.id == phone.id }.record!!
+        fun macSeesPhone() = mac.directory.current.first { it.id == phone.id }.record!!
+        val tap = MessageBodies.toJson(
+            MessageBodies.NotificationAction.serializer(),
+            MessageBodies.NotificationAction("k1", MessageBodies.ActionRef.Tap),
+        )
+
+        assertTrue(phoneRecord().caps.containsAll(actionTypes))
+        // Nothing changed, so a refresh must not publish again.
+        val before = phoneRecord().updated
+        phone.sync.refreshDirectory()
+        assertEquals(before, phoneRecord().updated)
+
+        // The setting went Off while the record was last published with the action caps; a refresh fixes it.
+        phone.withheldCaps = actionTypes
+        phone.sync.refreshDirectory()
+        mac.sync.refreshDirectory()
+        assertTrue(phoneRecord().caps.none { it in actionTypes })
+        assertTrue(macSeesPhone().caps.none { it in actionTypes })
+        assertEquals(SendResult.NoRecipients, mac.sync.send(MessageTypes.NOTIFICATION_ACTION, tap))
+
+        phone.withheldCaps = emptySet()
+        assertTrue(phone.sync.publishOwnRecord())
+        mac.sync.refreshDirectory()
+        assertTrue(macSeesPhone().caps.containsAll(actionTypes))
+    }
 }

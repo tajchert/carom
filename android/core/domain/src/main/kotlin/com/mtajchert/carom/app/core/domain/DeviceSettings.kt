@@ -7,6 +7,7 @@ import com.mtajchert.carom.app.core.data.sync.DirectoryStore
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.ReceiveRulesStore
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.protocol.DeviceIds
 import com.mtajchert.carom.app.core.protocol.MessageTypes
 import com.mtajchert.carom.app.core.protocol.ReceiveRule
@@ -36,6 +37,21 @@ class RenameThisDeviceUseCase @Inject constructor(
 
     companion object {
         const val MAX_NAME_LENGTH = 64
+    }
+}
+
+/**
+ * Sets "Actions from Mac" and republishes this device's record, because Off removes the action
+ * types from `caps` (spec §3.6). Returns false when the record could not be published now; the
+ * next directory refresh notices the difference and retries.
+ */
+class SetActionsFromMacUseCase @Inject constructor(
+    private val preferences: UserPreferencesRepository,
+    private val sync: CaromSync,
+) {
+    suspend operator fun invoke(mode: ActionsFromMac): Boolean {
+        preferences.setActionsFromMac(mode)
+        return sync.publishOwnRecord()
     }
 }
 
