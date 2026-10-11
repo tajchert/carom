@@ -70,25 +70,6 @@ class ActionExecutorTest {
     }
 
     @Test
-    fun `tap fires the content intent`() {
-        val open = pending("open")
-        post { setContentIntent(open) }
-
-        assertEquals(ActionOutcome.OK, executor.execute(KEY, ActionRef.Tap))
-        val sent = sender.sent.single()
-        assertSame(open, sent.intent)
-        assertNull(sent.fillIn)
-        assertNotNull(sent.options) // background activity start is allowed on API 34+; the test SDK is 36
-    }
-
-    @Test
-    fun `tap without a content intent is a changed notification`() {
-        post()
-        assertEquals(ActionOutcome.CHANGED, executor.execute(KEY, ActionRef.Tap))
-        assertTrue(sender.sent.isEmpty())
-    }
-
-    @Test
     fun `a button is matched by index and title`() {
         val archive = pending("archive")
         val mute = pending("mute")
@@ -165,11 +146,10 @@ class ActionExecutorTest {
 
     @Test
     fun `a cleared notification is gone for every kind of action`() {
-        post { setContentIntent(pending("open")) }
+        post { addAction(action("Open", pending("open"))) }
         live.clear()
 
-        assertEquals(ActionOutcome.GONE, executor.execute(KEY, ActionRef.Tap))
-        assertEquals(ActionOutcome.GONE, executor.execute(KEY, ActionRef.Answer))
+                assertEquals(ActionOutcome.GONE, executor.execute(KEY, ActionRef.Answer))
         assertEquals(ActionOutcome.GONE, executor.execute(KEY, ActionRef.Decline))
         assertEquals(ActionOutcome.GONE, executor.execute(KEY, ActionRef.Button(0, "Reply", "hi")))
         assertTrue(sender.sent.isEmpty())
@@ -177,9 +157,9 @@ class ActionExecutorTest {
 
     @Test
     fun `nothing can be found while the listener is not connected`() {
-        post { setContentIntent(pending("open")) }
+        post { addAction(action("Open", pending("open"))) }
         val detached = ActiveNotificationsBridge()
-        assertEquals(ActionOutcome.GONE, ActionExecutor(detached, sender).execute(KEY, ActionRef.Tap))
+        assertEquals(ActionOutcome.GONE, ActionExecutor(detached, sender).execute(KEY, ActionRef.Button(0, "Open", null)))
         assertTrue(sender.sent.isEmpty())
     }
 
@@ -221,6 +201,7 @@ class ActionExecutorTest {
         assertEquals(ActionOutcome.OK, executor.execute(KEY, ActionRef.Decline))
         assertSame(answer, sender.sent[0].intent)
         assertSame(decline, sender.sent[1].intent)
+        assertNotNull(sender.sent[0].options) // background activity start is allowed on API 34+; the test SDK is 36
     }
 
     @Test
@@ -250,16 +231,16 @@ class ActionExecutorTest {
 
     @Test
     fun `a canceled pending intent is failed and a refused start is blocked`() {
-        post { setContentIntent(pending("open")) }
+        post { addAction(action("Open", pending("open"))) }
 
         sender.failure = PendingIntent.CanceledException()
-        assertEquals(ActionOutcome.FAILED, executor.execute(KEY, ActionRef.Tap))
+        assertEquals(ActionOutcome.FAILED, executor.execute(KEY, ActionRef.Button(0, "Open", null)))
 
         sender.failure = SecurityException("background activity start refused")
-        assertEquals(ActionOutcome.BLOCKED, executor.execute(KEY, ActionRef.Tap))
+        assertEquals(ActionOutcome.BLOCKED, executor.execute(KEY, ActionRef.Button(0, "Open", null)))
 
         sender.failure = IllegalStateException("surprise")
-        assertEquals(ActionOutcome.FAILED, executor.execute(KEY, ActionRef.Tap))
+        assertEquals(ActionOutcome.FAILED, executor.execute(KEY, ActionRef.Button(0, "Open", null)))
     }
 
     @Test

@@ -303,7 +303,7 @@ class DefaultCaromSyncTest {
         fun macSeesPhone() = mac.directory.current.first { it.id == phone.id }.record!!
         val tap = MessageBodies.toJson(
             MessageBodies.NotificationAction.serializer(),
-            MessageBodies.NotificationAction("k1", MessageBodies.ActionRef.Tap),
+            MessageBodies.NotificationAction("k1", MessageBodies.ActionRef.Answer),
         )
 
         assertTrue(phoneRecord().caps.containsAll(actionTypes))

@@ -27,7 +27,6 @@ class MessageBodiesV2Test {
         |"conversation":{"title":"Team","is_group":true,"icon":${blob("conv")}},
         |"messages":[{"sender":{"name":"Alice","key":"alice","icon":${blob("av")}},"text":"hunter2","ts":1791647999000,"image":${blob("img")}}],
         |"actions":[{"index":0,"title":"Reply","semantic":1,"reply":{"label":"Reply","choices":["Yes","No"]}},{"index":1,"title":"Mute"}],
-        |"can_open":true,
         |"progress":{"value":3,"max":10,"indeterminate":false,"segments":[{"length":5,"color":-65536},{"length":5}],"points":[{"position":2,"color":-1},{"position":8}],
         |"tracker_icon":${blob("tr")},"start_icon":${blob("st")},"end_icon":${blob("en")}},
         |"live":{"promoted":true,"short_critical_text":"3m"},"when":1791648000000,"show_when":true,"chronometer":{"count_down":true},
@@ -110,17 +109,15 @@ class MessageBodiesV2Test {
             app = MessageBodies.App("com.example", "Example", icon = MessageBodies.BlobRef("i", "k", "image/webp", 1, "h")),
             postedAt = 5,
             redacted = true,
-            canOpen = true,
         )
         val json = MessageBodies.toJson(MessageBodies.NotificationPosted.serializer(), hidden)
-        assertEquals(setOf("key", "app", "posted_at", "redacted", "can_open"), json.keys)
+        assertEquals(setOf("key", "app", "posted_at", "redacted"), json.keys)
     }
 
     private fun action(text: String) = MessageBodies.fromJson(MessageBodies.NotificationAction.serializer(), obj(text))
 
     @Test
     fun `an action is a string or an object`() {
-        assertEquals(MessageBodies.ActionRef.Tap, action("""{"key":"k","action":"tap"}""")!!.action)
         assertEquals(MessageBodies.ActionRef.Answer, action("""{"key":"k","action":"answer"}""")!!.action)
         assertEquals(MessageBodies.ActionRef.Decline, action("""{"key":"k","action":"decline"}""")!!.action)
         assertEquals(
@@ -137,7 +134,6 @@ class MessageBodiesV2Test {
     fun `an action encodes to the exact wire form`() {
         fun encode(ref: MessageBodies.ActionRef) =
             MessageBodies.toJson(MessageBodies.NotificationAction.serializer(), MessageBodies.NotificationAction("k", ref)).toString()
-        assertEquals("""{"key":"k","action":"tap"}""", encode(MessageBodies.ActionRef.Tap))
         assertEquals("""{"key":"k","action":"answer"}""", encode(MessageBodies.ActionRef.Answer))
         assertEquals("""{"key":"k","action":"decline"}""", encode(MessageBodies.ActionRef.Decline))
         assertEquals("""{"key":"k","action":{"index":1,"title":"Mute"}}""", encode(MessageBodies.ActionRef.Button(1, "Mute")))
@@ -150,6 +146,7 @@ class MessageBodiesV2Test {
     @Test
     fun `malformed actions decode to null`() {
         assertNull(action("""{"key":"k","action":"open"}"""))
+        assertNull(action("""{"key":"k","action":"tap"}""")) // removed: Android blocks the background start
         assertNull(action("""{"key":"k","action":5}"""))
         assertNull(action("""{"key":"k","action":null}"""))
         assertNull(action("""{"key":"k","action":{"index":-1,"title":"x"}}"""))
@@ -157,7 +154,7 @@ class MessageBodiesV2Test {
         assertNull(action("""{"key":"k","action":{"index":"1","title":"x"}}"""))
         assertNull(action("""{"key":"k","action":{"index":1}}"""))
         assertNull(action("""{"key":"k","action":{"index":1,"title":"x","reply_text":3}}"""))
-        assertNull(action("""{"key":"k","action":["tap"]}"""))
+        assertNull(action("""{"key":"k","action":["answer"]}"""))
     }
 
     @Test

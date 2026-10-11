@@ -217,7 +217,7 @@ class NotificationForwarderTest {
         val source = ImageSource.FromApp("com.hide", null)
         f.onPosted {
             snapshot(pkg = "com.hide", text = "secret").copy(
-                rich = RichContent(canOpen = true, actions = listOf(MessageBodies.Action(index = 0, title = "Reply"))),
+                rich = RichContent(actions = listOf(MessageBodies.Action(index = 0, title = "Reply"))),
                 imageSources = mapOf(ImageSlot.AppIcon to source, ImageSlot.LargeIcon to source, ImageSlot.Picture to source),
             )
         }
@@ -225,7 +225,7 @@ class NotificationForwarderTest {
         assertEquals(listOf(setOf<ImageSlot>(ImageSlot.AppIcon)), loaded)
         assertEquals(listOf(setOf<ImageSlot>(ImageSlot.AppIcon)), uploaded)
         val body = fake.sent.single().body
-        assertEquals(setOf("key", "app", "posted_at", "redacted", "can_open"), body.keys)
+        assertEquals(setOf("key", "app", "posted_at", "redacted"), body.keys)
         assertEquals(blobRef("id-AppIcon").id, body["app"]!!.jsonObject["icon"]!!.jsonObject["id"]!!.jsonPrimitive.content)
     }
 

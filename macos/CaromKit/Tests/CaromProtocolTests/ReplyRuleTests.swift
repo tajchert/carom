@@ -30,17 +30,17 @@ struct ReplyRuleTests {
     @Test("an action must reply to a posted message with the same key, from a recipient of it")
     func actionMustMatchPosted() throws {
         let ctx = context(self: phone, peer: mac, original: [posted: [mac.deviceId]], keys: [posted: "k1"])
-        let good = try envelope(mac, to: phone, NotificationAction(key: "k1", action: .tap), replyTo: posted)
+        let good = try envelope(mac, to: phone, NotificationAction(key: "k1", action: .answer), replyTo: posted)
         #expect((try? Receiver.receive(good, context: ctx).get()) != nil)
-        let wrongKey = try envelope(mac, to: phone, NotificationAction(key: "k2", action: .tap), replyTo: posted)
+        let wrongKey = try envelope(mac, to: phone, NotificationAction(key: "k2", action: .answer), replyTo: posted)
         #expect(Receiver.receive(wrongKey, context: ctx) == .failure(.replyNotAllowed))
-        let noReply = try envelope(mac, to: phone, NotificationAction(key: "k1", action: .tap), replyTo: nil)
+        let noReply = try envelope(mac, to: phone, NotificationAction(key: "k1", action: .answer), replyTo: nil)
         #expect(Receiver.receive(noReply, context: ctx) == .failure(.badPayload))
-        let unknown = try envelope(mac, to: phone, NotificationAction(key: "k1", action: .tap), replyTo: state)
+        let unknown = try envelope(mac, to: phone, NotificationAction(key: "k1", action: .answer), replyTo: state)
         #expect(Receiver.receive(unknown, context: ctx) == .failure(.replyNotAllowed))
         // Not a recipient of the original.
         let outsider = context(self: phone, peer: stranger, original: [posted: [mac.deviceId]], keys: [posted: "k1"])
-        let fromStranger = try envelope(stranger, to: phone, NotificationAction(key: "k1", action: .tap), replyTo: posted)
+        let fromStranger = try envelope(stranger, to: phone, NotificationAction(key: "k1", action: .answer), replyTo: posted)
         #expect(Receiver.receive(fromStranger, context: outsider) == .failure(.replyNotAllowed))
     }
 

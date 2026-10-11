@@ -1,9 +1,8 @@
 import Foundation
 
 /// How a Mac asks the phone to act on a notification (SPEC §3.4): the `action` field is the
-/// string `tap`, `answer` or `decline`, or an object for one of the app's own buttons.
+/// string `answer` or `decline`, or an object for one of the app's own buttons.
 public enum ActionRef: Sendable, Equatable {
-    case tap
     case answer
     case decline
     /// `index` is the position in `Notification.actions`; `title` must still match on the phone.
@@ -11,7 +10,6 @@ public enum ActionRef: Sendable, Equatable {
 
     init?(json v: JSON?) {
         switch v {
-        case .string("tap"): self = .tap
         case .string("answer"): self = .answer
         case .string("decline"): self = .decline
         case .object(let o)?:
@@ -28,7 +26,6 @@ public enum ActionRef: Sendable, Equatable {
 
     var json: JSON {
         switch self {
-        case .tap: return .string("tap")
         case .answer: return .string("answer")
         case .decline: return .string("decline")
         case .button(let index, let title, let replyText):
@@ -198,7 +195,6 @@ public struct MediaCommand: MessageBody {
 extension ActionRef: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .tap: "tap"
         case .answer: "answer"
         case .decline: "decline"
         case .button(let index, _, _): "button#\(index)"

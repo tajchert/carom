@@ -138,7 +138,6 @@ public struct NotificationPosted: MessageBody {
     /// Newest last.
     public var messages: [ConversationMessage]?
     public var actions: [Action]?
-    public var canOpen: Bool?
     public var progress: Progress?
     public var live: Live?
     /// Unix ms; shown only when `showWhen` is true.
@@ -155,7 +154,7 @@ public struct NotificationPosted: MessageBody {
                 largeIcon: BlobRef? = nil, picture: BlobRef? = nil, pictureDesc: String? = nil,
                 bigText: String? = nil, lines: [String]? = nil, summaryText: String? = nil,
                 conversation: Conversation? = nil, messages: [ConversationMessage]? = nil,
-                actions: [Action]? = nil, canOpen: Bool? = nil, progress: Progress? = nil, live: Live? = nil,
+                actions: [Action]? = nil, progress: Progress? = nil, live: Live? = nil,
                 when: Int? = nil, showWhen: Bool? = nil, chronometer: Chronometer? = nil, call: Call? = nil,
                 group: Group? = nil, channel: Channel? = nil) {
         self.key = key
@@ -180,7 +179,6 @@ public struct NotificationPosted: MessageBody {
         self.conversation = conversation
         self.messages = messages
         self.actions = actions
-        self.canOpen = canOpen
         self.progress = progress
         self.live = live
         self.when = when
@@ -210,7 +208,7 @@ public struct NotificationPosted: MessageBody {
                 conversation: try b.opt("conversation", { Conversation(json: $0) }),
                 messages: try b.optList("messages", max: Limits.messages, { ConversationMessage(json: $0) }),
                 actions: try b.optList("actions", max: Limits.actions, { Action(json: $0) }),
-                canOpen: try b.opt("can_open", \.boolValue), progress: try b.opt("progress", { Progress(json: $0) }),
+                progress: try b.opt("progress", { Progress(json: $0) }),
                 live: try b.opt("live", { Live(json: $0) }), when: try b.opt("when", \.ms),
                 showWhen: try b.opt("show_when", \.boolValue),
                 chronometer: try b.opt("chronometer", { Chronometer(json: $0) }),
@@ -243,7 +241,6 @@ public struct NotificationPosted: MessageBody {
         if let conversation { o["conversation"] = conversation.json }
         if let messages { o["messages"] = .array(messages.map(\.json)) }
         if let actions { o["actions"] = .array(actions.map(\.json)) }
-        if let canOpen { o["can_open"] = .bool(canOpen) }
         if let progress { o["progress"] = progress.json }
         if let live { o["live"] = live.json }
         if let when { o["when"] = JSON(when) }

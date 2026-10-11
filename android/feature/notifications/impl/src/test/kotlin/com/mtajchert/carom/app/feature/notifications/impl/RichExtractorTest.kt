@@ -59,7 +59,6 @@ class RichExtractorTest {
         assertFalse(s.redacted)
         assertNull(s.importance)
         assertEquals(RichContent.TEMPLATE_STANDARD, s.rich.template)
-        assertFalse(s.rich.canOpen)
         assertTrue(ImageSlot.AppIcon in s.imageSources)
         assertTrue(ImageSlot.SmallIcon in s.imageSources)
         assertNull(NotificationFilter.structural(s, context.packageName))
@@ -120,10 +119,9 @@ class RichExtractorTest {
     }
 
     @Test
-    fun `colour, content intent, group, time, chronometer and channel are read`() {
+    fun `colour, group, time, chronometer and channel are read`() {
         val n = builder()
             .setColor(Color.RED)
-            .setContentIntent(contentIntent)
             .setGroup("chat")
             .setSortKey("b")
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
@@ -134,7 +132,6 @@ class RichExtractorTest {
             .build()
         val s = extractor.extractWithImportance(sbn(n), importance = 4)
         assertEquals(Color.RED, s.rich.color)
-        assertTrue(s.rich.canOpen)
         assertEquals(MessageBodies.Group(key = "chat", summary = false, sortKey = "b", alert = "summary"), s.rich.group)
         assertEquals(123_456L, s.rich.whenMs)
         assertEquals(true, s.rich.showWhen)
@@ -335,12 +332,11 @@ class RichExtractorTest {
 
     @Test
     fun `a malformed messaging bundle omits the conversation but keeps the rest`() {
-        val n = builder().setContentTitle("Chat").setContentIntent(contentIntent).build()
+        val n = builder().setContentTitle("Chat").build()
         n.extras.putString(Notification.EXTRA_TEMPLATE, "android.app.Notification\$MessagingStyle")
         n.extras.putString(Notification.EXTRA_MESSAGES, "not an array of bundles")
         val s = extract(n)
         assertEquals("Chat", s.title)
-        assertTrue(s.rich.canOpen)
         assertTrue(s.rich.messages.isEmpty())
         assertNull(s.rich.conversation)
     }

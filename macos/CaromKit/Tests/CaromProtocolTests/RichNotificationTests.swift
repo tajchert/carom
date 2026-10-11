@@ -29,7 +29,6 @@ struct RichNotificationTests {
                             image: ref(7))]
         n.actions = [.init(index: 0, title: "Reply", semantic: 1, reply: .init(label: "Reply", choices: ["Yes", "No"])),
                      .init(index: 1, title: "Mark read")]
-        n.canOpen = true
         n.progress = .init(value: 3, max: 10, indeterminate: false,
                            segments: [.init(length: 5, color: -1), .init(length: 5)], points: [.init(position: 2)],
                            trackerIcon: ref(8), startIcon: ref(9), endIcon: ref(10))
@@ -53,7 +52,7 @@ struct RichNotificationTests {
         let reparsed = try JSON.parse(JSON.object(json).serialized())
         #expect(NotificationPosted(json: try #require(reparsed.objectValue)) == n)
         for name in ["template", "color", "colorized", "small_icon", "large_icon", "picture", "picture_desc",
-                     "big_text", "lines", "summary_text", "conversation", "messages", "actions", "can_open",
+                     "big_text", "lines", "summary_text", "conversation", "messages", "actions",
                      "progress", "live", "when", "show_when", "chronometer", "call", "group", "channel"] {
             #expect(json[name] != nil, "\(name)")
         }
@@ -70,15 +69,15 @@ struct RichNotificationTests {
         let v1 = try #require(NotificationPosted(json: [
             "key": "k", "app": ["id": "a", "name": "A"], "posted_at": 1, "redacted": false,
         ]))
-        #expect(v1.template == nil && v1.app.icon == nil && v1.messages == nil && v1.canOpen == nil)
+        #expect(v1.template == nil && v1.app.icon == nil && v1.messages == nil)
         #expect(v1.json.keys == ["key", "app", "posted_at", "redacted"])
     }
 
-    @Test("a Hide-content notification carries only key, app, posted_at, redacted and can_open")
+    @Test("a Hide-content notification carries only key, app, posted_at and redacted")
     func redacted() throws {
         let n = NotificationPosted(key: "k", app: .init(id: "a", name: "A", icon: Self.ref(1)), postedAt: 5,
-                                   redacted: true, canOpen: true)
-        #expect(n.json.keys == ["key", "app", "posted_at", "redacted", "can_open"])
+                                   redacted: true)
+        #expect(n.json.keys == ["key", "app", "posted_at", "redacted"])
         #expect(NotificationPosted(json: n.json) == n)
     }
 

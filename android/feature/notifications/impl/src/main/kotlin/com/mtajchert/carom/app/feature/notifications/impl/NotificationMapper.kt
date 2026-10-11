@@ -27,8 +27,8 @@ object NotificationMapper {
     private const val MAX_SHRINK_ROUNDS = 128
 
     /**
-     * `notification.posted@1`. With [hideContent] only `key`, `app` (with its icon), `posted_at`,
-     * `redacted: true` and `can_open` leave the phone: no text, other images or actions.
+     * `notification.posted@1`. With [hideContent] only `key`, `app` (with its icon), `posted_at` and
+     * `redacted: true` leave the phone: no text, other images or actions.
      *
      * [refs] are the uploaded images by slot; a slot without a ref is simply absent. The result is
      * cut to [maxBodyBytes]: oldest messages first, then inbox lines from the end, then the longest
@@ -54,7 +54,6 @@ object NotificationMapper {
                 app = app,
                 postedAt = n.postedAt.coerceAtLeast(0),
                 redacted = true,
-                canOpen = r.canOpen,
             )
         }
         val body = MessageBodies.NotificationPosted(
@@ -86,7 +85,6 @@ object NotificationMapper {
             },
             messages = messages(r.messages, refs),
             actions = r.actions.take(RichContent.MAX_ACTIONS).map(::clip).ifEmpty { null },
-            canOpen = r.canOpen,
             progress = r.progress?.let { progress(it, refs) },
             live = r.live,
             `when` = r.whenMs,

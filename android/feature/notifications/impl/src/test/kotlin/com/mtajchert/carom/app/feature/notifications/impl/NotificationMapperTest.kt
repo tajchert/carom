@@ -57,7 +57,6 @@ class NotificationMapperTest {
                 reply = MessageBodies.ReplySpec(label = "Say", choices = listOf("Yes", "No")),
             ),
         ),
-        canOpen = true,
         progress = SnapProgress(
             value = 40,
             max = 100,
@@ -142,7 +141,6 @@ class NotificationMapperTest {
             body.messages,
         )
         assertEquals(rich.actions, body.actions)
-        assertEquals(true, body.canOpen)
         val progress = body.progress!!
         assertEquals(40, progress.value)
         assertEquals(100, progress.max)
@@ -180,7 +178,7 @@ class NotificationMapperTest {
     }
 
     @Test
-    fun `hide content sends only key, app with icon, time, redacted and can_open`() {
+    fun `hide content sends only key, app with icon, time and redacted`() {
         val body = NotificationMapper.posted(
             n.copy(redacted = false, rich = rich),
             appName = "Chat",
@@ -188,9 +186,8 @@ class NotificationMapperTest {
             refs = refs,
         )
         val json = NotificationMapper.postedJson(body)
-        assertEquals(setOf("key", "app", "posted_at", "redacted", "can_open"), json.keys)
+        assertEquals(setOf("key", "app", "posted_at", "redacted"), json.keys)
         assertTrue(body.redacted)
-        assertEquals(true, body.canOpen)
         assertEquals(ref("app"), body.app.icon)
         assertEquals("Chat", body.app.name)
         assertTrue(MessageTypes.isValidBody(MessageTypes.NOTIFICATION_POSTED, json))

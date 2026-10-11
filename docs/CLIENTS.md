@@ -129,7 +129,7 @@ unless the notification is gone by then.
 ## Notifications (phone → desktop)
 
 **Hide content:** an app set to *Hide content* sends only `key`, `app` (with its icon),
-`posted_at`, `redacted: true` and `can_open` (SPEC §4.1). No text, other images or buttons leave
+`posted_at` and `redacted: true` (SPEC §4.1). No text, other images or buttons leave
 the phone. The Mac shows "Content hidden on your phone."
 
 **Phone filters, applied before sending**
@@ -160,7 +160,7 @@ the phone. The Mac shows "Content hidden on your phone."
 | `big_text`, `lines`, `summary_text` | `EXTRA_BIG_TEXT`, the inbox lines (at most 7), `EXTRA_SUMMARY_TEXT` |
 | `template`, `color`, `colorized` | the style class, `Notification.color`, `setColorized` |
 | `messages`, `conversation` | `MessagingStyle` messages (at most 6, newest last) and the conversation title and icon |
-| `actions`, `can_open` | the app's buttons (at most 6) with reply choices, and whether there is a content intent |
+| `actions` | the app's buttons (at most 6) with reply choices |
 | `progress`, `live`, `when`, `chronometer` | progress extras, Android 16 Live Update fields, `when` and the chronometer flags |
 | `call`, `group`, `channel` | `CallStyle`, the group key and sort key, the channel id and importance |
 | icons and pictures | encoded and uploaded as blobs (see [Images](#images)) |
@@ -227,13 +227,13 @@ on, the panel and its sound stay quiet and only the passive native notification 
 says no, Carom cannot see the Focus, so the panel still shows and only the native copy follows
 Focus.
 
-**Buttons on a card.** The native notification carries Copy code, Reply, Dismiss on phone and Copy text. The app's own buttons and tap are on the card only.
+**Buttons on a card.** The native notification carries Copy code, Reply, Dismiss on phone and Copy text. The app's own buttons are on the card only.
 
 - **Copy code**, when a code is found, then the app's own buttons, then **Reply**. Reply opens an
   inline field with the app's suggested replies as chips.
 - **Dismiss on phone** sends `notification.dismiss@1` with `reply_to`.
 - The Mac doesn't offer "Open on phone": Android blocks the background activity start, even when
-  Carom opts in, and reports no error. The phone still handles a `tap` from other clients.
+  Carom opts in, and reports no error, so the protocol has no such action.
 - App buttons and Reply appear only for a phone whose `caps` include `notification.action@1`.
 - A button shows "Sending…", then "Sent", "Phone is asleep — will send when it wakes",
   "Notification is gone" or "App changed its buttons".

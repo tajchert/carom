@@ -38,7 +38,6 @@
     },
     "messages": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/message" }, "description": "Newest last." },
     "actions": { "type": "array", "maxItems": 6, "items": { "$ref": "#/$defs/action" } },
-    "can_open": { "type": "boolean" },
     "progress": { "$ref": "#/$defs/progress" },
     "live": {
       "type": "object",

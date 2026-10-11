@@ -47,7 +47,6 @@ class ActionExecutor @Inject constructor(
     }
 
     private fun resolve(n: Notification, action: ActionRef): Target? = when (action) {
-        ActionRef.Tap -> n.contentIntent?.let { Target(it) }
         ActionRef.Answer -> callTarget(n, Notification.EXTRA_ANSWER_INTENT, answer = true)
         ActionRef.Decline -> callTarget(n, Notification.EXTRA_DECLINE_INTENT, answer = false)
         is ActionRef.Button -> button(n, action)

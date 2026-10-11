@@ -89,7 +89,6 @@ class RichExtractor @Inject constructor(
             messages = messaging?.messages.orEmpty(),
             pictureDesc = extras.text(Notification.EXTRA_PICTURE_CONTENT_DESCRIPTION),
             actions = guarded { readActions(n) }.orEmpty(),
-            canOpen = n.contentIntent != null,
             whenMs = n.`when`.takeIf { it > 0 },
             showWhen = extras.getBoolean(Notification.EXTRA_SHOW_WHEN),
             chronometer = if (extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)) {

@@ -126,7 +126,7 @@ describe('messages and routing', () => {
     expect(collapseRealKey('device.status@1', {})).toBe('status');
     expect(collapseRealKey('notification.dismiss@1', { key: 'k' })).toBeNull();
     expect(collapseRealKey('media.state@1', { session: 's1', app: { id: 'a', name: 'A' }, state: 'playing', controls: [] })).toBe('m:s1');
-    expect(collapseRealKey('notification.action@1', { key: 'k', action: 'tap' })).toBeNull();
+    expect(collapseRealKey('notification.action@1', { key: 'k', action: 'answer' })).toBeNull();
     expect(collapseRealKey('notification.action_result@1', { ok: true })).toBeNull();
     expect(collapseRealKey('media.command@1', { session: 's1', command: 'play' })).toBeNull();
     expect(MESSAGE_TYPES.filter(requiresReplyTo)).toEqual([

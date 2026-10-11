@@ -17,9 +17,9 @@ struct RichMessageTests {
                 == [.notificationDismiss, .notificationAction, .notificationActionResult, .mediaCommand])
     }
 
-    @Test("ActionRef is a string for tap, answer and decline and an object for a button")
+    @Test("ActionRef is a string for answer and decline and an object for a button")
     func actionRef() throws {
-        for (ref, wire) in [(ActionRef.tap, "tap"), (.answer, "answer"), (.decline, "decline")] {
+        for (ref, wire) in [(ActionRef.answer, "answer"), (.decline, "decline")] {
             let body = NotificationAction(key: "k", action: ref)
             #expect(body.json["action"] == .string(wire))
             #expect(NotificationAction(json: body.json) == body)
@@ -34,8 +34,9 @@ struct RichMessageTests {
         #expect(NotificationAction(json: ["key": "k", "action": ["index": -1, "title": "x"]]) == nil)
         #expect(NotificationAction(json: ["key": "k", "action": ["index": 1]]) == nil)
         #expect(NotificationAction(json: ["key": "k", "action": ["index": 1, "title": "x", "reply_text": 3]]) == nil)
-        #expect(NotificationAction(json: ["action": "tap"]) == nil)
-        #expect(NotificationAction(key: "k", action: .tap).collapseRealKey == nil)
+        #expect(NotificationAction(json: ["action": "answer"]) == nil)
+        #expect(NotificationAction(json: ["key": "k", "action": "tap"]) == nil)
+        #expect(NotificationAction(key: "k", action: .answer).collapseRealKey == nil)
     }
 
     @Test func actionResult() {

@@ -140,7 +140,6 @@ export interface NotificationPostedBody {
   /** Newest last. */
   messages?: ConversationMessage[];
   actions?: ActionSpec[];
-  can_open?: boolean;
   progress?: Progress;
   live?: Live;
   when?: number;
@@ -173,7 +172,7 @@ export interface DeviceStatusBody {
 }
 
 /** SPEC §4.2: a fixed action, or the app's button at `index` that must still have `title`. */
-export type ActionRef = 'tap' | 'answer' | 'decline' | { index: number; title: string; reply_text?: string };
+export type ActionRef = 'answer' | 'decline' | { index: number; title: string; reply_text?: string };
 
 /** Sent with payload-level `reply_to` = the posted message's msg_id. */
 export interface NotificationActionBody {
@@ -332,7 +331,7 @@ const isCall = objWith((c) => isStr(c.type) && opt(isPerson)(c.person) && optBoo
 const isGroup = objWith((g) => isStr(g.key) && isBool(g.summary) && optStr(g.sort_key) && isStr(g.alert));
 const isChannel = objWith((c) => isStr(c.id) && isInt32(c.importance));
 
-const FIXED_ACTIONS: ReadonlySet<string> = new Set(['tap', 'answer', 'decline']);
+const FIXED_ACTIONS: ReadonlySet<string> = new Set(['answer', 'decline']);
 const COMMANDS: ReadonlySet<string> = new Set(MEDIA_COMMANDS);
 
 const isActionRef: Check = (v) =>
@@ -362,7 +361,6 @@ const BODY_VALIDATORS: Record<MessageType, (b: Obj) => boolean> = {
     opt(isConversation)(b.conversation) &&
     opt(listOf(LIST_LIMITS.messages, isConversationMessage))(b.messages) &&
     opt(listOf(LIST_LIMITS.actions, isActionSpec))(b.actions) &&
-    optBool(b.can_open) &&
     opt(isProgress)(b.progress) &&
     opt(isLive)(b.live) &&
     optMs(b.when) &&

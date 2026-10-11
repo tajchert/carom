@@ -16,8 +16,7 @@ let v2PhoneCaps = [
 struct ActionFlowTests {
     let posted = NotificationPosted(key: "0|com.chat|1|null|10123", app: .init(id: "com.chat", name: "Chat"),
                                     title: "Anna", text: "Dinner?", postedAt: 1_791_647_999_500,
-                                    actions: [.init(index: 0, title: "Reply", reply: .init(label: "Reply"))],
-                                    canOpen: true)
+                                    actions: [.init(index: 0, title: "Reply", reply: .init(label: "Reply"))])
 
     func pairedDevices() async throws -> (hub: FakeHub, mac: TestDevice, phone: TestDevice) {
         let hub = FakeHub()
@@ -68,7 +67,7 @@ struct ActionFlowTests {
         _ = try await mac.engine.fetchMessages()
         let original = try #require(await mac.recorder.messages.first)
 
-        _ = try await mac.engine.send(NotificationAction(key: "0|com.bank|1|null|1", action: .tap), replyTo: original.msgId)
+        _ = try await mac.engine.send(NotificationAction(key: "0|com.bank|1|null|1", action: .answer), replyTo: original.msgId)
         #expect(try await phone.engine.fetchMessages() == 1)
         #expect(await phone.recorder.messages.isEmpty)
         #expect(await phone.recorder.events.contains(.messageDropped(.replyNotAllowed)))

@@ -45,14 +45,13 @@ final class ActionLog {
         #expect(log.sent == [.init(msgId: "m1", action: .button(index: 0, title: "Mark as read", replyText: nil))])
     }
 
-    @Test func tapAnswerAndDeclineMapToActionRefs() async {
+    @Test func answerAndDeclineMapToActionRefs() async {
         let (c, log, _, _) = make()
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted())))
-        c.perform(.tap, on: id)
         c.perform(.answer, on: id)
         c.perform(.decline, on: id)
         await settle()
-        #expect(log.sent.map(\.action) == [.tap, .answer, .decline])
+        #expect(log.sent.map(\.action) == [.answer, .decline])
     }
 
     @Test func replySendsTheTextAndEndsReplyMode() async {
@@ -137,7 +136,7 @@ final class ActionLog {
         let (c, log, _, _) = make()
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted()), actions: false))
         c.perform(.button(index: 0, title: "Mark as read"), on: id)
-        c.perform(.tap, on: id)
+        c.perform(.answer, on: id)
         await settle()
         #expect(log.sent.isEmpty)
         #expect(c.status(for: id) == .idle)
@@ -145,7 +144,7 @@ final class ActionLog {
 
     @Test func unknownCardReturnsFalse() {
         let (c, _, _, _) = make()
-        #expect(!c.perform(.tap, on: "nope"))
+        #expect(!c.perform(.answer, on: "nope"))
     }
 
     @Test func dismissSendsAndWithdraws() async {

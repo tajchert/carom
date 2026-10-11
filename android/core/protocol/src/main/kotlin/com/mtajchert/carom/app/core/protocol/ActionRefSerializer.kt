@@ -14,7 +14,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * `action` of `notification.action@1` (SPEC V2 §3.4): the string `"tap"`, `"answer"` or
+ * `action` of `notification.action@1` (SPEC V2 §3.4): the string `"answer"` or
  * `"decline"`, or the object `{index, title, reply_text?}`. Anything else fails to decode.
  */
 object ActionRefSerializer : KSerializer<MessageBodies.ActionRef> {
@@ -24,7 +24,6 @@ object ActionRefSerializer : KSerializer<MessageBodies.ActionRef> {
         val json = encoder as? JsonEncoder ?: throw SerializationException("ActionRef is JSON only")
         json.encodeJsonElement(
             when (value) {
-                MessageBodies.ActionRef.Tap -> JsonPrimitive("tap")
                 MessageBodies.ActionRef.Answer -> JsonPrimitive("answer")
                 MessageBodies.ActionRef.Decline -> JsonPrimitive("decline")
                 is MessageBodies.ActionRef.Button -> buildJsonObject {
@@ -40,7 +39,6 @@ object ActionRefSerializer : KSerializer<MessageBodies.ActionRef> {
         val json = decoder as? JsonDecoder ?: throw SerializationException("ActionRef is JSON only")
         return when (val element = json.decodeJsonElement()) {
             is JsonPrimitive -> when (element.stringOrNull()) {
-                "tap" -> MessageBodies.ActionRef.Tap
                 "answer" -> MessageBodies.ActionRef.Answer
                 "decline" -> MessageBodies.ActionRef.Decline
                 else -> throw SerializationException("unknown action")

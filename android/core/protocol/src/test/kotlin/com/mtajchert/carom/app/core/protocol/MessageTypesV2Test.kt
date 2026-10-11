@@ -53,11 +53,11 @@ class MessageTypesV2Test {
     @Test
     fun `isValidBody checks notification actions`() {
         val t = MessageTypes.NOTIFICATION_ACTION
-        assertTrue(valid(t, """{"key":"k","action":"tap"}"""))
         assertTrue(valid(t, """{"key":"k","action":"answer"}"""))
         assertTrue(valid(t, """{"key":"k","action":"decline"}"""))
         assertTrue(valid(t, """{"key":"k","action":{"index":0,"title":"Reply","reply_text":"ok"}}"""))
-        assertFalse(valid(t, """{"action":"tap"}"""))
+        assertFalse(valid(t, """{"action":"answer"}"""))
+        assertFalse(valid(t, """{"key":"k","action":"tap"}"""))
         assertFalse(valid(t, """{"key":"k"}"""))
         assertFalse(valid(t, """{"key":"k","action":"open"}"""))
         assertFalse(valid(t, """{"key":"k","action":{"index":-1,"title":"x"}}"""))
@@ -103,13 +103,13 @@ class MessageTypesV2Test {
         val t = MessageTypes.NOTIFICATION_POSTED
         val base = """"key":"k","app":{"id":"a","name":"A"},"posted_at":1,"redacted":false"""
         assertTrue(valid(t, "{$base}"))
-        assertTrue(valid(t, """{"key":"k","app":{"id":"a","name":"A","icon":$blob},"posted_at":1,"redacted":true,"can_open":true}"""))
+        assertTrue(valid(t, """{"key":"k","app":{"id":"a","name":"A","icon":$blob},"posted_at":1,"redacted":true}"""))
         assertTrue(
             valid(
                 t,
                 """{$base,"template":"progress","color":-16776961,"colorized":true,"small_icon":$blob,"large_icon":$blob,"picture":$blob,
                 |"picture_desc":"d","big_text":"b","lines":["a"],"summary_text":"s","conversation":{"is_group":false},"messages":[],"actions":[],
-                |"can_open":false,"progress":{"value":1,"max":2,"indeterminate":false},"live":{"promoted":true},"when":5,"show_when":true,
+                |"progress":{"value":1,"max":2,"indeterminate":false},"live":{"promoted":true},"when":5,"show_when":true,
                 |"chronometer":{"count_down":false},"call":{"type":"incoming"},"group":{"key":"g","summary":false,"alert":"all"},
                 |"channel":{"id":"c","importance":3}}"""
                     .trimMargin().replace("\n", ""),
@@ -125,7 +125,6 @@ class MessageTypesV2Test {
         assertFalse("lines object", valid(t, """{$base,"lines":{}}"""))
         assertFalse("messages", valid(t, """{$base,"messages":{}}"""))
         assertFalse("actions", valid(t, """{$base,"actions":"none"}"""))
-        assertFalse("can_open", valid(t, """{$base,"can_open":1}"""))
         assertFalse("progress", valid(t, """{$base,"progress":[]}"""))
         assertFalse("when", valid(t, """{$base,"when":-1}"""))
         assertFalse("show_when", valid(t, """{$base,"show_when":"x"}"""))
@@ -179,7 +178,7 @@ class MessageTypesV2Test {
         val replyTo = "01a1268a-e800-7614-b735-9b848038782d"
         val bodies = mapOf(
             MessageTypes.NOTIFICATION_DISMISS to obj("""{"key":"k"}"""),
-            MessageTypes.NOTIFICATION_ACTION to obj("""{"key":"k","action":"tap"}"""),
+            MessageTypes.NOTIFICATION_ACTION to obj("""{"key":"k","action":"answer"}"""),
             MessageTypes.NOTIFICATION_ACTION_RESULT to obj("""{"ok":true}"""),
             MessageTypes.MEDIA_COMMAND to obj("""{"session":"s","command":"play"}"""),
         )

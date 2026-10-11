@@ -250,7 +250,6 @@ Text fields are plain text.
 | `conversation` | `{title?, is_group, icon?}` | `icon` is a blob ref. |
 | `messages` | at most 6 of `{sender?, text, ts, image?}`, newest last | Messaging style. `sender` is `{name, key?, icon?}`. `image` and `icon` are blob refs. |
 | `actions` | at most 6 of `{index, title, semantic?, reply?: {label?, choices?: string[]}}` | `index` is the position in `Notification.actions`. `semantic` is the `SEMANTIC_ACTION_*` value. |
-| `can_open` | bool | The notification has a content intent. |
 | `progress` | `{value, max, indeterminate, segments?, points?, tracker_icon?, start_icon?, end_icon?}` | `ProgressStyle` or legacy progress. At most 10 `segments` of `{length, color?}` and 4 `points` of `{position, color?}`. The icons are blob refs. |
 | `live` | `{promoted, short_critical_text?}` | `promoted` is `FLAG_PROMOTED_ONGOING`. |
 | `when` | time ms | Shown only when `show_when` is true. |
@@ -273,7 +272,7 @@ plaintext limit (§3): the sender cuts `messages` and `lines` first, then the te
 retries.
 
 When an app's mode on the phone is **Hide content**, the body carries only `key`, `app` (with
-its icon), `posted_at`, `redacted: true` and `can_open`. It has no text, images or actions.
+its icon), `posted_at` and `redacted: true`. It has no text, images or actions.
 
 Receivers MUST render a notification without any image they cannot fetch or verify (§11.3).
 
@@ -281,7 +280,6 @@ Receivers MUST render a notification without any image they cannot fetch or veri
 
 `notification.action@1` asks the phone to act on a notification it posted. `action` is one of:
 
-- `"tap"`: send the notification's content intent ("Open on phone").
 - `"answer"` or `"decline"`: the call actions of a `call` notification.
 - `{index, title, reply_text?}`: the app's button at `index`. The phone checks that the button
   at `index` still has this `title`, and answers `changed` otherwise. `reply_text` is the

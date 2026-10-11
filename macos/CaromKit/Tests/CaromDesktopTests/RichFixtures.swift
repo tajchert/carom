@@ -36,7 +36,6 @@ enum Fixture {
             .init(index: 0, title: "Mark as read", semantic: 2, reply: nil),
             .init(index: 1, title: "Reply", semantic: 1, reply: .init(label: "Message", choices: ["On my way", "Thanks!"])),
         ]
-        p.canOpen = true
         return p
     }
 

@@ -115,7 +115,7 @@ You don't need to grant anything more for this. It all runs under notification a
 
 ## Actions from Mac
 
-On the phone, **Settings → Actions from Mac** decides whether your Mac can tap, reply to or
+On the phone, **Settings → Actions from Mac** decides whether your Mac can press buttons, reply to or
 control things on the phone.
 
 | Choice | What it means |

@@ -27,7 +27,7 @@ extension CardItem {
 }
 
 public enum CardAction: Sendable, Equatable {
-    case copyCode(String), tap, button(index: Int, title: String), reply(index: Int, title: String, text: String),
+    case copyCode(String), button(index: Int, title: String), reply(index: Int, title: String, text: String),
          answer, decline, dismiss
 }
 

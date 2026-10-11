@@ -273,7 +273,6 @@ const chatMsgId = await send('notification.posted@1', {
     { index: 0, title: 'Reply', semantic: 1, reply: { label: 'Reply to Anna', choices: ['Yes!', 'Running late'] } },
     { index: 1, title: 'Mark as read', semantic: 2 },
   ],
-  can_open: true,
 });
 
 // 7. A progress Live Update, then two updates of the same key (they collapse at the Hub).

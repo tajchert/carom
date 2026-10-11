@@ -65,7 +65,9 @@ class NotificationActionHandlerTest {
 
     private fun post(key: String) {
         val open = PendingIntent.getBroadcast(context, 0, Intent("test.open").setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
-        val n = Notification.Builder(context, "channel").setSmallIcon(android.R.drawable.ic_dialog_info).setContentIntent(open).build()
+        val n = Notification.Builder(context, "channel").setSmallIcon(android.R.drawable.ic_dialog_info)
+            .addAction(Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(context, android.R.drawable.ic_dialog_info), "Open", open).build())
+            .build()
         @Suppress("DEPRECATION")
         live[key] = StatusBarNotification("com.chat", "com.chat", 1, null, 10_000, 0, 0, n, Process.myUserHandle(), 1)
     }
@@ -81,7 +83,7 @@ class NotificationActionHandlerTest {
     @Test
     fun `fires the action and replies ok to the sender of the request`() = runTest {
         post("k1")
-        handler.handle(action("k1", MessageBodies.ActionRef.Tap))
+        handler.handle(action("k1", MessageBodies.ActionRef.Button(0, "Open", null)))
 
         assertEquals(1, sender.sent.size)
         val reply = sync.sent.single()
@@ -94,7 +96,7 @@ class NotificationActionHandlerTest {
 
     @Test
     fun `a vanished or changed notification is reported and fires nothing`() = runTest {
-        handler.handle(action("k-missing", MessageBodies.ActionRef.Tap))
+        handler.handle(action("k-missing", MessageBodies.ActionRef.Button(0, "Open", null)))
         post("k1")
         handler.handle(action("k1", MessageBodies.ActionRef.Button(0, "Reply", "hi")))
 
@@ -108,7 +110,7 @@ class NotificationActionHandlerTest {
         post("k1")
         prefs.setActionsFromMac(ActionsFromMac.OFF)
 
-        handler.handle(action("k1", MessageBodies.ActionRef.Tap))
+        handler.handle(action("k1", MessageBodies.ActionRef.Button(0, "Open", null)))
 
         assertTrue(sender.sent.isEmpty())
         assertEquals(MessageBodies.NotificationActionResult(ok = false, error = "failed"), resultOf())
@@ -117,6 +119,14 @@ class NotificationActionHandlerTest {
     @Test
     fun `a body that does not parse is ignored without a reply`() = runTest {
         handler.handle(received(kotlinx.serialization.json.JsonObject(emptyMap())))
+        assertTrue(sync.sent.isEmpty())
+    }
+
+    @Test
+    fun `the removed tap action does not parse and is ignored without a reply`() = runTest {
+        post("k1")
+        handler.handle(received(kotlinx.serialization.json.Json.parseToJsonElement("""{"key":"k1","action":"tap"}""") as kotlinx.serialization.json.JsonObject))
+        assertTrue(sender.sent.isEmpty())
         assertTrue(sync.sent.isEmpty())
         assertEquals(0, activity.activities)
         assertNull(sender.sent.firstOrNull())

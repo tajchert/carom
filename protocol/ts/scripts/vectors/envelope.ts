@@ -392,7 +392,7 @@ export function envelopeReceiveVectors(): VectorFile {
       envelope: sealed('recv-action-no-reply', {
         sender: MAC,
         to: [PHONE],
-        payload: { type: 'notification.action@1', ts: T0 + 5_000, body: { key: NOTIF_KEY, action: 'tap' } },
+        payload: { type: 'notification.action@1', ts: T0 + 5_000, body: { key: NOTIF_KEY, action: 'answer' } },
         collapseRealKey: null,
       }),
       context: { ...baseContext(PHONE, T0 + 6_000) },
@@ -403,7 +403,7 @@ export function envelopeReceiveVectors(): VectorFile {
       envelope: sealed('recv-action-ok', {
         sender: MAC,
         to: [PHONE],
-        payload: { type: 'notification.action@1', ts: T0 + 5_000, reply_to: originalMsgId, body: { key: NOTIF_KEY, action: 'tap' } },
+        payload: { type: 'notification.action@1', ts: T0 + 5_000, reply_to: originalMsgId, body: { key: NOTIF_KEY, action: 'answer' } },
         collapseRealKey: null,
       }),
       context: { ...baseContext(PHONE, T0 + 6_000), original_recipients: { [originalMsgId]: [MAC.deviceId, LAPTOP.deviceId] } },

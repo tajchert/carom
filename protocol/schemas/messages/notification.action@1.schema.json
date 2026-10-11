@@ -8,7 +8,7 @@
     "key": { "type": "string" },
     "action": {
       "oneOf": [
-        { "type": "string", "enum": ["tap", "answer", "decline"] },
+        { "type": "string", "enum": ["answer", "decline"] },
         {
           "type": "object",
           "properties": {

@@ -15,7 +15,7 @@ class ReplyRulesTest {
         MessageBodies.NotificationPosted(key = key, app = MessageBodies.App("com.chat", "Chat"), postedAt = 1, redacted = false),
     )
 
-    private fun action(key: String, ref: MessageBodies.ActionRef = MessageBodies.ActionRef.Tap): JsonObject =
+    private fun action(key: String, ref: MessageBodies.ActionRef = MessageBodies.ActionRef.Answer): JsonObject =
         MessageBodies.toJson(MessageBodies.NotificationAction.serializer(), MessageBodies.NotificationAction(key, ref))
 
     private fun result(ok: Boolean = true): JsonObject =

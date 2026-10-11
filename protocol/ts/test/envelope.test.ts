@@ -156,7 +156,7 @@ describe('receiver rules', () => {
 
   it('rejects an action, action result or media command without reply_to', () => {
     const bodies: Array<[string, Record<string, unknown>]> = [
-      ['notification.action@1', { key: 'k', action: 'tap' }],
+      ['notification.action@1', { key: 'k', action: 'answer' }],
       ['notification.action_result@1', { ok: true }],
       ['media.command@1', { session: 's', command: 'play' }],
     ];

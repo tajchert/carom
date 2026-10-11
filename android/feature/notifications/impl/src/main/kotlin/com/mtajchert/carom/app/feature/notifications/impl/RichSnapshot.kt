@@ -96,7 +96,6 @@ data class RichContent(
     val messages: List<SnapMessage> = emptyList(),
     /** At most [MAX_ACTIONS]; `index` is the position in `Notification.actions`. */
     val actions: List<MessageBodies.Action> = emptyList(),
-    val canOpen: Boolean = false,
     val progress: SnapProgress? = null,
     val live: MessageBodies.Live? = null,
     val whenMs: Long? = null,

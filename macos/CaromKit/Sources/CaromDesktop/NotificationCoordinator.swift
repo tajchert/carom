@@ -227,8 +227,6 @@ public final class NotificationCoordinator {
             let send = sendDismiss
             Task { await send?(item) }
             removed(phoneId: item.phoneId, key: item.posted.key)
-        case .tap:
-            deliver(.tap, for: item)
         case .button(let index, let title):
             deliver(.button(index: index, title: title, replyText: nil), for: item)
         case .reply(let index, let title, let text):

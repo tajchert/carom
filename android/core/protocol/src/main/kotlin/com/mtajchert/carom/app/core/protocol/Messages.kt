@@ -152,7 +152,6 @@ object MessageTypes {
                 o != null && o.uint31("index") && o.str("title") && o.optUint31("semantic") &&
                     o.optSub("reply") { r -> r.optStr("label") && r.optList("choices", Int.MAX_VALUE) { c -> c.stringOrNull() != null } }
             } &&
-            body.optBool("can_open") &&
             body.optSub("progress") { p ->
                 p.uint31("value") && p.uint31("max") && p["indeterminate"].booleanOrNull() != null &&
                     p.optList("segments", MAX_SEGMENTS) { s ->
@@ -345,7 +344,6 @@ object MessageBodies {
         val conversation: Conversation? = null,
         val messages: List<ConversationMessage>? = null,
         val actions: List<Action>? = null,
-        @SerialName("can_open") val canOpen: Boolean? = null,
         val progress: Progress? = null,
         val live: Live? = null,
         @SerialName("when") val `when`: Long? = null,
@@ -367,7 +365,6 @@ object MessageBodies {
 
     /** What the Mac asks the phone to do with a notification (SPEC V2 §3.4). */
     sealed interface ActionRef {
-        data object Tap : ActionRef
         data object Answer : ActionRef
         data object Decline : ActionRef
 

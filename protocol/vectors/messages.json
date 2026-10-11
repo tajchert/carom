@@ -149,7 +149,6 @@
             "semantic": 2
           }
         ],
-        "can_open": true,
         "when": 1791648019600,
         "show_when": true,
         "group": {
@@ -373,7 +372,6 @@
               "semantic": 2
             }
           ],
-          "can_open": true,
           "when": 1791648019600,
           "show_when": true,
           "group": {
@@ -497,13 +495,12 @@
               "index": 1,
               "title": "Answer"
             }
-          ],
-          "can_open": true
+          ]
         }
       }
     },
     {
-      "name": "Hide content mode: key, app with icon, posted_at, redacted, can_open",
+      "name": "Hide content mode: key, app with icon, posted_at, redacted",
       "payload": {
         "type": "notification.posted@1",
         "ts": 1791648070000,
@@ -523,8 +520,7 @@
             }
           },
           "posted_at": 1791648069000,
-          "redacted": true,
-          "can_open": true
+          "redacted": true
         }
       }
     },
@@ -541,18 +537,6 @@
             "title": "Reply",
             "reply_text": "On my way 🚗"
           }
-        }
-      }
-    },
-    {
-      "name": "tap action",
-      "payload": {
-        "type": "notification.action@1",
-        "ts": 1791648032000,
-        "reply_to": "01a1268b-3620-770f-8924-eb5c182fd178",
-        "body": {
-          "key": "0|com.whatsapp|2|family|10124",
-          "action": "tap"
         }
       }
     },
@@ -1204,6 +1188,14 @@
       "name": "action without key",
       "type": "notification.action@1",
       "body": {
+        "action": "answer"
+      }
+    },
+    {
+      "name": "the removed tap action",
+      "type": "notification.action@1",
+      "body": {
+        "key": "k",
         "action": "tap"
       }
     },
@@ -1329,7 +1321,7 @@
         "ts": 1791648000000,
         "body": {
           "key": "0|com.whatsapp|2|family|10124",
-          "action": "tap"
+          "action": "answer"
         }
       }
     },

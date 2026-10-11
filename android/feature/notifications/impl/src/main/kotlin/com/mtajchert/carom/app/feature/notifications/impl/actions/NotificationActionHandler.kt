@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
- * `notification.action@1` (a tap, Answer, Decline, a button or a reply from a Mac): runs it with
+ * `notification.action@1` (Answer, Decline, a button or a reply from a Mac): runs it with
  * [ActionExecutor] and answers with `notification.action_result@1` to the device that asked.
  *
  * The engine has already applied SPEC §3.3 and the §3.5 rule that the sender was a recipient of

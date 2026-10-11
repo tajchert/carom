@@ -57,7 +57,7 @@ Done (foundation):
   trailing-edge throttle, the content-hash dedupe and the "one send in flight" rule keep an older
   state from overtaking a newer one while images upload. `NotificationMapper` builds the body,
   capped at 6 messages, 7 lines and 6 actions and trimmed to 65 000 bytes; *Hide content* sends
-  only the app (with its icon), the time, `redacted: true` and `can_open`. Forwarded keys are
+  only the app (with its icon), the time and `redacted: true`. Forwarded keys are
   kept in Room, so removals are sent across listener reconnects and process death; on connect the
   listener sends `removed` for forwarded keys that are no longer showing.
   `notification.dismiss@1` cancels the notification if it is still showing (the engine has
@@ -65,7 +65,7 @@ Done (foundation):
   (`NotificationAppsRoute`) lists apps seen posting notifications with their Forward / Hide
   content / Off mode and the "Ongoing: Forward / Off" switch.
 - Actions, media and code forwarding (`feature:notifications:impl`, packages `actions/`, `media/`
-  and `codes/`). `ActionExecutor` runs `notification.action@1` (tap, answer, decline, the app's
+  and `codes/`). `ActionExecutor` runs `notification.action@1` (answer, decline, the app's
   buttons, inline reply) through `PendingIntent.send` with background activity start allowed, and
   answers with `notification.action_result@1` (`gone`, `changed`, `blocked`, `failed`).
   `MediaBridge` sends `media.state@1` (debounced to 1 s, art as a blob) and

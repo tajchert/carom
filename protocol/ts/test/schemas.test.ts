@@ -92,7 +92,7 @@ describe('JSON Schemas', () => {
     ['notification.posted@1', { key: 'k', app: { id: 'a' }, posted_at: 1, redacted: false }, false],
     ['notification.posted@1', { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 1 }, false],
     ['notification.posted@1', { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 1, redacted: false, title: 5 }, false],
-    ['notification.posted@1', { ...MIN_POSTED, app: { id: 'a', name: 'A', icon: REF }, redacted: true, can_open: true }, true],
+    ['notification.posted@1', { ...MIN_POSTED, app: { id: 'a', name: 'A', icon: REF }, redacted: true }, true],
     [
       'notification.posted@1',
       {
@@ -136,7 +136,7 @@ describe('JSON Schemas', () => {
     ['device.status@1', { battery: 100, charging: false }, true],
     ['device.status@1', { battery: 101 }, false],
     ['device.status@1', { battery: 50.5 }, false],
-    ['notification.action@1', { key: 'k', action: 'tap' }, true],
+    ['notification.action@1', { key: 'k', action: 'answer' }, true],
     ['notification.action@1', { key: 'k', action: { index: 0, title: 'Reply', reply_text: 'ok' } }, true],
     ['notification.action@1', { key: 'k', action: 'press' }, false],
     ['notification.action@1', { key: 'k', action: { index: 0 } }, false],
@@ -159,7 +159,7 @@ describe('JSON Schemas', () => {
   it('payload schema requires reply_to for actions, results and media commands', () => {
     const replyTo = '01928f3c-7b1e-7c4a-9d2f-5e8a1b2c3d4e';
     const cases: Array<[string, Record<string, unknown>]> = [
-      ['notification.action@1', { key: 'k', action: 'tap' }],
+      ['notification.action@1', { key: 'k', action: 'answer' }],
       ['notification.action_result@1', { ok: true }],
       ['media.command@1', { session: 's', command: 'play' }],
     ];
