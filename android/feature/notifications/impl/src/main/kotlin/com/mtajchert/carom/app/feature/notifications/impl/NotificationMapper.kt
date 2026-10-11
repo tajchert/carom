@@ -178,8 +178,14 @@ object NotificationMapper {
         verification = c.verification.clean(MAX_LINE_CHARS),
     )
 
+    /**
+     * The action title as the Mac receives it. `ActionExecutor` compares the live title
+     * through this same cut, so a long title still matches its own button.
+     */
+    fun actionTitle(title: String): String = truncate(title, MAX_ACTION_TITLE_CHARS)
+
     private fun clip(a: MessageBodies.Action) = a.copy(
-        title = truncate(a.title, MAX_ACTION_TITLE_CHARS),
+        title = actionTitle(a.title),
         reply = a.reply?.let { r ->
             r.copy(
                 label = r.label?.let { truncate(it, MAX_CHOICE_CHARS) },

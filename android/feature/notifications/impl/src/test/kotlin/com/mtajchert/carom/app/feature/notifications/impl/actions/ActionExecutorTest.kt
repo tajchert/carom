@@ -12,8 +12,12 @@ import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.MessageBodies.ActionRef
 import com.mtajchert.carom.app.feature.notifications.impl.ActiveNotificationsBridge
+import com.mtajchert.carom.app.feature.notifications.impl.NotificationMapper
+import com.mtajchert.carom.app.feature.notifications.impl.NotificationSnapshot
+import com.mtajchert.carom.app.feature.notifications.impl.RichContent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -119,6 +123,22 @@ class ActionExecutorTest {
         assertEquals(ActionOutcome.CHANGED, executor.execute(KEY, ActionRef.Button(0, "Reply ", null)))
         assertEquals(ActionOutcome.CHANGED, executor.execute(KEY, ActionRef.Button(0, "reply", null)))
         assertTrue(sender.sent.isEmpty())
+    }
+
+    @Test
+    fun `a long title is matched against the same cut the Mac received`() {
+        // 199 letters then an emoji: the 200-character cut must not split the surrogate pair.
+        val long = "a".repeat(199) + "\uD83D\uDE00" + "b".repeat(50)
+        val sent = NotificationMapper.posted(
+            NotificationSnapshot(key = KEY, packageName = "com.chat", appLabel = "Chat", postedAt = 1, rich = RichContent(actions = listOf(MessageBodies.Action(0, long)))),
+            appName = "Chat",
+            hideContent = false,
+        ).actions!!.single().title
+        assertEquals(199, sent.length)
+        post { addAction(action(long, pending("long"))) }
+
+        assertEquals(ActionOutcome.OK, executor.execute(KEY, ActionRef.Button(0, sent, null)))
+        assertEquals(ActionOutcome.CHANGED, executor.execute(KEY, ActionRef.Button(0, sent.dropLast(1), null)))
     }
 
     @Test
