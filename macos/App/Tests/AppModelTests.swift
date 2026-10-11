@@ -139,6 +139,24 @@ struct AppModelTests {
         #expect(h.model.notifications.cards.isEmpty)
     }
 
+    @Test func directoryChangeRecomputesTheActionCapOfExistingCards() async {
+        let h = Harness(directory: [entry(pixel)])
+        await h.start()
+        await h.model.dispatch(replyable(), msgId: "m1", sender: pixel)
+        let id = CardItem.id(phoneId: phoneA, key: "k1")
+        #expect(h.model.notifications.cards[id]?.phoneAcceptsActions == false)
+
+        await h.sync.set(directory: [entry(actionPhone(phoneA, "Pixel"))])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.notifications.cards[id]?.phoneAcceptsActions == true)
+        #expect(h.model.notifications.cards[id]?.replyAction != nil)
+
+        await h.sync.set(directory: [entry(pixel)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.notifications.cards[id]?.phoneAcceptsActions == false)
+        #expect(h.model.notifications.cards[id]?.phoneButtons.isEmpty == true)
+    }
+
     @Test func focusAccessIsRequestedWhenReady() async {
         let h = Harness()
         await h.start()
@@ -258,6 +276,20 @@ struct AppModelTests {
         #expect(h.presenter.withdrawn.count == 1)
         #expect(h.presenter.withdrawn.first?.0 == phoneA && h.presenter.withdrawn.first?.1 == "k1")
         #expect(h.model.notifications.cards.isEmpty)
+    }
+
+    @Test func recentNotificationKeepsTheAppIcon() async {
+        let h = Harness()
+        await h.start()
+        let icon = BlobRef(id: "icon1", key: "", mime: "image/webp", size: 1, hash: "AAAAAAAAAAAAAAAAAAAAAA==")
+        var n = NotificationPosted(key: "k1", app: .init(id: "com.chat", name: "Chat", icon: icon), title: "Ana",
+                                   text: "Hi", postedAt: 1)
+        await h.model.dispatch(.notificationPosted(n), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.first?.icon == icon)
+        n.key = "k2"
+        n.app.icon = nil
+        await h.model.dispatch(.notificationPosted(n), msgId: "m2", sender: pixel)
+        #expect(h.model.activity.notifications.first?.icon == nil)
     }
 
     @Test func dismissActionRepliesToTheOriginalMessage() async {

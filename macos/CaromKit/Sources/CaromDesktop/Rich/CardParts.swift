@@ -61,6 +61,26 @@ struct InitialBadge: View {
     }
 }
 
+/// An app's icon from its blob reference, with the card's first-letter placeholder while it
+/// loads or when there is none. The menu-bar history uses it (spec §6.2).
+public struct AppIconImage: View {
+    let ref: BlobRef?
+    let appName: String
+    let images: any ImageProvider
+
+    public init(ref: BlobRef?, appName: String, images: any ImageProvider) {
+        self.ref = ref
+        self.appName = appName
+        self.images = images
+    }
+
+    public var body: some View {
+        ImageSlot(ref: ref, images: images) { InitialBadge(text: appName, tint: .accentColor) }
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 /// An image from a blob reference. Shows the placeholder right away and keeps it when the
 /// provider returns nil (missing, expired or corrupt blob; spec §7).
 struct ImageSlot<Placeholder: View>: View {

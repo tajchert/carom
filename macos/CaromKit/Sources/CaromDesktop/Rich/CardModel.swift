@@ -31,7 +31,7 @@ public enum CardAction: Sendable, Equatable {
          answer, decline, dismiss
 }
 
-public enum ActionStatus: Sendable, Equatable { case idle, sending, sent, asleep, gone, changed, failed }
+public enum ActionStatus: Sendable, Equatable { case idle, sending, sent, asleep, gone, changed, blocked, failed }
 
 public protocol ImageProvider: Sendable { func image(for ref: BlobRef) async -> NSImage? }
 
@@ -66,6 +66,7 @@ extension ActionStatus {
         case .asleep: "Phone is asleep — will send when it wakes"
         case .gone: "Notification is gone"
         case .changed: "App changed its buttons"
+        case .blocked: "Phone blocked opening the app"
         case .failed: "Couldn't send"
         }
     }
@@ -79,6 +80,7 @@ extension ActionStatus {
         switch result.error {
         case "gone": self = .gone
         case "changed": self = .changed
+        case "blocked": self = .blocked
         default: self = .failed
         }
     }
@@ -96,6 +98,12 @@ extension CardItem {
     public var isPinned: Bool { isLive || isIncomingCall }
 
     public var isConversation: Bool { posted.template == "messaging" || !(posted.messages ?? []).isEmpty }
+
+    /// The image on the right of the card: the large icon, or for a conversation without one the
+    /// group avatar (`conversation.icon`).
+    public var largeIconRef: BlobRef? {
+        posted.largeIcon ?? (isConversation ? posted.conversation?.icon : nil)
+    }
 
     /// Messaging, call and Live Update cards stay on the panel until handled or removed.
     public var staysUntilHandled: Bool { isPinned || isConversation }

@@ -99,6 +99,23 @@ object NotificationMapper {
         return fit(body, maxBodyBytes)
     }
 
+    /**
+     * Only the V1 fields of [body] (`key`, `app` without its icon, `title`, `text`, `sub_text`,
+     * `category`, `posted_at`, `redacted`): the fallback when the full body fails
+     * [com.mtajchert.carom.app.core.protocol.MessageTypes.isValidBody], so a bad V2 field costs
+     * the rich content, not the notification.
+     */
+    fun v1Only(body: MessageBodies.NotificationPosted): MessageBodies.NotificationPosted = MessageBodies.NotificationPosted(
+        key = body.key,
+        app = body.app.copy(icon = null),
+        title = body.title,
+        text = body.text,
+        subText = body.subText,
+        category = body.category,
+        postedAt = body.postedAt.coerceAtLeast(0),
+        redacted = body.redacted,
+    )
+
     fun postedJson(body: MessageBodies.NotificationPosted): JsonObject =
         MessageBodies.toJson(MessageBodies.NotificationPosted.serializer(), body)
 
@@ -161,8 +178,14 @@ object NotificationMapper {
         verification = c.verification.clean(MAX_LINE_CHARS),
     )
 
+    /**
+     * The action title as the Mac receives it. `ActionExecutor` compares the live title
+     * through this same cut, so a long title still matches its own button.
+     */
+    fun actionTitle(title: String): String = truncate(title, MAX_ACTION_TITLE_CHARS)
+
     private fun clip(a: MessageBodies.Action) = a.copy(
-        title = truncate(a.title, MAX_ACTION_TITLE_CHARS),
+        title = actionTitle(a.title),
         reply = a.reply?.let { r ->
             r.copy(
                 label = r.label?.let { truncate(it, MAX_CHOICE_CHARS) },

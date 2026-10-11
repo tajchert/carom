@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.os.BundleCompat
 import com.mtajchert.carom.app.core.protocol.MessageBodies.ActionRef
 import com.mtajchert.carom.app.feature.notifications.impl.ActiveNotificationsBridge
+import com.mtajchert.carom.app.feature.notifications.impl.NotificationMapper
 import javax.inject.Inject
 
 /** How an action ended; [error] is the `notification.action_result@1` code (null for [OK]). */
@@ -54,7 +55,8 @@ class ActionExecutor @Inject constructor(
 
     private fun button(n: Notification, ref: ActionRef.Button): Target? {
         val candidate = n.actions?.getOrNull(ref.index) ?: return null
-        if (candidate.title?.toString() != ref.title) return null
+        // The Mac saw the title after the mapper's 200-character cut; compare through the same cut.
+        if (candidate.title?.toString()?.let(NotificationMapper::actionTitle) != ref.title) return null
         val intent = candidate.actionIntent ?: return null
         val text = ref.replyText ?: return Target(intent)
         val input = candidate.remoteInputs?.firstOrNull { it.allowFreeFormInput } ?: return null

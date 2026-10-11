@@ -1,3 +1,4 @@
+import CaromProtocol
 import Foundation
 
 /// A notification received from a phone, as listed in the menu. Kept in memory only.
@@ -13,6 +14,8 @@ struct RecentNotification: Identifiable, Equatable, Sendable {
     var msgId: String
     var code: String?
     var date: Date
+    /// The app icon (`posted.app.icon`); nil shows the first-letter placeholder.
+    var icon: BlobRef? = nil
 }
 
 /// A clipboard item that went in or out. Kept in memory only.

@@ -160,6 +160,15 @@ public final class NotificationCoordinator {
         for id in cards.values.filter({ $0.phoneId == phoneId }).map(\.id) { forget(id) }
     }
 
+    /// The phone's caps changed (a directory update): its cards gain or lose their action buttons
+    /// in place. Nothing is presented again; an open reply field on a card that lost it closes.
+    public func setPhoneAcceptsActions(_ accepts: Bool, phoneId: String) {
+        for (id, card) in cards where card.phoneId == phoneId && card.phoneAcceptsActions != accepts {
+            cards[id]?.phoneAcceptsActions = accepts
+        }
+        if let id = replyingTo, cards[id]?.replyAction == nil { endReply() }
+    }
+
     /// The card's close button: off the panel, nothing sent to the phone.
     public func close(_ cardId: String) { takeOffPanel(cardId) }
 

@@ -313,7 +313,8 @@ final class AppModel {
         applyDirectory(await sync.directory)
     }
 
-    /// Applies a new directory and withdraws notifications of removed phones.
+    /// Applies a new directory, withdraws notifications of removed phones and refreshes each
+    /// phone's action cap on the cards it already sent.
     ///
     /// Receive lists and the "Send to" list are left alone: `"*"` (or no list) already includes
     /// devices paired later, and a list of ids is an explicit choice, so a new device is not
@@ -327,6 +328,12 @@ final class AppModel {
         }
         directory = newDirectory
         deviceStatus = deviceStatus.filter { newIds.contains($0.key) }
+        // A phone may have gained or lost `notification.action@1` (an update, or Actions from Mac
+        // turned on or off): its existing cards show or hide their buttons to match.
+        for entry in newDirectory {
+            notifications.setPhoneAcceptsActions(Routing.advertises(entry.record, .notificationAction),
+                                                 phoneId: entry.record.id)
+        }
     }
 
     // MARK: Realtime connection
@@ -448,14 +455,14 @@ final class AppModel {
             guard !preferences.paused, receives(.notifications, from: sender.id), !preferences.isMuted(n.app.id) else {
                 return
             }
-            // Android 15+ may hide the content ("Sensitive notification content hidden"); say so
-            // instead of showing an empty notification. Apps set to Hide content on the phone send
-            // their own placeholder text with `redacted: false` (docs/CLIENTS.md).
+            // A redacted notification without text says so instead of showing an empty card: Android
+            // 15+ hid the content ("Sensitive notification content hidden"), or the app is set to
+            // Hide content on the phone, which sends `redacted: true` and no text (SPEC §4.1).
             let text = n.redacted && (n.text ?? "").isEmpty ? UserMessages.contentHiddenOnPhone : n.text
             let code = CodeExtractor.code(in: n)
             activity.add(RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
-                                            msgId: msgId, code: code, date: options.now()))
+                                            msgId: msgId, code: code, date: options.now(), icon: n.app.icon))
             await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
             trackLive(phoneId: sender.id, posted: n)
             autoCopy(code, phoneId: sender.id, key: n.key)

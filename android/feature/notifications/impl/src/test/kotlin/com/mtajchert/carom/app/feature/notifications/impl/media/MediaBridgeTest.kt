@@ -7,6 +7,8 @@ import com.mtajchert.carom.app.core.data.sync.SendResult
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.model.UserPreferences
 import com.mtajchert.carom.app.core.protocol.MessageTypes
+import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
+import com.mtajchert.carom.app.feature.notifications.impl.DefaultBlobUploader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -149,6 +151,55 @@ class MediaBridgeTest {
     }
 
     @Test
+    fun `art of the same track is reused for an hour and uploaded again after`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        assertEquals(1, h.uploader.uploads.size)
+
+        advanceTimeBy(30 * 60 * 1000L)
+        session.snapshot = session.snapshot.copy(state = MediaStates.PAUSED)
+        session.change()
+        settle()
+        assertEquals(1, h.uploader.uploads.size)
+        assertEquals(ART_REF, h.states().last().art)
+
+        // Past the reuse window the art is uploaded again, so a new message never points at an expiring blob.
+        advanceTimeBy(MediaBridge.ART_REUSE_MS)
+        val fresh = ART_REF.copy(id = "art-2")
+        h.uploader.result = fresh
+        session.snapshot = session.snapshot.copy(state = MediaStates.PLAYING)
+        session.change()
+        settle()
+        assertEquals(2, h.uploader.uploads.size)
+        assertEquals(fresh, h.states().last().art)
+    }
+
+    @Test
+    fun `a failed re-upload keeps the previous art`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        advanceTimeBy(MediaBridge.ART_REUSE_MS + 1)
+        h.uploader.result = null
+        session.snapshot = session.snapshot.copy(state = MediaStates.PAUSED)
+        session.change()
+        settle()
+        assertEquals(2, h.uploader.uploads.size)
+        assertEquals(ART_REF, h.states().last().art)
+    }
+
+    @Test
+    fun `album art blobs outlive the message by the same margin as message images`() = runTest {
+        val sync = FakeCaromSync()
+        SyncMediaArtUploader(sync).upload(EncodedArt(byteArrayOf(1, 2, 3), 8, 8))
+        assertEquals(DefaultBlobUploader.MESSAGE_TTL_S, sync.uploads.single().ttlS)
+        assertEquals(false, sync.uploads.single().convergent)
+    }
+
+    @Test
     fun `a track without art sends no art and does not retry`() = runTest {
         val session = FakeMediaSession().also { it.art = null; h.source.sessions[1] = it }
         val bridge = h.start(this)
@@ -158,6 +209,58 @@ class MediaBridgeTest {
         settle()
         assertEquals(1, session.artLoads)
         assertNull(h.states().last().art)
+    }
+
+    @Test
+    fun `a playing session holds the action window and a paused one releases it`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        val source = "media:" + MediaSessionIds.of("com.music", "main")
+        assertEquals(setOf(source), h.hold.held)
+
+        session.snapshot = session.snapshot.copy(state = MediaStates.PAUSED)
+        session.change()
+        settle()
+        assertTrue(h.hold.held.isEmpty())
+
+        session.snapshot = session.snapshot.copy(state = MediaStates.PLAYING)
+        session.change()
+        settle()
+        assertEquals(setOf(source), h.hold.held)
+
+        bridge.onRemoved(h.sbn(1))
+        runCurrent()
+        assertTrue(h.hold.held.isEmpty())
+    }
+
+    @Test
+    fun `a session that starts paused never holds, and stop releases every hold`() = runTest {
+        val paused = FakeMediaSession(tag = "a").also {
+            it.snapshot = it.snapshot.copy(state = MediaStates.PAUSED)
+            h.source.sessions[1] = it
+        }
+        FakeMediaSession(tag = "b").also { h.source.sessions[2] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        bridge.onPosted(h.sbn(2))
+        settle()
+        assertEquals(setOf("media:" + MediaSessionIds.of("com.music", "b")), h.hold.held)
+        assertEquals(MediaStates.PAUSED, paused.snapshot.state)
+
+        bridge.stop()
+        assertTrue(h.hold.held.isEmpty())
+    }
+
+    @Test
+    fun `a playing session of a blocked app does not hold`() = runTest {
+        h.apps.setMode("com.music", AppForwardingMode.OFF)
+        FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        assertTrue(h.hold.held.isEmpty())
     }
 
     @Test

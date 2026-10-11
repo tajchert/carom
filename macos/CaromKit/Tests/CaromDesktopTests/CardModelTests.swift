@@ -76,6 +76,17 @@ import Testing
                 == Date(timeIntervalSince1970: 1_800_000_060))
     }
 
+    @Test func messagingCardUsesTheGroupAvatarWhenThereIsNoLargeIcon() {
+        var chat = Fixture.messaging()
+        chat.largeIcon = nil
+        #expect(Fixture.card(chat).largeIconRef == Fixture.blob(1))
+        chat.largeIcon = Fixture.blob(9)
+        #expect(Fixture.card(chat).largeIconRef == Fixture.blob(9), "the large icon wins")
+        var plain = Fixture.posted()
+        plain.conversation = .init(title: nil, isGroup: false, icon: Fixture.blob(1))
+        #expect(Fixture.card(plain).largeIconRef == nil, "only the messaging layout draws the avatar")
+    }
+
     @Test func statusLabelsAreVerbatim() {
         #expect(ActionStatus.idle.label == nil)
         #expect(ActionStatus.sending.label == "Sending…")
@@ -83,6 +94,7 @@ import Testing
         #expect(ActionStatus.asleep.label == "Phone is asleep — will send when it wakes")
         #expect(ActionStatus.gone.label == "Notification is gone")
         #expect(ActionStatus.changed.label == "App changed its buttons")
+        #expect(ActionStatus.blocked.label == "Phone blocked opening the app")
         #expect(ActionStatus.failed.label == "Couldn't send")
     }
 
@@ -90,7 +102,7 @@ import Testing
         (true, nil, ActionStatus.sent),
         (false, "gone", .gone),
         (false, "changed", .changed),
-        (false, "blocked", .failed),
+        (false, "blocked", .blocked),
         (false, "failed", .failed),
         (false, nil, .failed),
     ] as [(Bool, String?, ActionStatus)])

@@ -2,6 +2,7 @@ package com.mtajchert.carom.app.feature.notifications.impl.media
 
 import android.service.notification.StatusBarNotification
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.data.runtime.ActionWindowHold
 import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.SendResult
@@ -9,6 +10,7 @@ import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.MessageTypes
+import com.mtajchert.carom.app.feature.notifications.impl.DefaultBlobUploader
 import com.mtajchert.carom.app.feature.notifications.impl.ForwardingEnvironment
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationAppsRepository
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationFilter
@@ -32,8 +34,11 @@ import javax.inject.Singleton
  *   read when the timer fires, so a burst sends the latest. Position alone never triggers a send:
  *   the Mac extrapolates from `position_ms` and `position_at`, so a flush whose body differs from
  *   the last one only in those two fields is dropped.
- * - album art goes out as a blob, once per track.
+ * - album art goes out as a blob once per track, and again when the track plays on past
+ *   [ART_REUSE_MS], so a new message never points at a blob close to expiry.
  * - when the media notification is removed, `state: stopped` is sent at once.
+ * - while a forwarded session is playing it holds the action window (`media:<session>`), so the
+ *   Mac's controls reach the phone; pausing, stopping or untracking releases the hold.
  *
  * Like [com.mtajchert.carom.app.feature.notifications.impl.NotificationForwarder], listener
  * callbacks only enqueue; one consumer coroutine owns all changes to the tracked sessions.
@@ -47,6 +52,8 @@ class MediaBridge @Inject constructor(
     private val apps: NotificationAppsRepository,
     private val preferences: UserPreferencesRepository,
     private val activity: Optional<ActivitySignal>,
+    // Lazy: the window is built from the sync engine, whose handlers reach back to this bridge.
+    private val hold: dagger.Lazy<ActionWindowHold>,
 ) {
     private sealed interface Event {
         class Posted(val sbn: StatusBarNotification) : Event
@@ -67,6 +74,12 @@ class MediaBridge @Inject constructor(
         /** The track whose art [art] belongs to; null until its art was loaded (or found missing). */
         var artKey: String? = null
         var art: MessageBodies.BlobRef? = null
+
+        /** When [art] was uploaded. */
+        var artAt: Long = 0
+
+        /** True while this session holds the action window. */
+        var holding = false
 
         /** The last body sent, to drop flushes that only moved the position. */
         var lastSent: MessageBodies.MediaState? = null
@@ -108,7 +121,10 @@ class MediaBridge @Inject constructor(
     fun stop() {
         run?.events?.close()
         run = null
-        byKey.values.forEach(Tracked::release)
+        byKey.values.forEach {
+            setHolding(it, false)
+            it.release()
+        }
         byKey.clear()
         bySession.clear()
     }
@@ -207,7 +223,8 @@ class MediaBridge @Inject constructor(
             return
         }
         val snapshot = t.handle.snapshot()
-        refreshArt(t, snapshot.artKey)
+        setHolding(t, snapshot.state == MediaStates.PLAYING)
+        refreshArt(t, snapshot.artKey, r.env.now())
         val body = MessageBodies.MediaState(
             session = t.session,
             app = t.app,
@@ -246,9 +263,21 @@ class MediaBridge @Inject constructor(
     /**
      * Loads and uploads the art when the track changed. A failed upload leaves [Tracked.artKey]
      * unchanged, so the next flush tries again; a track with no art is remembered as having none.
+     *
+     * Like message images ([DefaultBlobUploader.REUSE_MS]) a ref is reused for [ART_REUSE_MS]
+     * only; after that the same track's art is uploaded again. If that upload fails the old ref,
+     * which still has most of its lifetime left, is kept.
      */
-    private suspend fun refreshArt(t: Tracked, artKey: String) {
-        if (t.artKey == artKey) return
+    private suspend fun refreshArt(t: Tracked, artKey: String, now: Long) {
+        if (t.artKey == artKey) {
+            if (t.art == null || now - t.artAt in 0L until ART_REUSE_MS) return
+            val encoded = t.handle.loadArt() ?: return
+            uploader.upload(encoded)?.let {
+                t.art = it
+                t.artAt = now
+            }
+            return
+        }
         t.art = null
         val encoded = t.handle.loadArt()
         if (encoded == null) {
@@ -257,6 +286,7 @@ class MediaBridge @Inject constructor(
         }
         val ref = uploader.upload(encoded) ?: return
         t.art = ref
+        t.artAt = now
         t.artKey = artKey
     }
 
@@ -266,9 +296,18 @@ class MediaBridge @Inject constructor(
     }
 
     private fun untrack(t: Tracked) {
+        setHolding(t, false)
         t.release()
         byKey.remove(t.key, t)
         bySession.remove(t.session, t)
+    }
+
+    /** Holds the action window while [t] plays; idempotent, so every flush may call it. */
+    private fun setHolding(t: Tracked, playing: Boolean) {
+        if (t.holding == playing) return
+        t.holding = playing
+        val source = "media:${t.session}"
+        if (playing) hold.get().hold(source) else hold.get().release(source)
     }
 
     private suspend fun post(r: Run, body: MessageBodies.MediaState) {
@@ -285,5 +324,8 @@ class MediaBridge @Inject constructor(
     companion object {
         const val DEBOUNCE_MS = 1_000L
         const val POSITION_TOLERANCE_MS = 2_000L
+
+        /** How long an uploaded art ref is reused; the blob lives [DefaultBlobUploader.MESSAGE_TTL_S]. */
+        const val ART_REUSE_MS = DefaultBlobUploader.REUSE_MS
     }
 }

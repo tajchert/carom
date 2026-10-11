@@ -109,6 +109,6 @@ class MediaCommandHandlerTest {
 /** A bridge that was never started, enough to read the handler's type. */
 private object MediaBridgeStub {
     fun unstarted(h: MediaHarness) = MediaBridge(
-        h.source, h.sync, h.scheduler, h.uploader, h.apps, h.prefs, java.util.Optional.empty(),
+        h.source, h.sync, h.scheduler, h.uploader, h.apps, h.prefs, java.util.Optional.empty(), { h.hold },
     )
 }

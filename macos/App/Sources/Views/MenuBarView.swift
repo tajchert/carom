@@ -240,6 +240,9 @@ private struct NotificationRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
+            AppIconImage(ref: item.icon, appName: item.appName, images: model.blobs)
+                .frame(width: 18, height: 18)
+                .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(item.appName)
