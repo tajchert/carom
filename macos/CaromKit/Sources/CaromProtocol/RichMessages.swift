@@ -191,3 +191,35 @@ public struct MediaCommand: MessageBody {
 
     public var collapseRealKey: String? { nil }
 }
+
+// Content-free descriptions (Global Constraint: bodies print keys and ids only). They never print
+// a title, text, the typed reply or media metadata, so `\(body)` is safe in logs and test failures.
+
+extension ActionRef: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .tap: "tap"
+        case .answer: "answer"
+        case .decline: "decline"
+        case .button(let index, _, _): "button#\(index)"
+        }
+    }
+}
+
+extension NotificationAction: CustomStringConvertible {
+    public var description: String { "NotificationAction(key: \(key), action: \(action))" }
+}
+
+extension NotificationActionResult: CustomStringConvertible {
+    public var description: String {
+        ok ? "NotificationActionResult(ok)" : "NotificationActionResult(error: \(error ?? "none"))"
+    }
+}
+
+extension MediaState: CustomStringConvertible {
+    public var description: String { "MediaState(session: \(session), state: \(state))" }
+}
+
+extension MediaCommand: CustomStringConvertible {
+    public var description: String { "MediaCommand(session: \(session), command: \(command))" }
+}

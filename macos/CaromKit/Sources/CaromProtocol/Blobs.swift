@@ -90,9 +90,10 @@ public enum Blobs {
         return (n + bucket - 1) / bucket * bucket
     }
 
-    /// `u32be(len) || plain || zeros`, padded to `bucketLength(4 + len)`.
+    /// `u32be(len) || plain || zeros`, padded to `bucketLength(4 + len)`. `plain` must be at most
+    /// `maxPlaintext` bytes, as in the reference `padBinary`; `seal` inherits the check.
     public static func pad(_ plain: Data) -> Data {
-        precondition(plain.count <= Int(UInt32.max) - 4, "blob too large")
+        precondition(plain.count <= maxPlaintext, "blob plaintext over maxPlaintext")
         let framed = Wire.u32be(UInt32(plain.count)) + plain
         return framed + Data(count: bucketLength(framed.count) - framed.count)
     }

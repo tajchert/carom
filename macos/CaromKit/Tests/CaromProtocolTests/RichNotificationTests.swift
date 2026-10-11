@@ -123,4 +123,14 @@ struct RichNotificationTests {
         #expect(NotificationPosted(json: body(lines: 7, messages: 6, actions: 6, segments: 11, points: 4)) == nil)
         #expect(NotificationPosted(json: body(lines: 7, messages: 6, actions: 6, segments: 10, points: 5)) == nil)
     }
+
+    @Test("description prints the key only, never content")
+    func descriptionHidesContent() {
+        let n = Self.full()
+        #expect(n.description == "NotificationPosted(key: \(n.key))")
+        for secret in ["Team", "Dinner", "Anna", "A photo", "one", "3 new", "Reply", "Yes", "5 min", "Verified caller"] {
+            #expect(!n.description.contains(secret), "\(secret)")
+            #expect(!String(reflecting: n).contains(secret), "\(secret)")
+        }
+    }
 }

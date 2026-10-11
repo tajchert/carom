@@ -4,10 +4,10 @@ import Foundation
 ///
 /// Decoding follows the reference validator (protocol/ts/src/messages.ts): an absent field is fine,
 /// but a field that is present with the wrong type or shape, an invalid list item or a list longer
-/// than its cap fails the whole body (`bad_payload`). Unknown fields are ignored. Nothing here
-/// prints text or keys.
+/// than its cap fails the whole body (`bad_payload`). Unknown fields are ignored. The body's
+/// `description` prints the key only, never text (Messages.swift).
 extension NotificationPosted {
-    /// Caps from SPEC §3.3. The sender keeps within them; a receiver cuts anything longer.
+    /// Caps from SPEC §3.3. Senders keep within them; a receiver rejects a longer list (bad_payload).
     public enum Limits {
         public static let lines = 7
         public static let messages = 6

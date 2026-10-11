@@ -59,6 +59,8 @@ struct UpgradeTests {
         let record = try #require(await phone.engine.directory.first?.record)
         #expect(record.caps.contains(MessageType.mediaState.rawValue))
         #expect(record.receive[MessageType.mediaState.rawValue] == .everyone)
+        // Only the republished record carries the user's custom receive map.
+        #expect(record.receive[MessageType.notificationPosted.rawValue] == nil)
         guard case .sent = try await phone.engine.send(
             MediaState(session: "s", app: .init(id: "a", name: "A"), state: "playing", controls: ["pause"]))
         else {

@@ -92,6 +92,9 @@ struct VectorTests {
             let n = c.int("plain_length")
             #expect(Blobs.pad(Data(repeating: 0xAB, count: n)).count == c.int("padded_length"), "\(n)")
         }
+        for c in padding.list("rejected") {
+            #expect(c.int("plain_length") > Blobs.maxPlaintext)
+        }
         for c in v.list("pad_examples") {
             let plain = c.hex("plain_hex"), padded = c.hex("padded_hex")
             #expect(Blobs.pad(plain) == padded, "\(c.str("name"))")

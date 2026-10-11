@@ -96,4 +96,26 @@ struct RichMessageTests {
         }
         #expect(Message(type: .notificationAction, body: ["key": "k"]) == nil)
     }
+
+    @Test("descriptions print keys, sessions, indexes and codes only, never content")
+    func descriptionsHideContent() {
+        let ref = ActionRef.button(index: 2, title: "Reply", replyText: "secret reply")
+        #expect(ref.description == "button#2")
+        #expect(!ref.description.contains("secret reply") && !ref.description.contains("Reply"))
+        let action = NotificationAction(key: "k", action: ref)
+        #expect(action.description == "NotificationAction(key: k, action: button#2)")
+        #expect(!action.description.contains("secret reply"))
+        let result = NotificationActionResult(ok: false, error: "gone")
+        #expect(result.description == "NotificationActionResult(error: gone)")
+        #expect(!NotificationActionResult(ok: true).description.contains("secret"))
+        let state = MediaState(session: "s", app: .init(id: "a", name: "A"), title: "Secret Song", artist: "Secret Artist",
+                               album: "Secret Album", state: "playing", controls: ["pause"])
+        #expect(state.description == "MediaState(session: s, state: playing)")
+        #expect(!state.description.contains("Secret"))
+        let command = MediaCommand(session: "s", command: "seek", positionMs: 1_000)
+        #expect(command.description == "MediaCommand(session: s, command: seek)")
+        #expect(!command.description.contains("1000"))
+        let clip = ClipboardSet(text: "secret clip")
+        #expect(!clip.description.contains("secret clip"))
+    }
 }

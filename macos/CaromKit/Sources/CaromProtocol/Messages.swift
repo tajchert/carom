@@ -415,3 +415,21 @@ public enum Collapse {
         return B64.encode(mac.prefixData(16))
     }
 }
+
+// Content-free descriptions (Global Constraint: bodies print keys and ids only).
+
+extension NotificationPosted: CustomStringConvertible {
+    public var description: String { "NotificationPosted(key: \(key))" }
+}
+
+extension NotificationRemoved: CustomStringConvertible {
+    public var description: String { "NotificationRemoved(key: \(key))" }
+}
+
+extension NotificationDismiss: CustomStringConvertible {
+    public var description: String { "NotificationDismiss(key: \(key))" }
+}
+
+extension ClipboardSet: CustomStringConvertible {
+    public var description: String { "ClipboardSet(sensitive: \(sensitive))" }
+}
