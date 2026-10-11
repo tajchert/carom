@@ -7,6 +7,7 @@ import com.mtajchert.carom.app.core.hub.HubException
 import com.mtajchert.carom.app.core.hub.HubMessage
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.protocol.B64
+import com.mtajchert.carom.app.core.protocol.Blobs
 import com.mtajchert.carom.app.core.protocol.Collapse
 import com.mtajchert.carom.app.core.protocol.DeviceIds
 import com.mtajchert.carom.app.core.protocol.DeviceRecord
@@ -174,6 +175,35 @@ class DefaultCaromSync(
         }
         if (sent > 0) sentListener.onSent()
         FlushResult(sent, dropped, retry, outbox.nextAttemptAt(clock.now()))
+    }
+
+    override suspend fun uploadBlob(
+        plain: ByteArray,
+        mime: String,
+        w: Int?,
+        h: Int?,
+        convergent: Boolean,
+        ttlS: Long,
+        msgId: String?,
+    ): MessageBodies.BlobRef? {
+        if (plain.size > Protocol.Limits.MAX_BLOB_PLAINTEXT) return null
+        val s = session() ?: return null
+        val key = if (convergent) Blobs.convergentKey(s.key.key, plain) else rng.bytes(Protocol.KEY_LENGTH)
+        val sealed = Blobs.seal(plain, mime, key, w, h)
+        return try {
+            // A convergent icon may already be on the Hub; touching it extends its expiry.
+            val known = convergent && s.client.headBlob(sealed.ref.id, ttlS)
+            if (!known) s.client.putBlob(sealed.ref.id, sealed.ct, ttlS, msgId)
+            sealed.ref
+        } catch (e: HubException) {
+            // A full blob quota or a flaky network must not mark the whole sync as offline.
+            if (e is HubException.Http && e.code == HubErrorCode.UNAUTHORIZED) {
+                failed(e)
+            } else {
+                log.log("blob_upload_failed", (e as? HubException.Http)?.let { "${it.status} ${it.code.code}" } ?: e.javaClass.simpleName)
+            }
+            null
+        }
     }
 
     private sealed interface Attempt {
