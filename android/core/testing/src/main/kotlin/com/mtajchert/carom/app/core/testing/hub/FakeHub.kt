@@ -80,7 +80,7 @@ class FakeHub(
     /** Devices with a live WebSocket: the recipients reported in `online` of a post. */
     val onlineDevices = mutableSetOf<String>()
 
-    /** The `online` list of the most recent accepted post. */
+    /** The `online` list of the most recent 2xx post, duplicate and superseded replies included. */
     var lastOnline: Set<String> = emptySet()
         private set
 
@@ -244,13 +244,14 @@ class FakeHub(
             if (inactive.isNotEmpty()) {
                 throw HubException.Http(409, HubErrorCode.CONFLICT, "inactive", null, inactive = inactive)
             }
+            // Like the Hub, every 2xx reply reports which recipients are online, duplicates and supersedes included.
+            val online = envelope.to.filter { it in onlineDevices }
+            lastOnline = online.toSet()
             val key = caller.id to envelope.msgId
-            if (key in sentMsgIds) return PostMessageResult(seq = sentMsgIds[key], duplicate = true)
+            if (key in sentMsgIds) return PostMessageResult(seq = sentMsgIds[key], duplicate = true, online = online)
             val stored = envelope.collapse?.let { c -> messages.firstOrNull { it.from == caller.id && it.collapse == c } }
-            if (stored != null && envelope.msgId < stored.msgId) {
-                dropBlobsOf(caller.id, envelope.msgId)
-                return PostMessageResult(seq = null, superseded = true)
-            }
+            // The stored newer message stays, and so do the blobs of both messages.
+            if (stored != null && envelope.msgId < stored.msgId) return PostMessageResult(seq = null, superseded = true, online = online)
             stored?.let {
                 messages.remove(it)
                 dropBlobsOf(caller.id, it.msgId)
@@ -258,8 +259,7 @@ class FakeHub(
             val s = ++seq
             messages += Message(s, caller.id, envelope.msgId, envelope.collapse, envelope.to, envelope.toJson())
             sentMsgIds[key] = s
-            lastOnline = envelope.to.filter { it in onlineDevices }.toSet()
-            return PostMessageResult(seq = s, online = envelope.to.filter { it in onlineDevices })
+            return PostMessageResult(seq = s, online = online)
         }
 
         override suspend fun messages(limit: Int): MessagesPage {
