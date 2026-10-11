@@ -32,7 +32,9 @@ client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ H
   `last_seen` is written at most every 10 minutes. Seqs never repeat, even when collapse
   deletes the newest message, so an ack can never cover a message the device has not seen.
 - **Hibernation.** Sockets are tagged with their device id and nothing is kept in memory.
-  The text frame `ping` is answered with `pong` by the runtime without waking the Hub.
+  The text frame `ping` is answered with `pong` by the runtime without waking the Hub. The
+  `online` list in a `POST /v1/messages` response comes from the same tags, so it costs no
+  storage reads.
 - **No push.** A message reaches a recipient only over its live WebSocket or when it fetches
   (`GET /v1/messages`); an offline recipient's messages wait in the queue until `ttl_s`.
   Schema v3 dropped the old push subscription columns and the stored VAPID key.

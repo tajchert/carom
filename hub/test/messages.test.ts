@@ -4,6 +4,7 @@ import {
   api,
   b64,
   call,
+  connect,
   expectError,
   fillQueue,
   hubSql,
@@ -38,7 +39,7 @@ describe("POST /v1/messages + GET /v1/messages + acks", () => {
     const { a, b, c } = await trio();
     const envelope = a.seal({ to: [b.id, c.id] });
     const posted = await call("POST", "/v1/messages", { token: a.token, body: { envelope } });
-    expect(posted).toEqual({ seq: expect.any(Number), duplicate: false });
+    expect(posted).toEqual({ seq: expect.any(Number), duplicate: false, online: [] });
 
     const forB = await inbox(b);
     expect(forB).toEqual({ messages: [{ seq: posted.seq, envelope }], more: false });
@@ -97,7 +98,7 @@ describe("POST /v1/messages + GET /v1/messages + acks", () => {
     const first = await call("POST", "/v1/messages", { token: a.token, body: { envelope } });
     // A retry re-sealed under the same msg_id is still a duplicate.
     const again = await call("POST", "/v1/messages", { token: a.token, body: { envelope: a.seal({ to: [b.id], msg_id: envelope.msg_id }) } });
-    expect(again).toEqual({ seq: first.seq, duplicate: true });
+    expect(again).toEqual({ seq: first.seq, duplicate: true, online: [] });
     expect((await inbox(b)).messages).toHaveLength(1);
   });
 
@@ -230,7 +231,7 @@ describe("tombstones", () => {
     const first = await call("POST", "/v1/messages", { token: a.token, body: { envelope } });
     await call("POST", "/v1/acks", { token: b.token, body: { up_to: first.seq } });
     const retry = await call("POST", "/v1/messages", { token: a.token, body: { envelope: a.seal({ to: [b.id], msg_id: envelope.msg_id }) } });
-    expect(retry).toEqual({ seq: first.seq, duplicate: true });
+    expect(retry).toEqual({ seq: first.seq, duplicate: true, online: [] });
     expect((await inbox(b)).messages).toEqual([]);
   });
 
@@ -240,7 +241,7 @@ describe("tombstones", () => {
     const newer = await send(a, { to: [b.id], collapse: COLLAPSE });
     await call("POST", "/v1/acks", { token: b.token, body: { up_to: newer.seq } });
     const late = await send(a, { to: [b.id], collapse: COLLAPSE, msg_id: olderId });
-    expect(late).toEqual({ seq: null, duplicate: false, superseded: true });
+    expect(late).toEqual({ seq: null, duplicate: false, superseded: true, online: [] });
     expect((await inbox(b)).messages).toEqual([]);
     // A newer message still replaces the tombstone.
     const fresh = await send(a, { to: [b.id], collapse: COLLAPSE });
@@ -322,5 +323,26 @@ describe("SQL cost", () => {
     const total = post.rowsWritten + fetch.rowsWritten + acks.rowsWritten + expiry.rowsWritten;
     console.log(JSON.stringify({ rowsWritten: { post: post.rowsWritten, fetch: fetch.rowsWritten, acks: acks.rowsWritten, expiry: expiry.rowsWritten, total } }));
     expect(total).toBeLessThanOrEqual(20);
+  });
+});
+
+describe("online recipients", () => {
+  it("lists the recipients with a live WebSocket in every post response", async () => {
+    const { a, b, c } = await trio();
+    const socket = await connect(b);
+    const envelope = a.seal({ to: [b.id, c.id] });
+    const posted = await call("POST", "/v1/messages", { token: a.token, body: { envelope } });
+    expect(posted).toEqual({ seq: expect.any(Number), duplicate: false, online: [b.id] });
+    const again = await call("POST", "/v1/messages", { token: a.token, body: { envelope } });
+    expect(again).toEqual({ seq: posted.seq, duplicate: true, online: [b.id] });
+
+    const newer = await send(a, { to: [b.id, c.id], collapse: COLLAPSE });
+    expect(newer.online).toEqual([b.id]);
+    const late = await send(a, { to: [b.id, c.id], collapse: COLLAPSE, msg_id: "00000000-0000-7000-8000-000000000000" });
+    expect(late).toEqual({ seq: null, duplicate: false, superseded: true, online: [b.id] });
+
+    socket.ws.close();
+    await socket.closed;
+    await expect.poll(async () => (await send(a, { to: [b.id, c.id] })).online).toEqual([]);
   });
 });
