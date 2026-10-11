@@ -81,8 +81,102 @@ object MessageBodies {
     }
 
     @Serializable
-    data class App(val id: String, val name: String)
+    data class App(val id: String, val name: String, val icon: BlobRef? = null)
 
+    @Serializable
+    data class Person(
+        val name: String,
+        val key: String? = null,
+        val icon: BlobRef? = null,
+    ) {
+        override fun toString() = "Person(key=$key)" // never log names
+    }
+
+    @Serializable
+    data class Conversation(
+        val title: String? = null,
+        @SerialName("is_group") val isGroup: Boolean,
+        val icon: BlobRef? = null,
+    ) {
+        override fun toString() = "Conversation(isGroup=$isGroup)" // never log titles
+    }
+
+    @Serializable
+    data class ConversationMessage(
+        val sender: Person? = null,
+        val text: String,
+        val ts: Long,
+        val image: BlobRef? = null,
+    ) {
+        override fun toString() = "ConversationMessage(ts=$ts)" // never log content
+    }
+
+    @Serializable
+    data class ReplySpec(val label: String? = null, val choices: List<String>? = null) {
+        override fun toString() = "ReplySpec(choices=${choices?.size ?: 0})" // never log content
+    }
+
+    @Serializable
+    data class Action(
+        val index: Int,
+        val title: String,
+        val semantic: Int? = null,
+        val reply: ReplySpec? = null,
+    ) {
+        override fun toString() = "Action(index=$index)"
+    }
+
+    @Serializable
+    data class Segment(val length: Int, val color: Int? = null)
+
+    @Serializable
+    data class Point(val position: Int, val color: Int? = null)
+
+    @Serializable
+    data class Progress(
+        val value: Int,
+        val max: Int,
+        val indeterminate: Boolean,
+        val segments: List<Segment>? = null,
+        val points: List<Point>? = null,
+        @SerialName("tracker_icon") val trackerIcon: BlobRef? = null,
+        @SerialName("start_icon") val startIcon: BlobRef? = null,
+        @SerialName("end_icon") val endIcon: BlobRef? = null,
+    )
+
+    @Serializable
+    data class Live(
+        val promoted: Boolean,
+        @SerialName("short_critical_text") val shortCriticalText: String? = null,
+    ) {
+        override fun toString() = "Live(promoted=$promoted)" // never log content
+    }
+
+    @Serializable
+    data class Chronometer(@SerialName("count_down") val countDown: Boolean)
+
+    @Serializable
+    data class Call(
+        val type: String, // incoming|ongoing|screening|unknown
+        val person: Person? = null,
+        @SerialName("is_video") val isVideo: Boolean? = null,
+        val verification: String? = null,
+    ) {
+        override fun toString() = "Call(type=$type)" // never log callers
+    }
+
+    @Serializable
+    data class Group(
+        val key: String,
+        val summary: Boolean,
+        @SerialName("sort_key") val sortKey: String? = null,
+        val alert: String, // all|summary|children
+    )
+
+    @Serializable
+    data class Channel(val id: String, val importance: Int)
+
+    /** V1 fields first, in their V1 order, then the V2 additions in the order of SPEC V2 §3.3. */
     @Serializable
     data class NotificationPosted(
         val key: String,
@@ -94,6 +188,28 @@ object MessageBodies {
         @SerialName("posted_at") val postedAt: Long,
         val redacted: Boolean,
         val ongoing: Boolean? = null,
+        val template: String? = null,
+        val color: Int? = null,
+        val colorized: Boolean? = null,
+        @SerialName("small_icon") val smallIcon: BlobRef? = null,
+        @SerialName("large_icon") val largeIcon: BlobRef? = null,
+        val picture: BlobRef? = null,
+        @SerialName("picture_desc") val pictureDesc: String? = null,
+        @SerialName("big_text") val bigText: String? = null,
+        val lines: List<String>? = null,
+        @SerialName("summary_text") val summaryText: String? = null,
+        val conversation: Conversation? = null,
+        val messages: List<ConversationMessage>? = null,
+        val actions: List<Action>? = null,
+        @SerialName("can_open") val canOpen: Boolean? = null,
+        val progress: Progress? = null,
+        val live: Live? = null,
+        @SerialName("when") val `when`: Long? = null,
+        @SerialName("show_when") val showWhen: Boolean? = null,
+        val chronometer: Chronometer? = null,
+        val call: Call? = null,
+        val group: Group? = null,
+        val channel: Channel? = null,
     ) {
         override fun toString() = "NotificationPosted(key=$key, app=${app.id})" // never log content
     }
@@ -104,6 +220,56 @@ object MessageBodies {
     /** Sent with payload-level `reply_to` = the posted message's msg_id. */
     @Serializable
     data class NotificationDismiss(val key: String)
+
+    /** What the Mac asks the phone to do with a notification (SPEC V2 §3.4). */
+    sealed interface ActionRef {
+        data object Tap : ActionRef
+        data object Answer : ActionRef
+        data object Decline : ActionRef
+
+        data class Button(val index: Int, val title: String, val replyText: String? = null) : ActionRef {
+            override fun toString() = "Button(index=$index)" // the reply text is what the user typed
+        }
+    }
+
+    /** Sent with payload-level `reply_to` = the posted message's msg_id. */
+    @Serializable
+    data class NotificationAction(
+        val key: String,
+        @Serializable(with = ActionRefSerializer::class) val action: ActionRef,
+    ) {
+        override fun toString() = "NotificationAction(key=$key)"
+    }
+
+    /** Sent with payload-level `reply_to` = the action's msg_id. [error] is gone|changed|blocked|failed. */
+    @Serializable
+    data class NotificationActionResult(val ok: Boolean, val error: String? = null)
+
+    /** [state] is playing|paused|buffering|stopped; [controls] lists play|pause|next|previous|seek. */
+    @Serializable
+    data class MediaState(
+        val session: String,
+        val app: App,
+        val title: String? = null,
+        val artist: String? = null,
+        val album: String? = null,
+        val art: BlobRef? = null,
+        val state: String,
+        @SerialName("position_ms") val positionMs: Long? = null,
+        @SerialName("position_at") val positionAt: Long? = null,
+        @SerialName("duration_ms") val durationMs: Long? = null,
+        val controls: List<String>,
+    ) {
+        override fun toString() = "MediaState(session=$session, state=$state)" // never log titles
+    }
+
+    /** Sent with payload-level `reply_to` = a `media.state` msg_id of the same session. [command] is play|pause|next|previous|seek. */
+    @Serializable
+    data class MediaCommand(
+        val session: String,
+        val command: String,
+        @SerialName("position_ms") val positionMs: Long? = null,
+    )
 
     @Serializable
     data class ClipboardSet(
