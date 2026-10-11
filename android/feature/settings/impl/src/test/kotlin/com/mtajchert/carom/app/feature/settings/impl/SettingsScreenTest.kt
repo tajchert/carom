@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -33,6 +34,8 @@ class SettingsScreenTest {
     private val paused = mutableListOf<Boolean>()
     private var apps = 0
     private var left = 0
+    private val modes = mutableListOf<ActionsFromMac>()
+    private val windows = mutableListOf<Int>()
 
     private fun show(state: SettingsUiState, withApps: Boolean = true) = composeRule.setContent {
         CaromTheme {
@@ -43,6 +46,8 @@ class SettingsScreenTest {
                     onOpenNotificationApps = if (withApps) ({ apps++ }) else null,
                     onPauseChanged = { paused += it },
                     onLeaveHub = { left++ },
+                    onActionsFromMacChanged = { modes += it },
+                    onActionWindowChanged = { windows += it },
                 ),
             )
         }
@@ -81,6 +86,28 @@ class SettingsScreenTest {
         show(paired.copy(paired = false, hubUrl = null, deviceId = null), withApps = false)
         assertTrue(composeRule.onAllNodesWithTextCount("Apps") == 0)
         assertTrue(composeRule.onAllNodesWithTextCount("Leave hub") == 0)
+    }
+
+    @Test
+    fun choosingAnActionsModeReportsIt() {
+        show(paired)
+        composeRule.onNodeWithText("Actions from Mac").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Always while a Mac is online").performScrollTo().performClick()
+        composeRule.onNodeWithText("Off").performScrollTo().performClick()
+        assertEquals(listOf(ActionsFromMac.ALWAYS, ActionsFromMac.OFF), modes)
+    }
+
+    @Test
+    fun windowLengthsAreOfferedAfterANotification() {
+        show(paired.copy(actionsFromMac = ActionsFromMac.AFTER_NOTIFICATION, actionWindowMinutes = 5))
+        composeRule.onNodeWithText("15 min").performScrollTo().performClick()
+        assertEquals(listOf(15), windows)
+    }
+
+    @Test
+    fun windowLengthsAreHiddenForOtherModes() {
+        show(paired.copy(actionsFromMac = ActionsFromMac.ALWAYS))
+        assertTrue(composeRule.onAllNodesWithTextCount("15 min") == 0)
     }
 
     private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.onAllNodesWithTextCount(text: String): Int =

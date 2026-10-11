@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application>
@@ -29,6 +31,12 @@
                 android:name="android.service.notification.default_filter_types"
                 android:value="conversations|alerting|ongoing|silent" />
         </service>
+
+        <!-- Not exported: only Carom starts it, when "Actions from Mac" is set to Always. -->
+        <service
+            android:name=".actions.ActionsForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
     </application>
 
 </manifest>

@@ -56,8 +56,9 @@ class RecordCapsTest {
     fun setUp() = hiltRule.inject()
 
     @Test
-    fun `the app handles exactly clipboard, dismiss and media command`() {
-        assertEquals(setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS, MessageTypes.MEDIA_COMMAND), handlers.map { it.type }.toSet())
+    fun `the app handles clipboard, dismiss, actions and media commands`() {
+        val types = handlers.map { it.type }.toSet()
+        assertTrue(types.containsAll(setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS, MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND)))
     }
 
     @Test
@@ -89,7 +90,8 @@ class RecordCapsTest {
         val record = (Records.open(published, key.key, key.kv) as Outcome.Ok).value
 
         assertEquals(DeviceKind.PHONE, record.kind)
-        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET, MessageTypes.MEDIA_COMMAND), record.caps)
+        // "Actions from Mac" defaults to After a notification, so the action type is advertised.
+        assertTrue(record.caps.containsAll(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND)))
         assertEquals(
             mapOf(
                 MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone,

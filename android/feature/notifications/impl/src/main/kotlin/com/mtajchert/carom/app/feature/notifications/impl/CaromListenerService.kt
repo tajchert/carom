@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.mtajchert.carom.app.feature.notifications.impl.actions.ActiveCallTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +36,8 @@ class CaromListenerService : NotificationListenerService() {
 
     @Inject lateinit var redactionPrompt: RedactionPrompt
 
+    @Inject lateinit var callTracker: ActiveCallTracker
+
     private var scope: CoroutineScope? = null
     private var forwarder: NotificationForwarder? = null
 
@@ -52,6 +55,12 @@ class CaromListenerService : NotificationListenerService() {
                 Log.i(TAG, "dismiss_unavailable")
             }
         }
+
+        override fun find(key: String): StatusBarNotification? = try {
+            getActiveNotifications(arrayOf(key))?.firstOrNull { it.key == key }
+        } catch (_: SecurityException) {
+            null // access was revoked between the check and the call
+        }
     }
 
     override fun onListenerConnected() {
@@ -66,6 +75,8 @@ class CaromListenerService : NotificationListenerService() {
         mediaBridge.start(newScope, env)
         // Media that is already playing when the listener (re)connects.
         newScope.launch { activeNotificationsOrEmpty().forEach(mediaBridge::onPosted) }
+        // A call or player that was already showing before we connected holds the window now.
+        activeNotificationsOrEmpty().forEach { if (it.packageName != packageName) callTracker.onPosted(it) }
         // Removals that happened while we were not bound (reconnect, process death) are sent now.
         f.reconcile {
             try {
@@ -93,6 +104,7 @@ class CaromListenerService : NotificationListenerService() {
         // Cheapest possible check on the main thread; everything else happens on the consumer.
         if (sbn.packageName == packageName) return
         mediaBridge.onPosted(sbn)
+        callTracker.onPosted(sbn)
         f.onPosted {
             val ranking = Ranking()
             val map = rankingMap ?: currentRanking
@@ -107,6 +119,7 @@ class CaromListenerService : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
         mediaBridge.onRemoved(sbn)
+        callTracker.onRemoved(sbn.key)
         forwarder?.onRemoved(sbn.key)
     }
 
@@ -123,6 +136,8 @@ class CaromListenerService : NotificationListenerService() {
     private fun stop() {
         bridge.detach(control)
         mediaBridge.stop()
+        // No removals arrive while unbound, so holds taken now would never be released.
+        callTracker.releaseAll()
         forwarder = null
         scope?.cancel()
         scope = null
@@ -154,6 +169,9 @@ class ActiveNotificationsBridge @Inject constructor() {
     interface Listener {
         fun isActive(key: String): Boolean
         fun cancel(key: String)
+
+        /** The live notification for [key], or null when it is gone or access was revoked. */
+        fun find(key: String): StatusBarNotification? = null
     }
 
     @Volatile
@@ -174,4 +192,7 @@ class ActiveNotificationsBridge @Inject constructor() {
         l.cancel(key)
         return true
     }
+
+    /** The live notification for [key] from the connected listener, or null when none is connected or it is gone. */
+    fun find(key: String): StatusBarNotification? = listener?.find(key)
 }

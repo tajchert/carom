@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.core.data.repository
 
 import com.mtajchert.carom.app.core.datastore.UserPreferencesDataSource
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.model.DarkThemeConfig
 import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
@@ -18,6 +19,8 @@ interface UserPreferencesRepository {
     suspend fun setForwardOnlyWhenLocked(enabled: Boolean)
     suspend fun setClipboardArrivalNotification(enabled: Boolean)
     suspend fun setOngoingNotification(enabled: Boolean)
+    suspend fun setActionsFromMac(mode: ActionsFromMac)
+    suspend fun setActionWindowMinutes(minutes: Int)
 }
 
 class DefaultUserPreferencesRepository @Inject constructor(
@@ -32,4 +35,6 @@ class DefaultUserPreferencesRepository @Inject constructor(
     override suspend fun setForwardOnlyWhenLocked(enabled: Boolean) = dataSource.setForwardOnlyWhenLocked(enabled)
     override suspend fun setClipboardArrivalNotification(enabled: Boolean) = dataSource.setClipboardArrivalNotification(enabled)
     override suspend fun setOngoingNotification(enabled: Boolean) = dataSource.setOngoingNotification(enabled)
+    override suspend fun setActionsFromMac(mode: ActionsFromMac) = dataSource.setActionsFromMac(mode)
+    override suspend fun setActionWindowMinutes(minutes: Int) = dataSource.setActionWindowMinutes(minutes)
 }

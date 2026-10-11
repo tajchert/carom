@@ -4,6 +4,8 @@ import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfile
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
 import com.mtajchert.carom.app.core.domain.RemoveDeviceUseCase
+import com.mtajchert.carom.app.core.domain.SetActionsFromMacUseCase
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.model.UserPreferences
@@ -41,6 +43,7 @@ class SettingsViewModelTest {
             profile,
             RenameThisDeviceUseCase(prefs, sync),
             RemoveDeviceUseCase(sync),
+            SetActionsFromMacUseCase(prefs, sync),
             appVersion = "1.2.3",
         )
     }
@@ -79,5 +82,20 @@ class SettingsViewModelTest {
         viewModel.leaveHub()
         assertTrue(viewModel.uiState.value.left)
         assertEquals(listOf("dev_self", "dev_self"), sync.revoked)
+    }
+
+    @Test
+    fun `the Actions from Mac choice is saved and published, the window length only saved`() = runTest {
+        collectState()
+        assertEquals(ActionsFromMac.AFTER_NOTIFICATION, viewModel.uiState.value.actionsFromMac)
+        assertEquals(5, viewModel.uiState.value.actionWindowMinutes)
+
+        viewModel.chooseActionsFromMac(ActionsFromMac.OFF)
+        assertEquals(ActionsFromMac.OFF, viewModel.uiState.value.actionsFromMac)
+        assertEquals(1, sync.published)
+
+        viewModel.chooseActionWindow(15)
+        assertEquals(15, viewModel.uiState.value.actionWindowMinutes)
+        assertEquals(1, sync.published)
     }
 }

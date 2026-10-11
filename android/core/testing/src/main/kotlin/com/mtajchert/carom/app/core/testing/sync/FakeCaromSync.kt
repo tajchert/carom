@@ -19,7 +19,13 @@ import kotlinx.serialization.json.JsonObject
 class FakeCaromSync : CaromSync {
     override val status = MutableStateFlow(ConnectionStatus.IDLE)
 
-    data class Sent(val type: String, val body: JsonObject, val replyTo: String?, val onlyTo: Set<String>?)
+    data class Sent(
+        val type: String,
+        val body: JsonObject,
+        val replyTo: String?,
+        val onlyTo: Set<String>?,
+        val replyToSender: String? = null,
+    )
 
     val sent = mutableListOf<Sent>()
     var nextSendResult: SendResult = SendResult.Sent("01a1268a-e800-7000-8000-000000000000")
@@ -35,7 +41,7 @@ class FakeCaromSync : CaromSync {
     var wipes = 0
 
     override suspend fun send(type: String, body: JsonObject, replyTo: String?, replyToSender: String?, onlyTo: Set<String>?): SendResult {
-        sent += Sent(type, body, replyTo, onlyTo)
+        sent += Sent(type, body, replyTo, onlyTo, replyToSender)
         return nextSendResult
     }
 

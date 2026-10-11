@@ -13,6 +13,9 @@ package com.mtajchert.carom.app.core.model
  * @property forwardOnlyWhenLocked forward notifications only while the screen is locked (default off).
  * @property clipboardArrivalNotification post a quiet notification when a clipboard arrives (default on).
  * @property ongoingNotification show the optional ongoing "Carom" notification (default off).
+ * @property actionsFromMac when the phone listens for taps, replies and media commands from a Mac (spec §5.3).
+ * @property actionWindowMinutes how long the phone stays reachable after a notification in
+ *   [ActionsFromMac.AFTER_NOTIFICATION] mode; one of [ActionsFromMac.WINDOW_MINUTES].
  */
 data class UserPreferences(
     val themeBrand: ThemeBrand = ThemeBrand.DEFAULT,
@@ -24,7 +27,30 @@ data class UserPreferences(
     val forwardOnlyWhenLocked: Boolean = false,
     val clipboardArrivalNotification: Boolean = true,
     val ongoingNotification: Boolean = false,
+    val actionsFromMac: ActionsFromMac = ActionsFromMac.AFTER_NOTIFICATION,
+    val actionWindowMinutes: Int = ActionsFromMac.DEFAULT_WINDOW_MINUTES,
 )
+
+/** The "Actions from Mac" setting. */
+enum class ActionsFromMac {
+    /** The phone does not advertise `notification.action@1` and `media.command@1`. */
+    OFF,
+
+    /** A WebSocket stays open for [UserPreferences.actionWindowMinutes] after a forwarded notification. */
+    AFTER_NOTIFICATION,
+
+    /** A foreground service keeps the WebSocket open while the phone is paired. */
+    ALWAYS,
+    ;
+
+    companion object {
+        val WINDOW_MINUTES: List<Int> = listOf(2, 5, 15)
+        const val DEFAULT_WINDOW_MINUTES: Int = 5
+
+        /** [minutes] when it is one of [WINDOW_MINUTES], otherwise [DEFAULT_WINDOW_MINUTES]. */
+        fun windowOrDefault(minutes: Int?): Int = minutes?.takeIf { it in WINDOW_MINUTES } ?: DEFAULT_WINDOW_MINUTES
+    }
+}
 
 /** Theme brand options. */
 enum class ThemeBrand {

@@ -6,6 +6,7 @@ import com.android.tools.screenshot.PreviewTest
 import com.mtajchert.carom.app.core.designsystem.preview.FormFactorPreviews
 import com.mtajchert.carom.app.core.designsystem.preview.LargeFontPreview
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 
 private val paired = SettingsUiState(
     loading = false,
@@ -41,3 +42,19 @@ fun SettingsNotPairedScreenshotTest() = Settings(
     SettingsUiState(loading = false, paired = false, deviceName = "Pixel 9", appVersion = "1.0.0"),
     actions = SettingsActions(),
 )
+
+@PreviewTest
+@Preview(name = "Phone after a notification", showBackground = true, widthDp = 412, heightDp = 1500, apiLevel = 36)
+@Composable
+fun SettingsActionsAfterNotificationScreenshotTest() =
+    Settings(paired.copy(actionsFromMac = ActionsFromMac.AFTER_NOTIFICATION, actionWindowMinutes = 15))
+
+@PreviewTest
+@Preview(name = "Phone always", showBackground = true, widthDp = 412, heightDp = 1500, apiLevel = 36)
+@Composable
+fun SettingsActionsAlwaysScreenshotTest() = Settings(paired.copy(actionsFromMac = ActionsFromMac.ALWAYS))
+
+@PreviewTest
+@Preview(name = "Phone off", showBackground = true, widthDp = 412, heightDp = 1500, apiLevel = 36)
+@Composable
+fun SettingsActionsOffScreenshotTest() = Settings(paired.copy(actionsFromMac = ActionsFromMac.OFF))

@@ -7,14 +7,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +40,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtajchert.carom.app.core.designsystem.component.CaromCard
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.ui.CaromSimpleScreen
 
 /**
@@ -46,6 +51,8 @@ class SettingsActions(
     val onBack: () -> Unit = {},
     val onOpenNotificationApps: (() -> Unit)? = null,
     val onOpenClipboardSettings: (() -> Unit)? = null,
+    val onActionsFromMacChanged: (ActionsFromMac) -> Unit = {},
+    val onActionWindowChanged: (Int) -> Unit = {},
     val onRename: (String) -> Unit = {},
     val onPauseChanged: (Boolean) -> Unit = {},
     val onLeaveHub: () -> Unit = {},
@@ -67,6 +74,8 @@ fun SettingsScreen(
             onBack = onBack,
             onOpenNotificationApps = onOpenNotificationApps,
             onOpenClipboardSettings = onOpenClipboardSettings,
+            onActionsFromMacChanged = viewModel::chooseActionsFromMac,
+            onActionWindowChanged = viewModel::chooseActionWindow,
             onRename = viewModel::rename,
             onPauseChanged = viewModel::setForwardingPaused,
             onLeaveHub = viewModel::leaveHub,
@@ -110,6 +119,38 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
                 HorizontalDivider()
             }
             ToggleRow(stringResource(R.string.feature_settings_pause), stringResource(R.string.feature_settings_pause_summary), state.forwardingPaused, actions.onPauseChanged)
+        }
+
+        Section(stringResource(R.string.feature_settings_section_actions)) {
+            // One group, so TalkBack announces the three modes as a single radio group.
+            Column(Modifier.selectableGroup()) {
+                ActionsMode(
+                    mode = ActionsFromMac.OFF,
+                    title = R.string.feature_settings_actions_off,
+                    summary = R.string.feature_settings_actions_off_summary,
+                    selected = state.actionsFromMac,
+                    onSelect = actions.onActionsFromMacChanged,
+                )
+                HorizontalDivider()
+                ActionsMode(
+                    mode = ActionsFromMac.AFTER_NOTIFICATION,
+                    title = R.string.feature_settings_actions_after,
+                    summary = R.string.feature_settings_actions_after_summary,
+                    selected = state.actionsFromMac,
+                    onSelect = actions.onActionsFromMacChanged,
+                )
+                if (state.actionsFromMac == ActionsFromMac.AFTER_NOTIFICATION) {
+                    WindowChoices(selected = state.actionWindowMinutes, onSelect = actions.onActionWindowChanged)
+                }
+                HorizontalDivider()
+                ActionsMode(
+                    mode = ActionsFromMac.ALWAYS,
+                    title = R.string.feature_settings_actions_always,
+                    summary = R.string.feature_settings_actions_always_summary,
+                    selected = state.actionsFromMac,
+                    onSelect = actions.onActionsFromMacChanged,
+                )
+            }
         }
 
         Section(stringResource(R.string.feature_settings_section_about)) {
@@ -237,6 +278,49 @@ private fun ToggleRow(title: String, summary: String, checked: Boolean, onChange
             Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun ActionsMode(
+    mode: ActionsFromMac,
+    title: Int,
+    summary: Int,
+    selected: ActionsFromMac,
+    onSelect: (ActionsFromMac) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(selected = mode == selected, role = Role.RadioButton, onClick = { onSelect(mode) })
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        RadioButton(selected = mode == selected, onClick = null)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(summary), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun WindowChoices(selected: Int, onSelect: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 56.dp, end = 16.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.feature_settings_actions_window), style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionsFromMac.WINDOW_MINUTES.forEach { minutes ->
+                FilterChip(
+                    selected = minutes == selected,
+                    onClick = { onSelect(minutes) },
+                    label = { Text(stringResource(R.string.feature_settings_actions_minutes, minutes)) },
+                )
+            }
+        }
     }
 }
 

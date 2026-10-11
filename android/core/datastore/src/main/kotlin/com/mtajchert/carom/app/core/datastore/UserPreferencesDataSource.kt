@@ -5,8 +5,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.model.DarkThemeConfig
 import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
@@ -43,6 +45,8 @@ class UserPreferencesDataSource @Inject constructor(
             forwardOnlyWhenLocked = p[FORWARD_ONLY_WHEN_LOCKED] ?: false,
             clipboardArrivalNotification = p[CLIPBOARD_ARRIVAL_NOTIFICATION] ?: true,
             ongoingNotification = p[ONGOING_NOTIFICATION] ?: false,
+            actionsFromMac = p[ACTIONS_FROM_MAC]?.let { enumValueOrNull<ActionsFromMac>(it) } ?: ActionsFromMac.AFTER_NOTIFICATION,
+            actionWindowMinutes = ActionsFromMac.windowOrDefault(p[ACTION_WINDOW_MINUTES]),
         )
     }
 
@@ -65,6 +69,12 @@ class UserPreferencesDataSource @Inject constructor(
     suspend fun setClipboardArrivalNotification(value: Boolean) = edit { it[CLIPBOARD_ARRIVAL_NOTIFICATION] = value }
 
     suspend fun setOngoingNotification(value: Boolean) = edit { it[ONGOING_NOTIFICATION] = value }
+
+    suspend fun setActionsFromMac(mode: ActionsFromMac) = edit { it[ACTIONS_FROM_MAC] = mode.name }
+
+    suspend fun setActionWindowMinutes(minutes: Int) = edit {
+        it[ACTION_WINDOW_MINUTES] = ActionsFromMac.windowOrDefault(minutes)
+    }
 
     /** `ts` of the last clipboard item applied locally (SPEC §3.3 rule 6). */
     suspend fun lastClipboardTs(): Long? = data.first()[LAST_CLIPBOARD_TS]
@@ -92,6 +102,8 @@ class UserPreferencesDataSource @Inject constructor(
         private val FORWARD_ONLY_WHEN_LOCKED = booleanPreferencesKey("forward_only_when_locked")
         private val CLIPBOARD_ARRIVAL_NOTIFICATION = booleanPreferencesKey("clipboard_arrival_notification")
         private val ONGOING_NOTIFICATION = booleanPreferencesKey("ongoing_notification")
+        private val ACTIONS_FROM_MAC = stringPreferencesKey("actions_from_mac")
+        private val ACTION_WINDOW_MINUTES = intPreferencesKey("action_window_minutes")
         private val LAST_CLIPBOARD_TS = longPreferencesKey("last_clipboard_ts")
     }
 }

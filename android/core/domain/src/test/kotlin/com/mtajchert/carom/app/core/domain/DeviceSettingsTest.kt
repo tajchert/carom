@@ -4,6 +4,7 @@ import com.mtajchert.carom.app.core.data.sync.DirectoryEntry
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfile
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.protocol.DeviceKind
@@ -144,5 +145,15 @@ class DeviceSettingsTest {
         val set = SetReceiveRuleUseCase(directory, vault, rules, profile, sync)
         set.setRule(MessageTypes.CLIPBOARD_SET, ReceiveRule.Only(emptyList()))
         assertFalse(MessageTypes.CLIPBOARD_SET in rules.rules.value!!)
+    }
+
+    @Test
+    fun `choosing a mode saves it and republishes the record`() = runTest {
+        val prefs = FakeUserPreferencesRepository()
+        val useCase = SetActionsFromMacUseCase(prefs, sync)
+
+        assertTrue(useCase(ActionsFromMac.OFF))
+        assertEquals(ActionsFromMac.OFF, prefs.current.actionsFromMac)
+        assertEquals(1, sync.published)
     }
 }
