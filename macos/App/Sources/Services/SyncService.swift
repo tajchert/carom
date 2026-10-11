@@ -59,6 +59,8 @@ protocol SyncService: AnyObject, Sendable {
     func stopRealtime() async
     /// The current realtime state first, then every change.
     func realtimeStates() -> AsyncStream<RealtimeState>
+    /// Downloads, decrypts and verifies one image blob; nil on any failure. Never throws.
+    func fetchBlob(_ ref: BlobRef) async -> Data?
     func revoke(deviceId: String) async throws
     func wipe() async
 }

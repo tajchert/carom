@@ -100,4 +100,25 @@ import Testing
         copy("hidden", extra: [ClipboardWatcher.concealedType])
         #expect(w.readCurrent() == ClipboardItem(text: "hidden", sensitive: true))
     }
+
+    @Test func clearsOnlyWhatWeWrote() {
+        let (w, sink) = make()
+        defer { w.stop() }
+        w.write(text: "482913", sensitive: true)
+        let count = w.changeCount
+        #expect(w.clear(ifChangeCount: count))
+        #expect(pb.string(forType: .string) == nil)
+        w.poll()
+        #expect(sink.items.isEmpty, "clearing is not reported as a copy")
+    }
+
+    @Test func doesNotClearAfterSomethingElseWasCopied() {
+        let (w, _) = make()
+        defer { w.stop() }
+        w.write(text: "482913", sensitive: true)
+        let count = w.changeCount
+        copy("my own text")
+        #expect(!w.clear(ifChangeCount: count))
+        #expect(pb.string(forType: .string) == "my own text")
+    }
 }

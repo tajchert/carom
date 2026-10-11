@@ -39,6 +39,7 @@ final class InertSyncService: SyncService {
     func openRealtime() async -> HubSocket? { nil }
     func stopRealtime() async {}
     func realtimeStates() -> AsyncStream<RealtimeState> { AsyncStream { $0.yield(.offline) } }
+    func fetchBlob(_ ref: BlobRef) async -> Data? { nil }
     func revoke(deviceId: String) async throws {}
     func wipe() async {}
 }

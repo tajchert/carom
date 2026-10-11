@@ -61,6 +61,9 @@ actor FakeSync: SyncService {
     var rejected: [String] = []
     var cancelled: [String] = []
     var setupURIs: [String] = []
+    /// Blob plaintexts by id, and the ids that were asked for.
+    var blobs: [String: Data] = [:]
+    var fetchedBlobs: [String] = []
 
     init(directory: [DirectoryEntry] = [], settings: [String: JSON] = [:], configured: Bool = true) {
         self.directory = directory
@@ -114,6 +117,10 @@ actor FakeSync: SyncService {
     nonisolated let realtime = AsyncStream.makeStream(of: RealtimeState.self)
     nonisolated func realtimeStates() -> AsyncStream<RealtimeState> { realtime.stream }
     func stopRealtime() async { stopRealtimeCalls += 1 }
+    func fetchBlob(_ ref: BlobRef) async -> Data? {
+        fetchedBlobs.append(ref.id)
+        return blobs[ref.id]
+    }
     func revoke(deviceId: String) async throws { revoked.append(deviceId) }
     func wipe() async {
         wiped = true
@@ -152,10 +159,21 @@ final class FakeClipboard: ClipboardWatching {
     var written: [ClipboardItem] = []
     var current: ClipboardItem?
     var reads = 0
+    /// Bumped by every write, like `NSPasteboard.changeCount`. Tests bump it to fake a copy.
+    var changeCount = 0
+    var clears = 0
 
     func start() { running = true }
     func stop() { running = false }
-    func write(text: String, sensitive: Bool) { written.append(ClipboardItem(text: text, sensitive: sensitive)) }
+    func write(text: String, sensitive: Bool) {
+        written.append(ClipboardItem(text: text, sensitive: sensitive))
+        changeCount += 1
+    }
+    func clear(ifChangeCount count: Int) -> Bool {
+        guard count == changeCount else { return false }
+        clears += 1
+        return true
+    }
     func readCurrent() -> ClipboardItem? {
         reads += 1
         return current
@@ -178,6 +196,19 @@ final class FakeHotkey: HotkeyRegistering {
         unregisterCalls += 1
         handler = nil
     }
+}
+
+@MainActor
+final class FakeChipHost: LiveChipHost {
+    /// "show text:5 min", "show progress:0.5", "hide".
+    var calls: [String] = []
+    func show(_ content: LiveChipContent) {
+        switch content {
+        case .text(let t): calls.append("show text:\(t)")
+        case .progress(let f): calls.append("show progress:\(f)")
+        }
+    }
+    func hide() { calls.append("hide") }
 }
 
 @MainActor
@@ -226,6 +257,7 @@ struct Harness {
     let loginItem = FakeLoginItem()
     let panel = FakePanel()
     let focus = FakeFocus()
+    let chipHost = FakeChipHost()
     let clock: TestClock
 
     init(directory: [DirectoryEntry] = [entry(record(phoneA, "Pixel", kind: .phone))],
@@ -243,10 +275,12 @@ struct Harness {
         options.unreachableAfter = .milliseconds(50)
         options.pairingPollInterval = .milliseconds(20)
         options.outboxInterval = .seconds(3600)
+        options.codeClearDelay = .milliseconds(40)
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
-                                                  loginItem: loginItem, panel: panel, focus: focus),
+                                                  loginItem: loginItem, panel: panel, focus: focus,
+                                                  liveChipHost: chipHost),
                          options: options)
     }
 

@@ -268,15 +268,15 @@ struct AppModelTests {
         #expect(sent == [FakeSync.Sent(type: .notificationDismiss, body: ["key": "k1"], replyTo: "m1", only: nil)])
     }
 
-    @Test func recentNotificationsKeepTheLastTwenty() async {
+    @Test func recentNotificationsKeepTheLastFifty() async {
         let h = Harness()
         await h.start()
-        for i in 0..<25 { await h.model.dispatch(posted("k\(i)"), msgId: "m\(i)", sender: pixel) }
-        #expect(h.model.activity.notifications.count == 20)
-        #expect(h.model.activity.notifications.first?.key == "k24")
+        for i in 0..<55 { await h.model.dispatch(posted("k\(i)"), msgId: "m\(i)", sender: pixel) }
+        #expect(h.model.activity.notifications.count == 50)
+        #expect(h.model.activity.notifications.first?.key == "k54")
         // An update of the same key replaces the row.
-        await h.model.dispatch(posted("k24", title: "Updated"), msgId: "m99", sender: pixel)
-        #expect(h.model.activity.notifications.count == 20)
+        await h.model.dispatch(posted("k54", title: "Updated"), msgId: "m99", sender: pixel)
+        #expect(h.model.activity.notifications.count == 50)
         #expect(h.model.activity.notifications.first?.title == "Updated")
     }
 
@@ -605,5 +605,295 @@ struct AppModelTests {
         await h.start()
         try await h.model.remove(deviceId: phoneA)
         #expect(await h.sync.revoked == [phoneA])
+    }
+}
+
+// MARK: - Blobs and one-time codes
+
+/// A notification built from the wire JSON, with `extra` fields on top of a minimal body.
+private func rich(_ key: String = "k1", app: String = "com.ride", _ extra: JSONObject = [:]) -> Message {
+    var body: JSONObject = ["key": .string(key), "app": ["id": .string(app), "name": "Rides"], "posted_at": 1,
+                            "redacted": false]
+    for (k, v) in extra { body[k] = v }
+    return Message(type: .notificationPosted, body: body)!
+}
+
+@MainActor
+@Suite("Blobs and codes")
+struct BlobAndCodeTests {
+    @Test func menuCodeIsFoundInTheWholeNotification() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", ["text": "New message", "big_text": "Your code is 1234567890"]), msgId: "m1",
+                               sender: pixel)
+        #expect(h.model.activity.notifications.first?.code == "1234567890")
+    }
+
+    @Test func redactedNotificationHasNoCode() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", ["text": "Your code is 482913", "redacted": true]), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.first?.code == nil)
+    }
+
+    @Test func blobsAreFetchedThroughTheSyncEngine() async {
+        let h = Harness()
+        await h.start()
+        let ref = BlobRef(id: "blob1", key: "", mime: "image/webp", size: 1, hash: "AAAAAAAAAAAAAAAAAAAAAA==")
+        #expect(await h.model.blobs.image(for: ref) == nil)  // the fake has no such blob: a placeholder
+        #expect(await h.sync.fetchedBlobs == ["blob1"])
+    }
+}
+
+// MARK: - Live Update chip
+
+private let promoted: JSONObject = ["live": ["promoted": true, "short_critical_text": "5 min"]]
+
+@MainActor
+@Suite("Live Update chip")
+struct LiveChipWiringTests {
+    @Test func promotedLiveUpdateShowsTheChipUntilItIsRemoved() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        #expect(h.chipHost.calls == ["show text:5 min"])
+        await h.model.dispatch(.notificationRemoved(NotificationRemoved(key: "k1")), msgId: "m2", sender: pixel)
+        #expect(h.chipHost.calls == ["show text:5 min", "hide"])
+    }
+
+    @Test func anUpdateThatIsNoLongerPromotedEndsTheChip() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        await h.model.dispatch(rich("k1"), msgId: "m2", sender: pixel)
+        #expect(h.chipHost.calls == ["show text:5 min", "hide"])
+    }
+
+    @Test func plainNotificationsNeverShowTheChip() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        await h.model.dispatch(rich("k2", ["live": ["promoted": false, "short_critical_text": "x"]]), msgId: "m2",
+                               sender: pixel)
+        #expect(h.chipHost.calls.isEmpty)
+    }
+
+    @Test func chipSettingAndPauseHideIt() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        h.model.setLiveChip(false)
+        #expect(h.chipHost.calls.last == "hide")
+        h.model.setLiveChip(true)
+        #expect(h.chipHost.calls.last == "show text:5 min")
+        h.model.setPaused(true)
+        #expect(h.chipHost.calls.last == "hide")
+    }
+
+    @Test func mutingTheAppEndsItsChip() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        h.model.setMuted("com.other", true)
+        #expect(h.chipHost.calls.last == "show text:5 min")
+        h.model.setMuted("com.ride", true)
+        #expect(h.chipHost.calls.last == "hide")
+        // Muted updates never bring it back.
+        await h.model.dispatch(rich("k1", promoted), msgId: "m2", sender: pixel)
+        #expect(h.chipHost.calls.last == "hide")
+    }
+
+    @Test func removingThePhoneEndsItsChip() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        await h.sync.set(directory: [entry(galaxy)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.chipHost.calls == ["show text:5 min", "hide"])
+    }
+}
+
+// MARK: - Now Playing
+
+private func media(_ state: String = "playing", session: String = "s1", app: String = "com.music",
+                   _ extra: JSONObject = [:]) -> Message {
+    var body: JSONObject = ["session": .string(session), "app": ["id": .string(app), "name": "Music"],
+                            "title": "Song", "state": .string(state), "controls": ["play", "pause", "next", "seek"]]
+    for (k, v) in extra { body[k] = v }
+    return Message(type: .mediaState, body: body)!
+}
+
+/// A phone that advertises `media.command@1`.
+private let controllable: DeviceRecord = {
+    var r = record(phoneA, "Pixel", kind: .phone)
+    r.caps.append(MessageType.mediaCommand.rawValue)
+    return r
+}()
+
+@MainActor
+@Suite("Now Playing")
+struct NowPlayingModelTests {
+    @Test func mediaStateIsKeptPerSessionAndStoppedRemovesIt() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(media(session: "s1"), msgId: "m1", sender: pixel)
+        await h.model.dispatch(media(session: "s2"), msgId: "m2", sender: pixel)
+        await h.model.dispatch(media("paused", session: "s1"), msgId: "m3", sender: pixel)
+        #expect(h.model.mediaSessions.map(\.state.session) == ["s2", "s1"])
+        #expect(h.model.mediaSessions.last?.msgId == "m3")
+        #expect(h.model.mediaSessions.last?.isPlaying == false)
+        await h.model.dispatch(media("stopped", session: "s1"), msgId: "m4", sender: pixel)
+        #expect(h.model.mediaSessions.map(\.state.session) == ["s2"])
+    }
+
+    @Test func twoPhonesCanUseTheSameSessionId() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        await h.model.dispatch(media(), msgId: "m2", sender: galaxy)
+        #expect(h.model.mediaSessions.count == 2)
+    }
+
+    @Test func mediaIsHiddenWhilePausedAndForMutedApps() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        h.model.setPaused(true)
+        #expect(h.model.nowPlaying.isEmpty)
+        h.model.setPaused(false)
+        #expect(h.model.nowPlaying.count == 1)
+        h.model.setMuted("com.music", true)
+        #expect(h.model.mediaSessions.isEmpty)
+        await h.model.dispatch(media(), msgId: "m2", sender: pixel)
+        #expect(h.model.mediaSessions.isEmpty)
+    }
+
+    @Test func aStateMissedWhilePausedDropsTheStaleSession() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        h.model.setPaused(true)
+        await h.model.dispatch(media("paused"), msgId: "m2", sender: pixel)
+        h.model.setPaused(false)
+        #expect(h.model.mediaSessions.isEmpty)
+        #expect(h.model.nowPlaying.isEmpty)
+    }
+
+    @Test func removingThePhoneEndsItsSessions() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        await h.sync.set(directory: [entry(galaxy)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.mediaSessions.isEmpty)
+    }
+
+    @Test func commandRepliesToTheLatestStateAndGoesToThatPhoneOnly() async throws {
+        let h = Harness(directory: [entry(controllable)])
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: controllable)
+        await h.model.dispatch(media(), msgId: "m2", sender: controllable)
+        let session = try #require(h.model.mediaSessions.first)
+        #expect(h.model.canControlMedia(session))
+        await h.model.sendMedia(.pause, sessionID: session.id)
+        await h.model.sendMedia(.seek(positionMs: 42_000), sessionID: session.id)
+        let sent = await h.sync.sent
+        #expect(sent.map(\.type) == [.mediaCommand, .mediaCommand])
+        #expect(sent.map(\.replyTo) == ["m2", "m2"])
+        #expect(sent.map(\.only) == [[phoneA], [phoneA]])
+        #expect(sent[0].body["session"] == .string("s1") && sent[0].body["command"] == .string("pause"))
+        #expect(sent[1].body["command"] == .string("seek") && sent[1].body["position_ms"] == JSON(42_000))
+    }
+
+    @Test func noCommandWhenThePhoneLacksTheCapability() async throws {
+        let h = Harness()  // the default phone does not advertise media.command@1
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        let session = try #require(h.model.mediaSessions.first)
+        #expect(!h.model.canControlMedia(session))
+        await h.model.sendMedia(.pause, sessionID: session.id)
+        #expect(await h.sync.sent.isEmpty)
+    }
+
+    @Test func noCommandForAControlThePhoneDoesNotOffer() async throws {
+        let h = Harness(directory: [entry(controllable)])
+        await h.start()
+        await h.model.dispatch(media("playing", ["controls": ["play", "pause"]]), msgId: "m1", sender: controllable)
+        let session = try #require(h.model.mediaSessions.first)
+        await h.model.sendMedia(.next, sessionID: session.id)
+        #expect(await h.sync.sent.isEmpty)
+    }
+}
+
+// MARK: - Copy codes automatically
+
+@MainActor
+@Suite("Copy codes automatically")
+struct AutoCopyTests {
+    @Test func offByDefault() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.clipboard.written.isEmpty)
+    }
+
+    @Test func writesAConcealedCodeAndClearsItLater() async throws {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        #expect(h.clipboard.written == [ClipboardItem(text: "482913", sensitive: true)])
+        #expect(h.clipboard.clears == 0)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(h.clipboard.clears == 1)
+    }
+
+    @Test func doesNotClearAfterSomethingElseWasCopied() async throws {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.clipboard.changeCount += 1  // the user copied something else
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(h.clipboard.clears == 0)
+    }
+
+    @Test func theCopyIsNotSentBackToThePhone() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.clipboard.onCopy?(ClipboardItem(text: "482913", sensitive: true))
+        await settle()
+        #expect(await h.sync.sent.isEmpty)
+    }
+
+    @Test func anUpdateOfTheSameNotificationCopiesOnce() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        await h.model.dispatch(posted(), msgId: "m2", sender: pixel)
+        await h.model.dispatch(posted(text: "Your code is 777777"), msgId: "m3", sender: pixel)
+        #expect(h.clipboard.written.map(\.text) == ["482913", "777777"])
+    }
+
+    @Test func redactedAndPausedNotificationsAreNotCopied() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(rich("k1", ["text": "Your code is 482913", "redacted": true]), msgId: "m1", sender: pixel)
+        h.model.setPaused(true)
+        await h.model.dispatch(posted(), msgId: "m2", sender: pixel)
+        #expect(h.clipboard.written.isEmpty)
+    }
+
+    @Test func quittingClearsAPendingCode() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.model.shutdown()
+        #expect(h.clipboard.clears == 1)
     }
 }

@@ -82,6 +82,20 @@ public final class ClipboardWatcher {
         lastChangeCount = pasteboard.changeCount
     }
 
+    /// The pasteboard's change count now. Read it right after `write` to remember that write.
+    public var changeCount: Int { pasteboard.changeCount }
+
+    /// Empties the pasteboard if nothing was copied since `changeCount` was read, so it still
+    /// holds what we wrote. Needs no read of the content, so it never triggers the access prompt.
+    /// Returns whether it cleared.
+    @discardableResult
+    public func clear(ifChangeCount count: Int) -> Bool {
+        guard pasteboard.changeCount == count else { return false }
+        pasteboard.clearContents()
+        lastChangeCount = pasteboard.changeCount
+        return true
+    }
+
     /// Writes text and our marker to a pasteboard (also usable without a watcher instance).
     nonisolated public static func write(text: String, sensitive: Bool, to pasteboard: NSPasteboard = .general) {
         var types: [NSPasteboard.PasteboardType] = [.string, ownWriteType]

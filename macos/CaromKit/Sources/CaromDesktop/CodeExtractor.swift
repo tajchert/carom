@@ -1,6 +1,7 @@
+import CaromProtocol
 import Foundation
 
-/// Finds a one-time code (4-8 digits) in notification text.
+/// Finds a one-time code in notification text: 4-10 digits, or 4-10 letters and digits.
 ///
 /// Heuristics:
 /// - A digit run touching letters, currency signs, `+`, `%`, decimals or times is not a code.
@@ -8,25 +9,48 @@ import Foundation
 ///   except a `123 456` / `123-456` pair, which is read as one 6-digit code.
 /// - Without a keyword such as "code" or "OTP" in the text, only 6-digit codes count.
 /// - 4-digit values that look like a year (1900-2099) count only when a keyword is present.
+/// - A letter-digit code (`A1B2C3`, `X7K-92Q`) has 4-10 characters, at least one letter and at
+///   least two digits, and at most one `-`. It counts only with a keyword within 40 characters
+///   before it. A single letter, `-` and digits (`G-482913`) is read as the digits.
 /// - When several candidates remain, one with a keyword just before it wins, else the first.
 public enum CodeExtractor {
+    /// The code in a notification: scans `text`, `big_text`, each of `lines`, then the newest
+    /// message, and returns the first hit. A redacted notification has none.
+    public static func code(in posted: NotificationPosted) -> String? {
+        guard !posted.redacted else { return nil }
+        var sources: [String?] = [posted.text, posted.bigText]
+        sources += (posted.lines ?? []).map { Optional($0) }
+        sources.append(posted.messages?.last?.text)
+        for source in sources {
+            if let source, let found = code(in: source) { return found }
+        }
+        return nil
+    }
+
     public static func code(in text: String) -> String? {
         let chars = Array(text.unicodeScalars)
         let runs = digitRuns(chars)
-        guard !runs.isEmpty else { return nil }
+        let tokens = mixedTokens(chars)
+        guard !runs.isEmpty || !tokens.isEmpty else { return nil }
         let hasKeyword = containsKeyword(text.lowercased())
 
-        var best: (code: String, near: Bool)?
+        var best: (code: String, near: Bool, start: Int)?
+        func consider(_ code: String, near: Bool, start: Int) {
+            guard let current = best else { best = (code, near, start); return }
+            if (near && !current.near) || (near == current.near && start < current.start) {
+                best = (code, near, start)
+            }
+        }
         for (i, run) in runs.enumerated() {
             guard let c = candidate(index: i, runs: runs, chars: chars) else { continue }
             let n = c.count
-            guard (4...8).contains(n) else { continue }
+            guard (4...10).contains(n) else { continue }
             if !hasKeyword && n != 6 { continue }
             if n == 4 && isYear(c) && !hasKeyword { continue }
-            let near = keywordPrecedes(chars, at: run.start)
-            if best == nil || (near && best?.near == false) {
-                best = (c, near)
-            }
+            consider(c, near: keywordPrecedes(chars, at: run.start), start: run.start)
+        }
+        for token in tokens where keywordPrecedes(chars, at: token.start) {
+            consider(string(chars, token.start, token.end), near: true, start: token.start)
         }
         return best?.code
     }
@@ -60,6 +84,45 @@ public enum CodeExtractor {
     }
 
     private static func isLetter(_ s: Unicode.Scalar) -> Bool { CharacterSet.letters.contains(s) }
+
+    private static func isAsciiLetter(_ s: Unicode.Scalar) -> Bool {
+        (s.value >= 0x41 && s.value <= 0x5A) || (s.value >= 0x61 && s.value <= 0x7A)
+    }
+
+    /// Letter-digit tokens: a maximal run of ASCII letters, digits and `-` that, without the `-`,
+    /// has 4-10 characters, at least one letter and at least two digits, with at most one `-`.
+    /// Tokens next to other letters or to the signs that mark prices, mentions and addresses are
+    /// skipped. The keyword rule is applied by the caller.
+    private static func mixedTokens(_ chars: [Unicode.Scalar]) -> [Run] {
+        var tokens: [Run] = []
+        var i = 0
+        while i < chars.count {
+            guard isAsciiLetter(chars[i]) || isDigit(chars[i]) else { i += 1; continue }
+            var j = i
+            while j < chars.count, isAsciiLetter(chars[j]) || isDigit(chars[j]) || chars[j] == "-" { j += 1 }
+            var end = j
+            while end > i, chars[end - 1] == "-" { end -= 1 }
+            let run = Run(start: i, end: end)
+            i = j
+            let body = chars[run.start..<run.end]
+            let hyphens = body.filter { $0 == "-" }.count
+            let letters = body.filter(isAsciiLetter).count
+            let digits = body.filter(isDigit).count
+            guard hyphens <= 1, (4...10).contains(letters + digits), letters >= 1, digits >= 2 else { continue }
+            // "G-482913": one letter, a dash and digits is a label plus a digit code.
+            if hyphens == 1, letters == 1, isAsciiLetter(chars[run.start]), chars[run.start + 1] == "-" { continue }
+            if run.start > 0 {
+                let p = chars[run.start - 1]
+                if isLetter(p) || "+$€£¥#@_".unicodeScalars.contains(p) { continue }
+            }
+            if j < chars.count {
+                let n = chars[j]
+                if isLetter(n) || "%@_".unicodeScalars.contains(n) { continue }
+            }
+            tokens.append(run)
+        }
+        return tokens
+    }
 
     /// Digits for the run at `index`, or nil when it is not code-like. For the first half of a
     /// `123 456` pair this returns both halves; the second half returns nil.

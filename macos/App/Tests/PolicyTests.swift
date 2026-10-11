@@ -86,6 +86,28 @@ struct PreferencesTests {
         #expect(Preferences(json: .string("nope")) == Preferences())
     }
 
+    @Test func settingsSavedBeforeTheLiveChipOptionStillDecode() {
+        let old: JSON = ["paused": true, "mutedApps": ["com.a"], "seenApps": [], "onboardingComplete": true]
+        let p = Preferences(json: old)
+        #expect(p.paused && p.onboardingComplete && p.mutedApps == ["com.a"])
+        #expect(p.showsLiveChip, "the chip is on by default")
+    }
+
+    @Test func liveChipOptionRoundTrips() {
+        var p = Preferences()
+        p.liveChip = false
+        let back = Preferences(json: p.json)
+        #expect(back == p && !back.showsLiveChip)
+    }
+
+    @Test func autoCopyIsOffByDefaultAndRoundTrips() {
+        #expect(!Preferences().copiesCodes)
+        var p = Preferences()
+        p.autoCopyCodes = true
+        let back = Preferences(json: p.json)
+        #expect(back == p && back.copiesCodes)
+    }
+
     @Test func noteAppReportsChanges() {
         var p = Preferences()
         let first = p.noteApp(id: "a", name: "A")

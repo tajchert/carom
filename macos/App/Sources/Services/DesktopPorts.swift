@@ -22,6 +22,10 @@ protocol ClipboardWatching: AnyObject {
     func stop()
     func write(text: String, sensitive: Bool)
     func readCurrent() -> ClipboardItem?
+    /// The pasteboard change count. Read it right after `write` to remember that write.
+    var changeCount: Int { get }
+    /// Empties the pasteboard when nothing was copied since `count`. Returns whether it cleared.
+    func clear(ifChangeCount count: Int) -> Bool
 }
 
 @MainActor
@@ -64,11 +68,13 @@ struct DesktopServices {
     var loginItem: any LoginItemControlling
     var panel: any CardPanelHosting
     var focus: any FocusStatusProviding
+    /// Where the Live Update chip is drawn.
+    var liveChipHost: any LiveChipHost = NullLiveChipHost()
 
     static func live() -> DesktopServices {
         DesktopServices(presenter: NotificationPresenter(center: .current()),
                         clipboard: ClipboardWatcher(pasteboard: .general, interval: 0.5),
                         hotkey: HotkeyManager(), loginItem: SystemLoginItem(),
-                        panel: RichPanelPresenter(), focus: SystemFocusStatus())
+                        panel: RichPanelPresenter(), focus: SystemFocusStatus(), liveChipHost: StatusItemChipHost())
     }
 }

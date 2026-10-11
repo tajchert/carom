@@ -85,8 +85,8 @@ extension ActionStatus {
 }
 
 extension CardItem {
-    /// A one-time code in the text (`CodeExtractor`). Never for redacted notifications.
-    public var code: String? { posted.redacted ? nil : posted.text.flatMap(CodeExtractor.code(in:)) }
+    /// A one-time code in the notification (`CodeExtractor`). Never for redacted notifications.
+    public var code: String? { CodeExtractor.code(in: posted) }
 
     public var isLive: Bool { posted.progress != nil || posted.live != nil }
 
