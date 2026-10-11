@@ -22,6 +22,18 @@ import Testing
         #expect(size.height > 40)
     }
 
+    @Test func replyActionsAreNotDrawnAsButtons() {
+        let live = cardItem([
+            "live": ["promoted": true],
+            "actions": [["index": 0, "title": "Reply", "reply": ["label": "Message"]],
+                        ["index": 1, "title": "Cancel"], ["index": 2, "title": "Call"],
+                        ["index": 3, "title": "Share"], ["index": 4, "title": "More"]],
+        ])
+        #expect(LiveUpdateCardView.visibleButtons(of: live).map(\.index) == [1, 2, 3])
+        let quiet = cardItem(["actions": [["index": 0, "title": "Cancel"]]], acts: false)
+        #expect(LiveUpdateCardView.visibleButtons(of: quiet).isEmpty)
+    }
+
     @Test func statusLinesAreTheSpecStrings() {
         #expect(CardStatusText.text(for: .idle) == nil)
         #expect(CardStatusText.text(for: .sending) == "Sending…")

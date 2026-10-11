@@ -77,11 +77,19 @@ public struct LiveUpdateCardView: View {
         }
     }
 
+    /// The plain buttons this card draws: none unless the phone takes actions, at most three.
+    /// Reply actions are left out: pressing one without text would fire the app's reply intent
+    /// empty, and inline reply belongs to the panel's actions row.
+    static func visibleButtons(of item: CardItem) -> [NotificationPosted.Action] {
+        guard item.phoneAcceptsActions else { return [] }
+        return Array((item.posted.actions ?? []).filter { $0.reply == nil }.prefix(3))
+    }
+
     @ViewBuilder private var actions: some View {
-        let buttons = posted.actions ?? []
-        if item.phoneAcceptsActions, !buttons.isEmpty {
+        let buttons = Self.visibleButtons(of: item)
+        if !buttons.isEmpty {
             HStack {
-                ForEach(buttons.prefix(3), id: \.index) { button in
+                ForEach(buttons, id: \.index) { button in
                     Button(button.title) { perform(.button(index: button.index, title: button.title)) }
                         .controlSize(.small)
                         .disabled(status == .sending)
