@@ -560,3 +560,104 @@ struct LiveChipWiringTests {
         #expect(h.chipHost.calls == ["show text:5 min", "hide"])
     }
 }
+
+// MARK: - Now Playing
+
+private func media(_ state: String = "playing", session: String = "s1", app: String = "com.music",
+                   _ extra: JSONObject = [:]) -> Message {
+    var body: JSONObject = ["session": .string(session), "app": ["id": .string(app), "name": "Music"],
+                            "title": "Song", "state": .string(state), "controls": ["play", "pause", "next", "seek"]]
+    for (k, v) in extra { body[k] = v }
+    return Message(type: .mediaState, body: body)!
+}
+
+/// A phone that advertises `media.command@1`.
+private let controllable: DeviceRecord = {
+    var r = record(phoneA, "Pixel", kind: .phone)
+    r.caps.append(MessageType.mediaCommand.rawValue)
+    return r
+}()
+
+@MainActor
+@Suite("Now Playing")
+struct NowPlayingModelTests {
+    @Test func mediaStateIsKeptPerSessionAndStoppedRemovesIt() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(media(session: "s1"), msgId: "m1", sender: pixel)
+        await h.model.dispatch(media(session: "s2"), msgId: "m2", sender: pixel)
+        await h.model.dispatch(media("paused", session: "s1"), msgId: "m3", sender: pixel)
+        #expect(h.model.mediaSessions.map(\.state.session) == ["s2", "s1"])
+        #expect(h.model.mediaSessions.last?.msgId == "m3")
+        #expect(h.model.mediaSessions.last?.isPlaying == false)
+        await h.model.dispatch(media("stopped", session: "s1"), msgId: "m4", sender: pixel)
+        #expect(h.model.mediaSessions.map(\.state.session) == ["s2"])
+    }
+
+    @Test func twoPhonesCanUseTheSameSessionId() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        await h.model.dispatch(media(), msgId: "m2", sender: galaxy)
+        #expect(h.model.mediaSessions.count == 2)
+    }
+
+    @Test func mediaIsHiddenWhilePausedAndForMutedApps() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        h.model.setPaused(true)
+        #expect(h.model.nowPlaying.isEmpty)
+        h.model.setPaused(false)
+        #expect(h.model.nowPlaying.count == 1)
+        h.model.setMuted("com.music", true)
+        #expect(h.model.mediaSessions.isEmpty)
+        await h.model.dispatch(media(), msgId: "m2", sender: pixel)
+        #expect(h.model.mediaSessions.isEmpty)
+    }
+
+    @Test func removingThePhoneEndsItsSessions() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        await h.sync.set(directory: [entry(galaxy)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.mediaSessions.isEmpty)
+    }
+
+    @Test func commandRepliesToTheLatestStateAndGoesToThatPhoneOnly() async throws {
+        let h = Harness(directory: [entry(controllable)])
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: controllable)
+        await h.model.dispatch(media(), msgId: "m2", sender: controllable)
+        let session = try #require(h.model.mediaSessions.first)
+        #expect(h.model.canControlMedia(session))
+        await h.model.sendMedia(.pause, sessionID: session.id)
+        await h.model.sendMedia(.seek(positionMs: 42_000), sessionID: session.id)
+        let sent = await h.sync.sent
+        #expect(sent.map(\.type) == [.mediaCommand, .mediaCommand])
+        #expect(sent.map(\.replyTo) == ["m2", "m2"])
+        #expect(sent.map(\.only) == [[phoneA], [phoneA]])
+        #expect(sent[0].body["session"] == .string("s1") && sent[0].body["command"] == .string("pause"))
+        #expect(sent[1].body["command"] == .string("seek") && sent[1].body["position_ms"] == JSON(42_000))
+    }
+
+    @Test func noCommandWhenThePhoneLacksTheCapability() async throws {
+        let h = Harness()  // the default phone does not advertise media.command@1
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        let session = try #require(h.model.mediaSessions.first)
+        #expect(!h.model.canControlMedia(session))
+        await h.model.sendMedia(.pause, sessionID: session.id)
+        #expect(await h.sync.sent.isEmpty)
+    }
+
+    @Test func noCommandForAControlThePhoneDoesNotOffer() async throws {
+        let h = Harness(directory: [entry(controllable)])
+        await h.start()
+        await h.model.dispatch(media("playing", ["controls": ["play", "pause"]]), msgId: "m1", sender: controllable)
+        let session = try #require(h.model.mediaSessions.first)
+        await h.model.sendMedia(.next, sessionID: session.id)
+        #expect(await h.sync.sent.isEmpty)
+    }
+}

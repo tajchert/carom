@@ -106,6 +106,8 @@ final class AppModel {
     private(set) var loginItemMessage: String?
     /// Battery reports (`device.status@1`) by device id.
     private(set) var deviceStatus: [String: DeviceStatus] = [:]
+    /// Phone media sessions (`media.state@1`), newest first. A stopped session is removed.
+    private(set) var mediaSessions: [MediaSession] = []
     var windowRequest: WindowRequest?
 
     // MARK: Dependencies
@@ -189,6 +191,15 @@ final class AppModel {
     }
 
     var clipboardTargets: [DirectoryEntry] { ReceivePolicy.clipboardTargets(directory, selfId: deviceId) }
+
+    /// The Now Playing cards to show: none while paused.
+    var nowPlaying: [MediaSession] { preferences.paused ? [] : mediaSessions }
+
+    /// Whether the phone of a session advertises `media.command@1` (SPEC §3.6).
+    func canControlMedia(_ session: MediaSession) -> Bool {
+        directory.first { $0.record.id == session.phoneId }?.record.caps
+            .contains(MessageType.mediaCommand.rawValue) ?? false
+    }
 
     func isSendingClipboard(to id: String) -> Bool {
         preferences.clipboardSendTo.map { $0.contains(id) } ?? true
@@ -446,8 +457,48 @@ final class AppModel {
             deviceStatus[sender.id] = s
         case .notificationDismiss:
             break  // a desktop does not post notifications
-        case .notificationAction, .notificationActionResult, .mediaState, .mediaCommand:
-            break  // V2: handled by the Mac rich-notification milestones (M4a, M4b)
+        case .mediaState(let m):
+            applyMedia(m, msgId: msgId, sender: sender)
+        case .notificationAction, .mediaCommand:
+            break  // a desktop does not receive these
+        case .notificationActionResult:
+            break  // V2: shown by the notification coordinator (M4a)
+        }
+    }
+
+    // MARK: Media
+
+    /// Keeps the latest `media.state` per phone and session. `stopped` removes the session.
+    private func applyMedia(_ m: MediaState, msgId: String, sender: DeviceRecord) {
+        let session = MediaSession(phoneId: sender.id, phoneName: sender.name, msgId: msgId, state: m,
+                                   receivedAt: options.now())
+        if m.state == "stopped" {
+            mediaSessions.removeAll { $0.id == session.id }
+            return
+        }
+        guard !preferences.paused, receives(.notifications, from: sender.id), !preferences.isMuted(m.app.id) else {
+            return
+        }
+        if let i = mediaSessions.firstIndex(where: { $0.id == session.id }) {
+            mediaSessions[i] = session
+        } else {
+            mediaSessions.insert(session, at: 0)
+        }
+    }
+
+    /// Sends a Now Playing button press to the phone. `reply_to` is the session's latest
+    /// `media.state`, looked up now, because states keep arriving while the popover is open.
+    func sendMedia(_ control: MediaControl, sessionID id: String) async {
+        guard let session = mediaSessions.first(where: { $0.id == id }), canControlMedia(session),
+              session.offers(control.command) else { return }
+        let command = MediaCommand(session: session.state.session, command: control.command,
+                                   positionMs: control.positionMs)
+        do {
+            if case .dropped(let code) = try await sync.send(command, replyTo: session.msgId, only: [session.phoneId]) {
+                showStatus(UserMessages.sendDropped(code: code))
+            }
+        } catch {
+            showStatus(UserMessages.describe(error))
         }
     }
 
@@ -473,6 +524,7 @@ final class AppModel {
 
     /// A phone left: what it showed goes with it.
     private func forget(phoneId: String) {
+        mediaSessions.removeAll { $0.phoneId == phoneId }
         liveUpdates.removeAll { $0.id.hasPrefix(phoneId + "/") }
         updateLiveChip()
     }
@@ -647,6 +699,7 @@ final class AppModel {
     func setMuted(_ appId: String, _ muted: Bool) {
         preferences.setMuted(appId, muted)
         savePreferences()
+        if muted { mediaSessions.removeAll { $0.state.app.id == appId } }
     }
 
     func setSendClipboard(to id: String, _ enabled: Bool) {
@@ -721,6 +774,7 @@ final class AppModel {
         preferences = Preferences()
         applyLiveChipSetting()
         activity.clear()
+        mediaSessions = []
         liveUpdates = []
         updateLiveChip()
         let blobs = self.blobs
