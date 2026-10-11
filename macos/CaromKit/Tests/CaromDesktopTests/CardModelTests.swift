@@ -76,6 +76,17 @@ import Testing
                 == Date(timeIntervalSince1970: 1_800_000_060))
     }
 
+    @Test func messagingCardUsesTheGroupAvatarWhenThereIsNoLargeIcon() {
+        var chat = Fixture.messaging()
+        chat.largeIcon = nil
+        #expect(Fixture.card(chat).largeIconRef == Fixture.blob(1))
+        chat.largeIcon = Fixture.blob(9)
+        #expect(Fixture.card(chat).largeIconRef == Fixture.blob(9), "the large icon wins")
+        var plain = Fixture.posted()
+        plain.conversation = .init(title: nil, isGroup: false, icon: Fixture.blob(1))
+        #expect(Fixture.card(plain).largeIconRef == nil, "only the messaging layout draws the avatar")
+    }
+
     @Test func statusLabelsAreVerbatim() {
         #expect(ActionStatus.idle.label == nil)
         #expect(ActionStatus.sending.label == "Sending…")

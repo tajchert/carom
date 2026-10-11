@@ -72,7 +72,7 @@ struct NotificationCardView: View {
                 }
             }
             Spacer(minLength: 0)
-            if let ref = posted.largeIcon {
+            if let ref = item.largeIconRef {
                 ImageSlot(ref: ref, images: images) {
                     InitialBadge(text: headline ?? posted.app.name, tint: ink.accent)
                 }

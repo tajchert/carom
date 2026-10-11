@@ -99,6 +99,12 @@ extension CardItem {
 
     public var isConversation: Bool { posted.template == "messaging" || !(posted.messages ?? []).isEmpty }
 
+    /// The image on the right of the card: the large icon, or for a conversation without one the
+    /// group avatar (`conversation.icon`).
+    public var largeIconRef: BlobRef? {
+        posted.largeIcon ?? (isConversation ? posted.conversation?.icon : nil)
+    }
+
     /// Messaging, call and Live Update cards stay on the panel until handled or removed.
     public var staysUntilHandled: Bool { isPinned || isConversation }
 
