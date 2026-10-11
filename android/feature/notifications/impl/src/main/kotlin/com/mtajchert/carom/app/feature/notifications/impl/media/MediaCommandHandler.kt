@@ -16,14 +16,20 @@ enum class CommandOutcome { DONE, UNKNOWN_SESSION, UNSUPPORTED, BAD_ARGUMENT }
  * `media.state` this phone sent for the same `session`, and the sender was in its `to`. No result
  * message exists; the next `media.state` shows the effect.
  */
-class MediaCommandHandler @Inject constructor(
-    private val bridge: MediaBridge,
+class MediaCommandHandler private constructor(
+    private val bridge: Lazy<MediaBridge>,
 ) : IncomingMessageHandler {
+    /** Lazy: the bridge needs `CaromSync`, which needs the handler set this class is in. */
+    @Inject
+    constructor(bridge: dagger.Lazy<MediaBridge>) : this(lazy { bridge.get() })
+
+    constructor(bridge: MediaBridge) : this(lazyOf(bridge))
+
     override val type: String = MessageTypes.MEDIA_COMMAND
 
     override suspend fun handle(message: Received) {
         val body = MessageBodies.fromJson(MessageBodies.MediaCommand.serializer(), message.payload.body) ?: return
-        val outcome = bridge.command(body.session, body.command, body.positionMs)
+        val outcome = bridge.value.command(body.session, body.command, body.positionMs)
         if (outcome != CommandOutcome.DONE) Log.i(TAG, "media_command_skipped ${message.envelope.msgId} $outcome")
     }
 

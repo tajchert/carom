@@ -11,6 +11,11 @@ import com.mtajchert.carom.app.feature.notifications.impl.RoomForwardedKeys
 import com.mtajchert.carom.app.feature.notifications.impl.RoomNotificationAppsRepository
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.media.AndroidMediaSessionSource
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaArtUploader
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaCommandHandler
+import com.mtajchert.carom.app.feature.notifications.impl.media.MediaSessionSource
+import com.mtajchert.carom.app.feature.notifications.impl.media.SyncMediaArtUploader
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -40,6 +45,17 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsDismissHandler(impl: NotificationDismissHandler): IncomingMessageHandler
+
+    /** Adds `media.command@1` to this device's caps and known types. */
+    @Binds
+    @IntoSet
+    abstract fun bindsMediaCommandHandler(impl: MediaCommandHandler): IncomingMessageHandler
+
+    @Binds
+    abstract fun bindsMediaSessionSource(impl: AndroidMediaSessionSource): MediaSessionSource
+
+    @Binds
+    abstract fun bindsMediaArtUploader(impl: SyncMediaArtUploader): MediaArtUploader
 
     companion object {
         @Provides
