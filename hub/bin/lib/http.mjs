@@ -23,22 +23,3 @@ export async function fetchInfo(fetchImpl, hubUrl) {
   }
   return info;
 }
-
-/** POST /v1/reset; maps the Hub's error codes to actionable messages. */
-export async function postReset(fetchImpl, hubUrl, setupToken) {
-  const response = await request(fetchImpl, `${hubUrl}/v1/reset`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ setup_token: setupToken, confirm: 'erase everything' }),
-  });
-  if (response.ok) return;
-  const body = await response.json().catch(() => null);
-  const code = body?.error?.code;
-  if (code === 'forbidden' || code === 'unauthorized') {
-    throw Object.assign(new CliError('The Hub rejected the saved setup token: it does not match the deployed SETUP_TOKEN secret.'), { rejected: true });
-  }
-  if (code === 'rate_limited') {
-    throw new CliError('Too many failed reset attempts; the Hub locked this route for an hour. Try again later.');
-  }
-  throw new CliError(`Reset failed: HTTP ${response.status}${body?.error?.message ? ` (${body.error.message})` : ''}.`);
-}

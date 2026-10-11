@@ -12,6 +12,8 @@ protocol NotificationPresenting: NativeNotifying {
     var onAction: ((NativeNotificationEvent) -> Void)? { get set }
     func requestAuthorization() async -> Bool
     func authorizationState() async -> Bool?
+    /// A notice from Carom itself.
+    func notify(title: String, body: String, identifier: String) async
 }
 
 @MainActor

@@ -95,10 +95,15 @@ const MIGRATIONS: readonly string[] = [
   CREATE INDEX blobs_expires ON blobs (expires_at);
   CREATE INDEX blobs_msg ON blobs (owner, msg_id);
   `,
+  // v5: the Worker now refuses a wrong setup token itself and rate-limits by client, so the
+  // per-route lockout (which anyone could trigger against the owner) is gone.
+  `
+  DROP TABLE lockouts;
+  `,
 ];
 
-/** Tables wiped by POST /v1/reset (everything except meta.schema_version). */
-export const DATA_TABLES = ["devices", "messages", "pairings", "keyring", "lockouts", "blobs"] as const;
+/** Tables wiped when SETUP_TOKEN changes (everything except meta.schema_version). */
+export const DATA_TABLES = ["devices", "messages", "pairings", "keyring", "blobs"] as const;
 
 export function migrate(storage: DurableObjectStorage): void {
   const sql = storage.sql;

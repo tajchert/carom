@@ -10,11 +10,12 @@ import javax.inject.Singleton
 @Singleton
 class OkHttpHubClientFactory @Inject constructor(
     private val http: OkHttpClient,
+    private val clockSkew: ClockSkewTracker,
 ) : HubClientFactory {
 
     override fun client(baseUrl: String, tokenProvider: HubTokenProvider): HubClient {
         requireHttpUrl(baseUrl)
-        return OkHttpHubClient(baseUrl, tokenProvider, http)
+        return OkHttpHubClient(baseUrl, tokenProvider, http, clockSkew)
     }
 
     override fun socket(baseUrl: String, token: String): HubSocket =

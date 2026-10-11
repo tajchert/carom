@@ -149,11 +149,14 @@ export function createWranglerRunner({ pkgDir, spawnImpl = spawn, fetchImpl = gl
     /**
      * Runs with inherited stdio so wrangler can prompt (account selection, workers.dev
      * subdomain registration). The URL comes from wrangler's machine-readable output file.
+     * `secretsFile` is optional: the setup token is only on disk while the Hub is unclaimed.
      */
-    deploy({ name, secretsFile, vars = {} }) {
+    deploy({ name, secretsFile = null, vars = {} }) {
       return withWorkDir(async (cwd) => {
         const outputFile = join(cwd, 'wrangler-output.ndjson');
-        const args = ['deploy', '--name', name, '--secrets-file', secretsFile];
+        // Without a secrets file wrangler keeps the SETUP_TOKEN already on the Worker.
+        const args = ['deploy', '--name', name];
+        if (secretsFile) args.push('--secrets-file', secretsFile);
         for (const [key, value] of Object.entries(vars)) args.push('--var', `${key}:${value}`);
         const { code } = await run(args, {
           cwd,

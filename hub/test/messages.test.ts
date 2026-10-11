@@ -15,6 +15,7 @@ import {
   setupFirstDevice,
   TestDevice,
   uuidv7,
+  uuidv7At,
   wipeHub,
   type Json,
 } from "./helpers";
@@ -161,6 +162,36 @@ describe("POST /v1/messages + GET /v1/messages + acks", () => {
     await send(a, { to: [b.id], payload: new Uint8Array(65536).fill(32) });
     const tooBig = a.seal({ to: [b.id], payload: new Uint8Array(65537).fill(32) });
     await expectError(api("POST", "/v1/messages", { token: a.token, body: { envelope: tooBig } }), 413, "too_large");
+  });
+});
+
+describe("msg_id time window", () => {
+  const SKEW = 300_000;
+
+  async function post(from: Awaited<ReturnType<typeof setupFirstDevice>>, to: string, ms: number, ttl_s = 3600) {
+    return api("POST", "/v1/messages", { token: from.token, body: { envelope: from.seal({ to: [to], ttl_s, msg_id: uuidv7At(ms) }) } });
+  }
+
+  it("rejects a future or expired msg_id with clock_skew and the Hub time", async () => {
+    const a = await setupFirstDevice();
+    const b = await pairDevice(a);
+    for (const [ms, ttl] of [[Date.now() + SKEW + 10_000, 3600], [Date.now() - 3600_000 - SKEW - 10_000, 3600]] as const) {
+      const before = Date.now();
+      const body = await expectError(post(a, b.id, ms, ttl), 400, "bad_request");
+      expect(body.error.message).toBe("msg_id time is outside the allowed window; check the device clock");
+      expect(body.clock_skew).toBe(true);
+      expect(body.hub_time).toBeGreaterThanOrEqual(before);
+      expect(body.hub_time).toBeLessThanOrEqual(Date.now());
+    }
+    expect(await hubSql("SELECT * FROM messages")).toEqual([]);
+  });
+
+  it("accepts ids just inside both edges of the window", async () => {
+    const a = await setupFirstDevice();
+    const b = await pairDevice(a);
+    expect((await post(a, b.id, Date.now() + SKEW - 5000)).status).toBe(200);
+    expect((await post(a, b.id, Date.now() - 3600_000 - SKEW + 5000)).status).toBe(200);
+    expect((await post(a, b.id, Date.now())).status).toBe(200);
   });
 });
 
@@ -338,7 +369,7 @@ describe("online recipients", () => {
 
     const newer = await send(a, { to: [b.id, c.id], collapse: COLLAPSE });
     expect(newer.online).toEqual([b.id]);
-    const late = await send(a, { to: [b.id, c.id], collapse: COLLAPSE, msg_id: "00000000-0000-7000-8000-000000000000" });
+    const late = await send(a, { to: [b.id, c.id], collapse: COLLAPSE, msg_id: uuidv7At(Date.now() - 60_000) });
     expect(late).toEqual({ seq: null, duplicate: false, superseded: true, online: [b.id] });
 
     socket.ws.close();

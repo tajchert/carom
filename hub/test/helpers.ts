@@ -9,6 +9,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { runInDurableObject } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { expect } from "vitest";
+import type { HubRuntime } from "../src/call";
 import type { Hub } from "../src/hub";
 import { TEST_SETUP_TOKEN } from "./constants";
 
@@ -106,6 +107,13 @@ export function uuidv7(): string {
   bytes[8] = 0x80 | (bytes[8]! & 0x3f);
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** A UUIDv7 whose timestamp field is `ms` (random elsewhere). */
+export function uuidv7At(ms: number): string {
+  const id = uuidv7();
+  const stamp = Math.floor(ms).toString(16).padStart(12, "0");
+  return `${stamp.slice(0, 8)}-${stamp.slice(8)}${id.slice(13)}`;
 }
 
 export const GROUP_KEY = crypto.getRandomValues(new Uint8Array(32));
@@ -246,11 +254,12 @@ export async function fillQueue(from: TestDevice, to: string[], count: number, e
   return Array.from({ length: count }, (_, i) => start + i + 1);
 }
 
-/** Wipes the Hub through the same path as POST /v1/reset, bypassing lockouts. */
+/** Erases the Hub through the same wipe a changed SETUP_TOKEN triggers (SPEC §6). */
 export async function wipeHub(): Promise<void> {
-  await hubSql("DELETE FROM lockouts");
-  const res = await api("POST", "/v1/reset", { body: { ...setupTokenBody(), confirm: "erase everything" } });
-  expect(res.status).toBe(200);
+  await runInDurableObject(hubStub(), async (hub: Hub) => {
+    const runtime: HubRuntime = Reflect.get(hub, "runtime");
+    await runtime.wipe();
+  });
 }
 
 export interface SocketClient {

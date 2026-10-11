@@ -110,16 +110,6 @@ actor FakeHub {
         return HubCredentials(deviceId: id, token: t)
     }
 
-    func reset(_ token: String) throws(HubError) {
-        guard token == setupToken else { throw fail(403, "forbidden") }
-        claimed = false
-        devices = [:]
-        pairings = [:]
-        keyring = [:]
-        messages = []
-        seenMsgIds = [:]
-    }
-
     func putKeyring(_ token: String?, _ v: KeyringVersion) throws(HubError) {
         let c = try caller(token)
         guard v.by == c.id else { throw fail(403, "forbidden") }
@@ -297,7 +287,6 @@ struct FakeHubClient: HubAPI {
     func setup(setupToken: String, signPub: Data, kxPub: Data) async throws(HubError) -> HubCredentials {
         try await hub.setup(setupToken, signPub, kxPub)
     }
-    func reset(setupToken: String) async throws(HubError) { try await hub.reset(setupToken) }
     func putKeyring(_ version: KeyringVersion) async throws(HubError) { try await hub.putKeyring(token, version) }
     func keyring(have: Int) async throws(HubError) -> [JSON] { try await hub.getKeyring(token, have) }
     func pairOffer() async throws(HubError) -> PairOffer { try await hub.pairOffer(token) }

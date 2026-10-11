@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import pkg from "../package.json";
-import { api, call, expectError, hubSql, setupFirstDevice, setupTokenBody, TestDevice, wipeHub } from "./helpers";
+import { runInDurableObject } from "cloudflare:test";
+import type { Hub } from "../src/hub";
+import { setupFingerprint } from "../src/token";
+import { TEST_SETUP_TOKEN } from "./constants";
+import { api, call, expectError, hubSql, hubStub, setupFirstDevice, setupTokenBody, TestDevice, wipeHub } from "./helpers";
 
 beforeEach(wipeHub);
 
@@ -35,43 +39,68 @@ describe("POST /v1/setup", () => {
     await expectError(api("POST", "/v1/setup", { rawBody: "not json" }), 400, "bad_request");
   });
 
-  it("locks the route for an hour after 10 failures", async () => {
+  it("still accepts the right token after many wrong ones", async () => {
     const device = new TestDevice();
     const wrong = { setup_token: "w".repeat(40), ...device.keys };
-    for (let i = 0; i < 10; i++) await expectError(api("POST", "/v1/setup", { body: wrong }), 403, "forbidden");
-    // Even the right token is refused while locked.
-    await expectError(api("POST", "/v1/setup", { body: { ...setupTokenBody(), ...device.keys } }), 429, "rate_limited");
-    // The reset route has its own counter.
-    await call("POST", "/v1/reset", { body: { ...setupTokenBody(), confirm: "erase everything" } });
-    await setupFirstDevice();
-  });
-
-  it("unlocks after the lockout hour", async () => {
-    const device = new TestDevice();
-    for (let i = 0; i < 10; i++) {
-      await expectError(api("POST", "/v1/setup", { body: { setup_token: "w".repeat(40), ...device.keys } }), 403, "forbidden");
-    }
-    await expectError(api("POST", "/v1/setup", { body: { ...setupTokenBody(), ...device.keys } }), 429, "rate_limited");
-    await hubSql("UPDATE lockouts SET locked_until = 1");
+    for (let i = 0; i < 20; i++) await expectError(api("POST", "/v1/setup", { body: wrong }), 403, "forbidden");
     await setupFirstDevice();
   });
 });
 
-describe("POST /v1/reset", () => {
-  it("wipes everything and allows setup again", async () => {
+describe("changing SETUP_TOKEN", () => {
+  const OTHER_TOKEN = "another-setup-token-that-is-long-enough-0123";
+
+  /** Runs `fn` while the Hub object sees `token` as its SETUP_TOKEN. */
+  async function withHubToken<T>(token: string, fn: () => Promise<T>): Promise<T> {
+    const swap = (value: string) =>
+      runInDurableObject(hubStub(), (hub: Hub) => {
+        const hubEnv: object = Reflect.get(hub, "env");
+        const previous: string = Reflect.get(hubEnv, "SETUP_TOKEN");
+        Reflect.set(hubEnv, "SETUP_TOKEN", value);
+        return previous;
+      });
+    const previous = await swap(token);
+    try {
+      return await fn();
+    } finally {
+      await swap(previous);
+    }
+  }
+
+  const fingerprintRows = () => hubSql<{ value: string }>("SELECT value FROM meta WHERE key = 'setup_fingerprint'");
+
+  it("setup stores a fingerprint of the token, not the token", async () => {
+    await setupFirstDevice();
+    const [row] = await fingerprintRows();
+    expect(row!.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(row!.value).not.toContain(TEST_SETUP_TOKEN);
+    expect(row!.value).toBe(await setupFingerprint(TEST_SETUP_TOKEN));
+  });
+
+  it("wipes the Hub on the next request once the token differs, and allows setup again", async () => {
     const device = await setupFirstDevice();
     await call("POST", "/v1/pair/offer", { token: device.token, body: {} });
-    await expectError(api("POST", "/v1/reset", { body: { ...setupTokenBody(), confirm: "yes" } }), 400, "bad_request");
-    await call("POST", "/v1/reset", { body: { ...setupTokenBody(), confirm: "erase everything" } });
-    expect((await call("GET", "/v1/info")).setup_done).toBe(false);
-    await expectError(api("GET", "/v1/devices", { token: device.token }), 401, "unauthorized");
+    await withHubToken(OTHER_TOKEN, async () => {
+      expect((await call("GET", "/v1/info")).setup_done).toBe(false);
+    });
     expect(await hubSql("SELECT * FROM pairings")).toEqual([]);
+    expect(await hubSql("SELECT * FROM devices")).toEqual([]);
+    expect(await fingerprintRows()).toEqual([]);
+    await expectError(api("GET", "/v1/devices", { token: device.token }), 401, "unauthorized");
     await setupFirstDevice();
   });
 
-  it("locks after 10 wrong setup tokens", async () => {
-    const body = { setup_token: "w".repeat(40), confirm: "erase everything" };
-    for (let i = 0; i < 10; i++) await expectError(api("POST", "/v1/reset", { body }), 403, "forbidden");
-    await expectError(api("POST", "/v1/reset", { body: { ...setupTokenBody(), confirm: "erase everything" } }), 429, "rate_limited");
+  it("a Hub claimed before fingerprints existed gets one and keeps its data", async () => {
+    const device = await setupFirstDevice();
+    await hubSql("DELETE FROM meta WHERE key = 'setup_fingerprint'");
+    expect((await call("GET", "/v1/devices", { token: device.token })).devices).toHaveLength(1);
+    expect(await fingerprintRows()).toHaveLength(1);
+  });
+
+  it("does not touch an unclaimed Hub", async () => {
+    await withHubToken(OTHER_TOKEN, async () => {
+      expect((await call("GET", "/v1/info")).setup_done).toBe(false);
+    });
+    expect(await fingerprintRows()).toEqual([]);
   });
 });

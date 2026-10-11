@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // End-to-end smoke test of a deployed Carom Hub (protocol/SPEC.md).
 //
-//   node hub/scripts/smoke.mjs --url <hub> [--setup-token-file <path>] [--reset]
+//   node hub/scripts/smoke.mjs --url <hub> [--setup-token-file <path>]
 //
 // Drives two simulated devices (a Mac "desktop" and an Android "phone") with real crypto from
 // @carom/protocol: setup, pairing, live and backlog delivery, collapse, idempotency, fetch/ack,
-// revocation, rekey and negative checks. It ends with POST /v1/reset, so the
-// Hub is left unclaimed. Prints one PASS/FAIL line per step and exits non-zero on any failure.
+// revocation, rekey and negative checks. The Hub must be unclaimed and is left claimed: there is
+// no reset route, so run `carom-hub reset` afterwards. Prints one PASS/FAIL line per step and exits non-zero on any failure.
 //
 // The setup token is read from --setup-token-file (JSON with a `setupToken` field, or a raw
 // token), default ~/.config/carom-hub/<first label of the hub hostname>.json, or from the
@@ -50,12 +50,11 @@ const { values: args } = parseArgs({
   options: {
     url: { type: 'string' },
     'setup-token-file': { type: 'string' },
-    reset: { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
   },
 });
 if (args.help || !args.url) {
-  console.log('usage: node hub/scripts/smoke.mjs --url <hub> [--setup-token-file <path>] [--reset]');
+  console.log('usage: node hub/scripts/smoke.mjs --url <hub> [--setup-token-file <path>]');
   process.exit(args.help ? 0 : 2);
 }
 const HUB = args.url.replace(/\/+$/, '');
@@ -348,21 +347,13 @@ async function run() {
   // 1
   if (
     !(await step('1. GET /v1/info', async () => {
-      let r = await api('GET', '/v1/info');
-      let info = expectStatus(r, 200, 'GET /v1/info');
+      const r = await api('GET', '/v1/info');
+      const info = expectStatus(r, 200, 'GET /v1/info');
       check(info.name === 'carom-hub' && info.protocol === 1, `unexpected info ${JSON.stringify(info)}`);
-      let note = '';
-      if (info.setup_done) {
-        check(args.reset, 'hub is already set up (setup_done=true); rerun with --reset to wipe it');
-        const rr = await api('POST', '/v1/reset', { body: { setup_token: SETUP_TOKEN, confirm: 'erase everything' } });
-        expectStatus(rr, 200, 'POST /v1/reset');
-        r = await api('GET', '/v1/info');
-        info = expectStatus(r, 200, 'GET /v1/info');
-        note = 'reset first; ';
-      }
+      check(!info.setup_done, 'hub is already set up (setup_done=true); run "carom-hub reset" first');
       check(info.setup_done === false, 'setup_done is still true');
       check(!('vapid_public_key' in info), 'info still has vapid_public_key');
-      return `${note}version=${info.version} setup_done=false`;
+      return `version=${info.version} setup_done=false`;
     }))
   )
     return;
@@ -658,14 +649,7 @@ async function run() {
 
 async function cleanup() {
   for (const s of [macWs, phoneWs]) if (s) await s.close().catch(() => {});
-  await step('10. POST /v1/reset and confirm setup_done=false', async () => {
-    const r = await api('POST', '/v1/reset', { body: { setup_token: SETUP_TOKEN, confirm: 'erase everything' } });
-    expectStatus(r, 200, 'POST /v1/reset');
-    const info = expectStatus(await api('GET', '/v1/info'), 200, 'GET /v1/info');
-    check(info.setup_done === false, 'setup_done still true after reset');
-    if (mac.token) expectStatus(await api('GET', '/v1/devices', { token: mac.token }), 401, 'old Mac token after reset');
-    return 'hub unclaimed';
-  });
+  console.log('Note: the Hub is now set up with the smoke-test devices. Run "carom-hub reset" to start over.');
 }
 
 const tStart = performance.now();

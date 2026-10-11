@@ -11,8 +11,9 @@ notifications of any kind; devices fetch when they are already awake (SPEC §9).
 ```
 client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ Hub Durable Object (src/hub.ts)
                      • route match + body limits          • SQLite: devices, messages,
-                     • token MAC check (no DO contact       pairings, keyring, lockouts, blobs, meta
-                       for garbage tokens)                • WebSocket hibernation
+                     • rate limits (per IP / per device)    pairings, keyring, blobs, meta
+                     • token MAC and setup token checks   • WebSocket hibernation
+                       (no DO contact for garbage)
                      • strips client x-carom-* headers,   • one alarm for all expiries
                        sets x-carom-device/-token-hash
 ```
@@ -49,7 +50,7 @@ client ──HTTPS/WS──▶ Worker (src/index.ts) ──stub.fetch──▶ H
 | File | Purpose |
 |---|---|
 | `src/index.ts` | Worker entry: routing, body limits, token MAC, forwarding |
-| `src/hub.ts` | Durable Object: auth, dispatch, alarm, WebSocket handlers, reset |
+| `src/hub.ts` | Durable Object: auth, dispatch, alarm, WebSocket handlers, wipe on a changed `SETUP_TOKEN` |
 | `src/routes.ts` | Route table shared by Worker and Hub (auth kind, body limit) |
 | `src/handlers/*.ts` | One module per area: admin, pairing, devices, messages, keyring |
 | `src/store/*.ts` | SQL for each table |
@@ -65,7 +66,7 @@ All of SPEC §6. Errors are `{"error": {"code", "message"}}`.
 | Route | Auth |
 |---|---|
 | `GET /v1/info` | none |
-| `POST /v1/setup`, `POST /v1/reset` | setup token in body; 10 failures/hour lock the route for an hour |
+| `POST /v1/setup` | setup token in body, checked in the Worker (no lockout) |
 | `POST /v1/pair/accept` | none (creates a *pending* device) |
 | `GET /v1/pair/:pair_id/welcome` | the candidate's token (pending or just activated) |
 | everything else | an active device token |
@@ -97,6 +98,15 @@ Tests drive the real Worker and Durable Object. Test clients seal envelopes and 
 `@noble/*`, independently of `src/`, so signature checks are verified against a second
 implementation.
 
+## Resetting
+
+There is no reset route. Changing the `SETUP_TOKEN` Worker secret resets the Hub: the Hub stores a
+fingerprint of the token it was set up under and, on the first request after the secret differs,
+erases all its data and becomes unclaimed (every device token is invalid anyway). `carom-hub reset`
+does this by deploying a new token. Rolling back to a Worker version with an older secret also
+erases the Hub. Every response carries a `Date` header, and `POST /v1/messages` refuses a `msg_id`
+whose timestamp is outside the clock window (SPEC §6 rule 8).
+
 ## Smoke test
 
 `scripts/smoke.mjs` is an end-to-end check of a deployed Hub. It drives two simulated devices
@@ -107,13 +117,13 @@ revocation, rekey through the keyring, and negative auth/signature checks. It
 prints one PASS/FAIL line per step with timings and exits non-zero on any failure.
 
 ```sh
-node hub/scripts/smoke.mjs --url https://carom-hub-<name>.<account>.workers.dev [--setup-token-file <path>] [--reset]
+node hub/scripts/smoke.mjs --url https://carom-hub-<name>.<account>.workers.dev [--setup-token-file <path>]
 ```
 
 The setup token comes from `--setup-token-file` (JSON with a `setupToken` field, or the raw
 token), defaulting to `~/.config/carom-hub/<worker name>.json`, or from `CAROM_SETUP_TOKEN`.
-The Hub must be unclaimed; `--reset` wipes a claimed Hub first. **The test always finishes
-with `POST /v1/reset`, so only point it at a dev Hub.** Tokens are never printed.
+The Hub must be unclaimed. **The test leaves it claimed by its two simulated devices and there is no
+reset route, so only point it at a dev Hub** and run `carom-hub reset` afterwards. Tokens are never printed.
 
 ## Deploying
 
@@ -134,6 +144,19 @@ Queues or paid features. Rough cost per message: one request to the Worker, one 
 a handful of row writes for the send (the message row, its two indexes and the seq counter)
 and one for each recipient's ack (shared across all messages it acks at once).
 The Hub never makes outbound requests.
+
+**What a stranger can cost you.** The Worker rate-limits before the Durable Object wakes: 10
+requests a minute per route and IP on the unauthenticated routes, and 300 a minute per device
+on the rest (SPEC §6). Garbage tokens, wrong setup tokens and over-limit requests never reach
+the Durable Object. They still count as Worker requests, though, and the Free plan allows 100k
+a day. Someone who knows your Hub URL and sends from many addresses can use that up. Your
+Hub then stops answering until the daily reset, and nothing is lost or exposed. If that
+happens, add a WAF rate-limiting rule for the Hub's hostname in the Cloudflare dashboard, or
+deploy under a new `--name`, which gives the Hub a new URL.
+
+**Logs.** Only the Hub's own `console` lines are kept: event names and error kinds. Cloudflare's
+invocation logs and traces are off because they record request URLs, which carry pair and
+blob ids.
 Hibernated WebSockets cost nothing while idle; protocol pings and the `ping` text frame are
 answered without waking the Hub.
 

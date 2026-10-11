@@ -6,13 +6,14 @@ import Testing
 
 @testable import CaromSync
 
-/// Runs setup, pairing and messages against a real Hub, then resets it.
+/// Runs setup, pairing and messages against a real Hub, then revokes the devices it created.
 ///
 ///     CAROM_HUB_URL=https://carom-hub.<account>.workers.dev \
 ///     CAROM_SETUP_TOKEN=... swift test --filter HubIntegrationTests
 ///
-/// The Hub must be fresh (`setup_done: false`). Set CAROM_RESET_FIRST=1 to wipe it first.
-/// WARNING: the test ends with `POST /v1/reset`, which erases everything on that Hub.
+/// The Hub must be fresh (`setup_done: false`). There is no reset route: to get a fresh Hub,
+/// change its `SETUP_TOKEN` secret (`carom-hub reset`). The test revokes its two devices at the
+/// end, but the Hub stays claimed, so it can only be run once per fresh Hub.
 @Suite("Integration against a deployed Hub", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["CAROM_HUB_URL"] != nil
                 && ProcessInfo.processInfo.environment["CAROM_SETUP_TOKEN"] != nil))
@@ -53,17 +54,13 @@ struct HubIntegrationTests {
     @Test func setupPairAndMessage() async throws {
         let url = try #require(URL(string: hubURL))
         let admin = HubClient(baseURL: url)
-        if ProcessInfo.processInfo.environment["CAROM_RESET_FIRST"] == "1" {
-            try await admin.reset(setupToken: setupToken)
-        }
         let info = try await admin.info()
         #expect(info.name == "carom-hub" && info.protocolVersion == 1)
-        try #require(!info.setupDone, "the Hub is already set up; set CAROM_RESET_FIRST=1 to wipe it first")
+        try #require(!info.setupDone, "the Hub is already set up; change its SETUP_TOKEN to wipe it first")
 
+        let (mac, macLog) = await device("Integration Mac", kind: .desktop)
+        let (phone, phoneLog) = await device("Integration Phone", kind: .phone)
         do {
-            let (mac, macLog) = await device("Integration Mac", kind: .desktop)
-            let (phone, phoneLog) = await device("Integration Phone", kind: .phone)
-
             try await mac.setup(uri: try QR.buildSetupURI(hub: hubURL, setupToken: setupToken))
             try await pair(phone, via: mac)
             #expect(await mac.directory.count == 1)
@@ -161,10 +158,18 @@ struct HubIntegrationTests {
             _ = try await phone.fetchMessages()
             #expect(await phoneLog.messages.last?.message == .notificationDismiss(NotificationDismiss(key: posted.key)))
         } catch {
-            try? await admin.reset(setupToken: setupToken)
+            await cleanUp(mac: mac, phone: phone)
             throw error
         }
-        try await admin.reset(setupToken: setupToken)
-        #expect(try await admin.info().setupDone == false)
+        // Revoke what the test created: the phone, then the Mac itself (SPEC §5.4).
+        let phoneId = try #require(await phone.deviceId)
+        try await mac.revoke(deviceId: phoneId)
+        try await mac.revoke(deviceId: try #require(await mac.deviceId))
+    }
+
+    /// Best effort: revoke both devices after a failure.
+    func cleanUp(mac: SyncEngine, phone: SyncEngine) async {
+        if let phoneId = await phone.deviceId { try? await mac.revoke(deviceId: phoneId) }
+        if let macId = await mac.deviceId { try? await mac.revoke(deviceId: macId) }
     }
 }

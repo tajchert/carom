@@ -14,11 +14,22 @@
     // points the Worker at a different, empty Durable Object.
     "HUB_JURISDICTION": ""
   },
+  // Approximate per-location limits, checked in the Worker before the Durable Object wakes
+  // (SPEC §6). namespace_id only has to be unique within the Cloudflare account.
+  "ratelimits": [
+    // Unauthenticated routes (info, setup, reset, pair accept), keyed by route and client IP.
+    { "name": "ANON_LIMITER", "namespace_id": "730101", "simple": { "limit": 10, "period": 60 } },
+    // Authenticated routes, keyed by device id. Clients back off and retry on a plain 429.
+    { "name": "DEVICE_LIMITER", "namespace_id": "730102", "simple": { "limit": 300, "period": 60 } }
+  ],
   // SETUP_TOKEN is a secret (see .dev.vars.example) and is never set here.
-  // Logs carry only route names, status codes and error kinds, never payloads or tokens.
+  // Only our own console logs are kept: route names, status codes and error kinds, never payloads
+  // or tokens. Invocation logs and traces are off because they record request URLs, which carry
+  // pair and blob ids.
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
-    "traces": { "enabled": true }
+    "logs": { "invocation_logs": false },
+    "traces": { "enabled": false }
   }
 }

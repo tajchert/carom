@@ -124,3 +124,88 @@ describe("routing and limits", () => {
     await expectError(api("GET", "/v1/ws", { token: device.token }), 400, "bad_request");
   });
 });
+
+/** A rate limiter that refuses `deny` keys and records every key it was asked about. */
+function stubLimiter(deny: (key: string) => boolean = () => false) {
+  const keys: string[] = [];
+  const limiter = {
+    limit: async ({ key }: { key: string }) => {
+      keys.push(key);
+      return { success: !deny(key) };
+    },
+  };
+  return { keys, limiter: limiter as unknown as RateLimit };
+}
+
+describe("rate limits and the setup token in the Worker", () => {
+  it("refuses a wrong setup token without contacting the Durable Object", async () => {
+    const { used, namespace } = trackingNamespace();
+    const device = new TestDevice();
+    const path = "/v1/setup";
+    const res = await workerFetch(
+      new Request(BASE + path, { method: "POST", body: JSON.stringify({ setup_token: "w".repeat(40), ...device.keys }) }),
+      { HUB: namespace },
+    );
+    await expectError(Promise.resolve(res), 403, "forbidden");
+    const garbage = await workerFetch(new Request(BASE + path, { method: "POST", body: "not json" }), { HUB: namespace });
+    await expectError(Promise.resolve(garbage), 400, "bad_request");
+    expect(used).toEqual([]);
+  });
+
+  it("limits unauthenticated routes per route and client IP", async () => {
+    const { used, namespace } = trackingNamespace();
+    const anon = stubLimiter(() => true);
+    const request = new Request(BASE + "/v1/pair/accept", { method: "POST", headers: { "CF-Connecting-IP": "203.0.113.7" }, body: "{}" });
+    await expectError(workerFetch(request, { HUB: namespace, ANON_LIMITER: anon.limiter }), 429, "rate_limited");
+    expect(anon.keys).toEqual(["pair.accept:203.0.113.7"]);
+    expect(used).toEqual([]);
+  });
+
+  it("limits authenticated routes per device, after the token MAC check", async () => {
+    const device = await setupFirstDevice();
+    const anon = stubLimiter();
+    const perDevice = stubLimiter((key) => key === device.id);
+    const { used, namespace } = trackingNamespace();
+    const authed = () => new Request(BASE + "/v1/devices", { headers: { Authorization: `Bearer ${device.token}` } });
+    await expectError(workerFetch(authed(), { HUB: namespace, ANON_LIMITER: anon.limiter, DEVICE_LIMITER: perDevice.limiter }), 429, "rate_limited");
+    expect(used).toEqual([]);
+    // A forged token is refused before it can spend anyone's budget.
+    const forged = new Request(BASE + "/v1/devices", { headers: { Authorization: `Bearer ${forgedToken(device.id)}` } });
+    await expectError(workerFetch(forged, { HUB: namespace, DEVICE_LIMITER: perDevice.limiter }), 401, "unauthorized");
+    expect(perDevice.keys).toEqual([device.id]);
+    expect(anon.keys).toEqual([]);
+  });
+});
+
+describe("Date header", () => {
+  const IMF_FIXDATE = /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+
+  function expectHubClock(res: Response): void {
+    const date = res.headers.get("Date") ?? "";
+    expect(date).toMatch(IMF_FIXDATE);
+    expect(Math.abs(Date.parse(date) - Date.now())).toBeLessThan(5000);
+  }
+
+  it("is on success and error responses", async () => {
+    const device = await setupFirstDevice();
+    expectHubClock(await api("GET", "/v1/info"));
+    expectHubClock(await api("GET", "/v1/devices", { token: device.token }));
+    expectHubClock(await api("GET", "/v1/nothing-here"));
+    expectHubClock(await api("GET", "/v1/devices"));
+    expectHubClock(await api("POST", "/v1/setup", { body: { setup_token: "w".repeat(40), ...device.keys } }));
+  });
+
+  it("is on responses the Worker produces without the Hub", async () => {
+    const res = await workerFetch(new Request(`${BASE}/v1/devices`), { SETUP_TOKEN: undefined });
+    expect(res.status).toBe(503);
+    expectHubClock(res);
+  });
+
+  it("is not added to the WebSocket upgrade", async () => {
+    const device = await setupFirstDevice();
+    const res = await api("GET", "/v1/ws", { token: device.token, headers: { Upgrade: "websocket" } });
+    expect(res.status).toBe(101);
+    res.webSocket!.accept();
+    res.webSocket!.close();
+  });
+});

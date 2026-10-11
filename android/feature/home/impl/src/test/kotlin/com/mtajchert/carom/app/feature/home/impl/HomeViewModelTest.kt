@@ -2,6 +2,7 @@ package com.mtajchert.carom.app.feature.home.impl
 
 import app.cash.turbine.test
 import com.mtajchert.carom.app.core.domain.ObserveHomeStatusUseCase
+import com.mtajchert.carom.app.core.hub.ClockSkewTracker
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
@@ -29,6 +30,7 @@ class HomeViewModelTest {
     private val status = FakeSyncStatusRepository()
     private val access = FakeNotificationAccess(granted = true)
     private val recent = FakeRecentItemsRepository()
+    private val clockSkew = ClockSkewTracker { NOW }
     // Built lazily, after MainDispatcherRule has installed the test Main dispatcher.
     private val viewModel by lazy {
         HomeViewModel(
@@ -37,6 +39,7 @@ class HomeViewModelTest {
             status,
             access,
             sync,
+            clockSkew,
         )
     }
 
@@ -80,6 +83,22 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `a clock off the hub shows a banner first and clears with it`() = runTest {
+        paired()
+        access.granted = false
+        clockSkew.onHubTime(NOW + 12 * 60_000L)
+        viewModel.uiState.test {
+            var item = awaitItem()
+            while (item !is HomeUiState.Paired || item.banners.size < 2) item = awaitItem()
+            assertEquals(listOf(HomeBanner.ClockOff(12, ahead = false), HomeBanner.NotificationAccess), item.banners)
+            clockSkew.onHubTime(NOW)
+            while (item !is HomeUiState.Paired || item.banners.size != 1) item = awaitItem()
+            assertEquals(listOf(HomeBanner.NotificationAccess), item.banners)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `missing notification access is shown and re-checked on resume`() = runTest {
         paired()
         access.granted = false
@@ -114,5 +133,9 @@ class HomeViewModelTest {
         assertEquals(5L, status.dismissedNoticeId.value)
         // Still visible in the activity list.
         assertEquals(2, pairedState().recent.size)
+    }
+
+    private companion object {
+        const val NOW = 1_791_758_047_000L
     }
 }

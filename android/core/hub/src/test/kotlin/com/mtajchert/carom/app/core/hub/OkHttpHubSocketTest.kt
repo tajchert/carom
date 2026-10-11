@@ -23,7 +23,7 @@ import kotlin.time.Duration.Companion.seconds
 class OkHttpHubSocketTest {
     private val server = MockWebServer()
     private val received = LinkedBlockingQueue<String>()
-    private val factory = OkHttpHubClientFactory(OkHttpClient())
+    private val factory = OkHttpHubClientFactory(OkHttpClient(), ClockSkewTracker())
 
     @Before
     fun setUp() = server.start()

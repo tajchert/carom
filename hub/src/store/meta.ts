@@ -15,3 +15,6 @@ export function deleteMetaExceptSchema(sql: SqlStorage): void {
 export function isClaimed(sql: SqlStorage): boolean {
   return getMeta(sql, "claimed") === "1";
 }
+
+/** Meta key holding the fingerprint of the SETUP_TOKEN the Hub was set up under (hub.ts). */
+export const SETUP_FINGERPRINT_KEY = "setup_fingerprint";

@@ -32,4 +32,11 @@ abstract class ClipboardModule {
     /** Keeps the optional ongoing notification in step with its setting and the pairing. */
     @Binds @IntoSet
     internal abstract fun bindsOngoingNotification(impl: OngoingNotificationController): SyncStartHook
+
+    @Binds
+    internal abstract fun bindsClockSkewNotifier(impl: AndroidClockSkewNotifier): ClockSkewNotifier
+
+    /** One notification per clock-drift episode. */
+    @Binds @IntoSet
+    internal abstract fun bindsClockSkewNotification(impl: ClockSkewNotificationController): SyncStartHook
 }

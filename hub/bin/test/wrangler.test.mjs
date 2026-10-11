@@ -72,6 +72,18 @@ test('deploy works with a read-only package dir, inherits stdio and reads the UR
   }
 });
 
+test('deploy without a secrets file passes no --secrets-file', async () => {
+  const t = setup();
+  try {
+    const runner = createWranglerRunner({ pkgDir: t.pkg, wranglerEntry: t.entry });
+    await runner.deploy({ name: 'carom-hub', vars: {} });
+    const [call] = readFileSync(t.log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    assert.deepEqual(call.args, ['deploy', '--name', 'carom-hub']);
+  } finally {
+    t.cleanup();
+  }
+});
+
 test('parseDeployTargets reads ND-JSON deploy entries and adds https:// to workers.dev hosts', () => {
   const text = [
     JSON.stringify({ type: 'wrangler-session', version: 1 }),

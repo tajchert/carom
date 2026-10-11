@@ -36,6 +36,7 @@ class OkHttpHubClient(
     override val baseUrl: String,
     private val tokenProvider: HubTokenProvider,
     private val http: OkHttpClient,
+    private val clockSkew: ClockSkewTracker? = null,
 ) : HubClient {
 
     private val base: HttpUrl = baseUrl.toHttpUrl()
@@ -53,18 +54,6 @@ class OkHttpHubClient(
         },
         decoder = DeviceCredentials.serializer(),
     )
-
-    override suspend fun reset(setupToken: String) {
-        callUnit(
-            "POST",
-            "v1/reset",
-            auth = false,
-            body = buildJsonObject {
-                put("setup_token", setupToken)
-                put("confirm", RESET_CONFIRMATION)
-            },
-        )
-    }
 
     override suspend fun putKeyring(version: KeyringVersion) {
         callUnit("PUT", "v1/keyring", body = version.toJson())
@@ -225,12 +214,17 @@ class OkHttpHubClient(
             }
             .build()
         http.newCall(request).await().use { response ->
+            clockSkew?.onHubDate(response.header("Date"))
             val bytes = try {
                 response.body.bytes()
             } catch (e: IOException) {
                 throw HubException.Network(e)
             }
-            if (!response.isSuccessful) throw httpError(response, bytes.toString(Charsets.UTF_8))
+            if (!response.isSuccessful) {
+                val error = httpError(response, bytes.toString(Charsets.UTF_8))
+                if (error.isClockSkew) error.hubTime?.let { clockSkew?.onHubTime(it) }
+                throw error
+            }
             bytes
         }
     }
@@ -274,7 +268,6 @@ class OkHttpHubClient(
     }
 
     companion object {
-        const val RESET_CONFIRMATION = "erase everything"
         private val JSON = "application/json".toMediaType()
         private val OCTET_STREAM = "application/octet-stream".toMediaType()
         private val EMPTY = JsonObject(emptyMap())

@@ -9,7 +9,7 @@ export interface HubRuntime {
   readonly env: Env;
   /** Makes sure the single alarm fires no later than the earliest pending expiry. */
   scheduleAlarm(): Promise<void>;
-  /** Erases all state except the schema (POST /v1/reset). */
+  /** Erases all state except the schema (a changed SETUP_TOKEN, hub.ts). */
   wipe(): Promise<void>;
 }
 

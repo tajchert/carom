@@ -20,6 +20,15 @@ enum UserMessages {
     static let loginItemFailed = "Couldn't change the login item. Check System Settings › General › Login Items."
     static let loginItemNeedsApproval = "Allow Carom in System Settings › General › Login Items to open it at login."
 
+    /// `skewMs` is hub time minus local time: negative when this Mac's clock is ahead.
+    static func clockOff(skewMs: Int) -> String {
+        let minutes = max(1, Int((Double(abs(skewMs)) / 60_000).rounded()))
+        let unit = minutes == 1 ? "minute" : "minutes"
+        let direction = skewMs < 0 ? "ahead" : "behind"
+        return "This Mac's clock is \(direction) by about \(minutes) \(unit). Carom can't deliver messages until it's "
+            + "fixed. Turn on automatic date and time."
+    }
+
     static func removed(name: String, by: String?) -> String {
         if let by { return by == name ? "\(name) left your devices." : "\(by) removed \(name)." }
         return "\(name) was removed without a key change (no rekey)."

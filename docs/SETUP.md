@@ -11,7 +11,9 @@ About 10 minutes, in three parts: **deploy your Hub → set up the Mac → add y
 | Phone | Android 10 or newer |
 
 Your Hub fits in the Cloudflare Workers Free plan. Its daily quotas are ample for personal use, so
-it costs nothing. All message content (notifications, clipboard) is end-to-end encrypted. Cloudflare
+it costs nothing. The Hub rate-limits strangers, but someone who floods its URL from many
+addresses can still use up the Free plan's 100k daily requests. The Hub then pauses until the
+next day, and nothing is lost or exposed (see [hub/README.md](../hub/README.md#limits-and-cost)). All message content (notifications, clipboard) is end-to-end encrypted. Cloudflare
 and the Hub see only ciphertext, plus routing metadata such as which device sent to which, and when.
 
 > **No prebuilt downloads yet.** Until the first release, build the apps from source
@@ -37,11 +39,11 @@ and the Hub see only ciphertext, plus routing metadata such as which device sent
    - **Setup URI** `carom://setup?v=1&h=…&t=…`, also shown as a **QR code**
 
 Keep the terminal open for the next step. The setup URI works until the first device sets up the
-Hub. The token inside it is also your Hub's admin secret (it authorizes `reset`), so don't share it.
+Hub, and the token inside it also signs the Hub's device tokens, so don't share it.
 
-The CLI saves the Hub URL and token in `~/.config/carom-hub/carom-hub.json`. **Keep this file:**
-`update` and `reset` need it. Lost the terminal output? `node hub/bin/carom-hub.mjs qr` prints the
-setup QR again until a device has used it.
+The CLI saves the Hub URL and token in `~/.config/carom-hub/carom-hub.json`. The token is deleted from
+that file as soon as a device has set up the Hub; the file then keeps only the URL. Lost the terminal
+output? `node hub/bin/carom-hub.mjs qr` prints the setup QR again until a device has used it.
 
 ## 2. Set up the Mac (first device)
 
@@ -172,16 +174,16 @@ You can pair any number of phones and Macs.
 ```sh
 node hub/bin/carom-hub.mjs info                 # status and version
 node hub/bin/carom-hub.mjs update               # deploy the latest Hub code (same token and data)
-node hub/bin/carom-hub.mjs reset                # erase all Hub data (type the hub name to confirm, or --yes)
-node hub/bin/carom-hub.mjs reset --new-token    # erase and also rotate the setup token
+node hub/bin/carom-hub.mjs reset                # new setup token, erase all Hub data, sign out every device
 ```
 
-`reset` prints a fresh setup QR; continue from step 2. If you deployed under another name, add
+`reset` needs your Cloudflare login. It asks you to type the hub name (or pass `--yes`), erases the Hub
+and prints a fresh setup QR; continue from step 2. If you deployed under another name, add
 `--name <name>` to every command (its state file is then `~/.config/carom-hub/<name>.json`).
 
 There is nothing to back up. The Hub deletes message content once every recipient has it, and in any
-case after 1–2 days. The keys live only on your devices. If you lose every device, run `reset`.
-Without the state file, use `deploy --new-token` instead. Then set up again.
+case after 1–2 days. The keys live only on your devices. If you lose every device, run `reset`, then set up again.
+Without the state file, use `deploy --new-token` instead.
 
 ## One-time codes on Android 15 and later
 

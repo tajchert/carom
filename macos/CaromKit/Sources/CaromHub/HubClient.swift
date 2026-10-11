@@ -10,21 +10,25 @@ public struct HubClient: HubAPI {
     public let token: String?
     public let session: URLSession
     public let timeout: TimeInterval
+    /// Told the Hub's time from every HTTP answer (`Date` header, `hub_time` of a `clock_skew` 400).
+    public let clockSkew: ClockSkewTracker?
 
-    public init(baseURL: URL, token: String? = nil, session: URLSession = .shared, timeout: TimeInterval = 30) {
+    public init(baseURL: URL, token: String? = nil, session: URLSession = .shared, timeout: TimeInterval = 30,
+                clockSkew: ClockSkewTracker? = nil) {
         self.baseURL = baseURL
         self.token = token
         self.session = session
         self.timeout = timeout
+        self.clockSkew = clockSkew
     }
 
     public func withToken(_ token: String?) -> HubClient {
-        HubClient(baseURL: baseURL, token: token, session: session, timeout: timeout)
+        HubClient(baseURL: baseURL, token: token, session: session, timeout: timeout, clockSkew: clockSkew)
     }
 
-    /// A factory for `SyncEngine` that shares one session.
-    public static func factory(session: URLSession = .shared) -> HubFactory {
-        { url, token in HubClient(baseURL: url, token: token, session: session) }
+    /// A factory for `SyncEngine` that shares one session (and one clock tracker).
+    public static func factory(session: URLSession = .shared, clockSkew: ClockSkewTracker? = nil) -> HubFactory {
+        { url, token in HubClient(baseURL: url, token: token, session: session, clockSkew: clockSkew) }
     }
 
     // MARK: - Routes
@@ -42,11 +46,6 @@ public struct HubClient: HubAPI {
         let body: JSON = ["setup_token": .string(setupToken), "sign_pub": .string(B64.encode(signPub)),
                           "kx_pub": .string(B64.encode(kxPub))]
         return try credentials(try await call("POST", "/v1/setup", body: body, auth: false))
-    }
-
-    public func reset(setupToken: String) async throws(HubError) {
-        _ = try await call("POST", "/v1/reset", body: ["setup_token": .string(setupToken),
-                                                       "confirm": "erase everything"], auth: false)
     }
 
     public func putKeyring(_ version: KeyringVersion) async throws(HubError) {
@@ -258,11 +257,15 @@ public struct HubClient: HubAPI {
             throw .transport(.unknown)
         }
         guard let http = response as? HTTPURLResponse else { throw .invalidResponse("not HTTP") }
+        clockSkew?.observe(dateHeader: http.value(forHTTPHeaderField: "Date"))
         return (data, http)
     }
 
     private func failure(_ http: HTTPURLResponse, _ json: JSON?) -> HubError {
         let err = json?["error"]
+        if http.statusCode == 400, json?["clock_skew"]?.boolValue == true, let hubTime = json?["hub_time"]?.safeInt {
+            clockSkew?.observe(hubTimeMs: hubTime)
+        }
         return .api(HubAPIError(
             status: http.statusCode,
             code: HubErrorCode(err?["code"]?.stringValue ?? Self.defaultCode(http.statusCode)),

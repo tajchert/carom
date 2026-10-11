@@ -157,7 +157,8 @@ This hides exact lengths from the Hub. The padded length still has to fit the pl
 Examples: 0 stays 0, 1 becomes 256, 4096 stays 4096, and 4097 becomes 8192.
 
 `msg_id` MUST be UUIDv7 and monotonic per sender (RFC 9562 §6.2 method 1 or 3).
-The Hub relies on this for collapse ordering.
+The Hub relies on this for collapse ordering. Its timestamp must also be within the Hub's
+window (§6 rule 8), so a device with a wrong clock cannot send.
 
 ### 3.2 Collapse
 
@@ -460,6 +461,10 @@ sealed with the newest key.
 Base URL: the Hub URL, for example `https://carom-hub.<account>.workers.dev`. All bodies are
 JSON. Authenticated routes need `Authorization: Bearer <token>`.
 
+Every response, errors included, carries a standard `Date` header (IMF-fixdate, GMT, for example
+`Sun, 11 Oct 2026 22:34:07 GMT`) with the Hub's clock. The one exception is the `101` WebSocket
+upgrade. Clients compare it with their own clock to detect a wrong device clock.
+
 Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with codes
 `bad_request`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `gone`, `too_large`
 `rate_limited`, `unavailable` (503, for example a missing or too-short `SETUP_TOKEN`) and
@@ -471,7 +476,6 @@ Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with 
 | `POST /v1/setup` | none | `{setup_token, sign_pub, kx_pub}` → `{device_id, token}`. Only works once. |
 | `PUT /v1/keyring` | device | `{kv, by, boxes, sig}` → `{}`, or 409 with `{kv: newest}` if `kv` is not newest+1 |
 | `GET /v1/keyring?have=N` | device | → `{versions:[{kv, by, sig, boxes:{id:{epk,ct}}}]}` with every box of each newer version |
-| `POST /v1/reset` | none | `{setup_token, confirm:"erase everything"}` → `{}`. Wipes all state, and setup is possible again. |
 | `POST /v1/pair/offer` | device | `{}` → `{pair_id, expires_at}` (5 minutes) |
 | `GET /v1/pair/:pair_id` | offerer | → `{status:"waiting"\|"accepted"\|"done", candidate?:{device_id, sign_pub, kx_pub, mac, pop}}` |
 | `POST /v1/pair/accept` | none | `{pair_id, sign_pub, kx_pub, mac, pop}` → `{device_id, token}`. The device is *pending*. |
@@ -512,6 +516,12 @@ Rules the Hub enforces on `POST /v1/messages`:
 6. Each recipient may have at most 1000 pending messages. Beyond that the post is refused with
    `429 rate_limited` and `{"full": [ids]}`. Collapse keeps normal use far below this.
 7. The collapse rule from §3.2, which also compares against tombstones.
+8. The timestamp `t` of `msg_id` (the 48-bit Unix-millisecond field of the UUIDv7) must be
+   within the Hub's clock window: `t <= now + 300 000` and `t + ttl_s * 1000 + 300 000 >= now`
+   (the 5-minute margin is in milliseconds). Otherwise the Hub answers `400` with
+   `{"error":{"code":"bad_request","message":"msg_id time is outside the allowed window; check the device clock"},"clock_skew":true,"hub_time":<now in Unix ms>}`.
+   This is checked right after the shape, before any state is read. The error is not retryable:
+   the client drops the message like any other 4xx, but uses `hub_time` for its clock check.
 
 The Hub never decrypts `ct` and never branches on message type.
 
@@ -545,16 +555,38 @@ mac16     = HMAC-SHA256(token_key, lp(device_id) || lp(rand32))[0..16]
 
 The Worker checks the MAC before it touches the Durable Object, so garbage requests never
 reach it. The Hub then checks that `SHA-256(token)` belongs to an active device, which
-covers revocation and pending state. Tokens are returned once. Resetting the Hub with a new
+covers revocation and pending state. Tokens are returned once. Changing
 `SETUP_TOKEN` invalidates every token.
 
 The `SETUP_TOKEN` Worker secret must be at least 32 characters, otherwise setup is refused.
 It is compared in constant time against its SHA-256. Once setup succeeds, `claimed=1` is
-stored permanently. Only `POST /v1/reset`, which also needs `SETUP_TOKEN`, clears it.
+stored, together with a fingerprint of the secret:
+`b64(SHA-256(lp("carom/v1/setup-fingerprint") || lp(UTF8(SETUP_TOKEN))))`.
 
-Rate limits are enforced inside the Hub, which is single-threaded and so counts exactly:
+There is no reset route. Resetting the Hub means changing the `SETUP_TOKEN` secret (the
+`carom-hub reset` command, or the Cloudflare dashboard), which needs the owner's Cloudflare
+login. The Hub reads the secret from its own environment on every request. A Hub that is
+claimed and has no fingerprint (set up before fingerprints existed) stores one. When the stored
+fingerprint differs, the Hub erases everything (all data, `claimed`, the fingerprint, closing
+every WebSocket with `revoked`) and serves the request as a fresh, unclaimed Hub. Rolling the
+Worker back to a version with an older secret also changes the token, so it also erases the
+Hub. That is acceptable, because every device token is invalid after the change anyway.
 
-- `/v1/setup` and `/v1/reset`: after 10 failures in an hour, the route is locked for an hour.
+The Worker checks the `setup_token` of `/v1/setup` itself, so a wrong guess
+never reaches the Hub, and a 256-bit token can't be guessed anyway. There is no lockout, so
+nobody can lock the owner out by failing on purpose.
+
+The Worker also rate-limits before the Hub is contacted, and answers `429 rate_limited` with no
+`full` or `quota` field. Clients treat that as retryable and back off. These limits use
+Cloudflare's rate-limit binding, which counts per location and only approximately:
+
+- Unauthenticated routes (`/v1/info`, `/v1/setup`, `/v1/pair/accept`): 10
+  requests a minute per route and client IP.
+- Authenticated routes: 300 requests a minute per device, checked after the token MAC. This
+  also caps a revoked device that keeps retrying.
+
+Exact limits are enforced inside the Hub, which is single-threaded:
+
 - `/v1/pair/accept`: one accept per `pair_id`, and at most 5 open offers at a time.
 
 
@@ -673,7 +705,7 @@ the user the phone is asleep after 30 seconds without a result.
   authenticated HTTP requests, WebSocket connects and `ack` frames.
 - Unclaimed pairings expire after 5 minutes. A pending device whose pairing expired is deleted.
 - A blob is deleted at its own expiry, when the message it was uploaded with is superseded,
-  or when its uploader is revoked. `POST /v1/reset` deletes every blob.
+  or when its uploader is revoked. Changing `SETUP_TOKEN` (Hub reset, §6) deletes every blob.
 - The Hub uses one alarm, scheduled for the earliest expiry of any message, pairing or blob.
 
 ## 11. Blobs

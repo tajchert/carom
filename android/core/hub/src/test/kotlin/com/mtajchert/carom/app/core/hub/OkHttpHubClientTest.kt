@@ -30,13 +30,15 @@ class OkHttpHubClientTest {
     private val server = MockWebServer()
     private val http = OkHttpClient.Builder().readTimeout(5, TimeUnit.SECONDS).build()
     private var token: String? = "ct1.token"
+    private val localNow = 1_791_758_047_000L // Sun, 11 Oct 2026 22:34:07 GMT
+    private val clockSkew = ClockSkewTracker { localNow }
     private lateinit var client: HubClient
 
     @Before
     fun setUp() {
         server.start()
         // A Hub mounted under a path prefix must keep that prefix.
-        client = OkHttpHubClientFactory(http).client(server.url("/carom/").toString()) { token }
+        client = OkHttpHubClientFactory(http, clockSkew).client(server.url("/carom/").toString()) { token }
     }
 
     @After
@@ -89,6 +91,54 @@ class OkHttpHubClientTest {
         }
         val body = body(take())
         assertTrue(body["envelope"] is JsonObject)
+    }
+
+    @Test
+    fun `the Date header of every response feeds the clock check`() = runTest {
+        server.enqueue(json(200, """{"name":"carom-hub","protocol":1,"version":"0.1.0","setup_done":true,"jurisdiction":null}""")
+            .newBuilder().addHeader("Date", "Sun, 11 Oct 2026 22:44:07 GMT").build())
+        client.info()
+        assertEquals(10L, clockSkew.drift.value?.minutes)
+        assertFalse(clockSkew.drift.value!!.localAhead)
+        // An error response counts too, and a correct Date clears the drift.
+        server.enqueue(json(404, """{"error":{"code":"not_found"}}""")
+            .newBuilder().addHeader("Date", "Sun, 11 Oct 2026 22:34:09 GMT").build())
+        try {
+            client.devices()
+            fail()
+        } catch (_: HubException.Http) {
+        }
+        assertNull(clockSkew.drift.value)
+    }
+
+    @Test
+    fun `a clock skew 400 exposes hub_time and feeds the clock check`() = runTest {
+        val hubTime = localNow - 30 * 60_000L
+        server.enqueue(json(400, """{"error":{"code":"bad_request","message":"msg_id time is outside the allowed window; check the device clock"},"clock_skew":true,"hub_time":$hubTime}"""))
+        try {
+            client.postMessage(envelope())
+            fail()
+        } catch (e: HubException.Http) {
+            assertTrue(e.isClockSkew)
+            assertEquals(hubTime, e.hubTime)
+            assertFalse(e.isRetryable)
+        }
+        val drift = clockSkew.drift.value!!
+        assertEquals(30L, drift.minutes)
+        assertTrue(drift.localAhead)
+    }
+
+    @Test
+    fun `a plain 400 is not a clock skew`() = runTest {
+        server.enqueue(json(400, """{"error":{"code":"bad_request","message":"bad"}}"""))
+        try {
+            client.postMessage(envelope())
+            fail()
+        } catch (e: HubException.Http) {
+            assertFalse(e.isClockSkew)
+            assertNull(e.hubTime)
+        }
+        assertNull(clockSkew.drift.value)
     }
 
     @Test

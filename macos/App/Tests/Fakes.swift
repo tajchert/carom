@@ -137,6 +137,7 @@ final class FakePresenter: NotificationPresenting {
     var withdrawn: [(String, String)] = []
     var withdrawnAll: [String] = []
     var authorization = true
+    var notices: [(title: String, body: String, identifier: String)] = []
 
     var state: Bool?
     func requestAuthorization() async -> Bool {
@@ -146,6 +147,9 @@ final class FakePresenter: NotificationPresenting {
     func authorizationState() async -> Bool? { state }
     func present(_ notification: PresentedNotification, showPhoneName: Bool) async {
         presented.append((notification, showPhoneName))
+    }
+    func notify(title: String, body: String, identifier: String) async {
+        notices.append((title, body, identifier))
     }
     func withdraw(phoneId: String, key: String) { withdrawn.append((phoneId, key)) }
     func withdrawAll(phoneId: String) { withdrawnAll.append(phoneId) }

@@ -36,8 +36,8 @@ export function fakeWrangler({ loggedIn = true, loginOk = true, deployResult = {
         name,
         vars,
         secretsFile,
-        secrets: JSON.parse(readFileSync(secretsFile, 'utf8')),
-        mode: statSync(secretsFile).mode & 0o777,
+        secrets: secretsFile ? JSON.parse(readFileSync(secretsFile, 'utf8')) : undefined,
+        mode: secretsFile ? statSync(secretsFile).mode & 0o777 : undefined,
       });
       onDeploy?.();
       if (deployError) throw deployError;

@@ -24,6 +24,14 @@ struct BannerView: View {
                     Button("Pair Again…") { confirmingReset = true }
                         .controlSize(.small)
                 }
+                if banner.kind == .clockSkew {
+                    Button("Open Date & Time Settings…") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .controlSize(.small)
+                }
                 if banner.kind == .revoked, model.phase == .onboarding {
                     Button("Set Up…") { model.request(.onboarding) }
                         .controlSize(.small)

@@ -86,6 +86,8 @@ final class AppModel {
         var blobDirectory = URL.temporaryDirectory.appending(path: "carom-blobs-\(UUID().uuidString)")
         /// How long an automatically copied code stays on the clipboard.
         var codeClearDelay: Duration = .seconds(60)
+        /// Shared with the Hub clients; the model shows its drift as a banner and a notice.
+        var clockSkew: ClockSkewTracker?
     }
 
     // MARK: State read by the views
@@ -145,6 +147,8 @@ final class AppModel {
     @ObservationIgnored private var codeClearTask: Task<Void, Never>?
     @ObservationIgnored private var codeClearCount: Int?
     @ObservationIgnored private var lastAutoCopied: String?
+    /// Hub time minus local time while the clock warning is up; nil otherwise.
+    @ObservationIgnored private var clockDrift: Int?
 
     init(sync: any SyncService, desktop: DesktopServices, options: Options = Options()) {
         self.sync = sync
@@ -159,6 +163,9 @@ final class AppModel {
         blobs = BlobStore(directory: options.blobDirectory) { [sync] ref in await sync.fetchBlob(ref) }
         liveChip = LiveChip(host: desktop.liveChipHost)
         notifications.images = blobs
+        options.clockSkew?.onChange = { [weak self] drift in
+            Task { @MainActor in self?.clockDriftChanged(drift) }
+        }
     }
 
     /// The production graph: Keychain secrets, a JSON state file in Application Support and the
@@ -170,9 +177,11 @@ final class AppModel {
         let folder = launch.appFolder
         let state: any StateStore = (try? JSONFileStateStore.applicationSupport(appFolder: folder))
             ?? JSONFileStateStore(url: URL.applicationSupportDirectory.appending(path: "\(folder)/state.json"))
+        let clockSkew = ClockSkewTracker()
         let engine = SyncEngine(configuration: config, secrets: SecretStoreFactory.make(service: launch.keychainService),
-                                state: state, hub: HubClient.factory())
+                                state: state, hub: HubClient.factory(clockSkew: clockSkew))
         var options = Options()
+        options.clockSkew = clockSkew
         options.autoApprove = launch.autoApprove
         options.blobDirectory = URL.applicationSupportDirectory.appending(path: "\(folder)/blobs")
         if let path = launch.eventLog {
@@ -890,6 +899,7 @@ final class AppModel {
         await sync.wipe()
         resetLocalState()
         banners = []
+        if let clockDrift { showClockBanner(clockDrift) }
         phase = .onboarding
         request(.onboarding)
     }
@@ -1046,6 +1056,29 @@ final class AppModel {
     func dismissBanner(_ banner: Banner) { banners.removeAll { $0.id == banner.id } }
 
     func dismissBanner(kind: Banner.Kind) { banners.removeAll { $0.kind == kind } }
+
+    // MARK: Clock check
+
+    /// The Hub clients saw this Mac's clock drift from the Hub's (nil: it is fine again). The banner
+    /// stays while it lasts; one system notice is posted per episode, not per response.
+    func clockDriftChanged(_ driftMs: Int?) {
+        let wasOff = clockDrift != nil
+        clockDrift = driftMs
+        guard let driftMs else {
+            dismissBanner(kind: .clockSkew)
+            return
+        }
+        showClockBanner(driftMs)
+        guard !wasOff else { return }
+        trace("clock drift")
+        let message = UserMessages.clockOff(skewMs: driftMs)
+        let presenter = self.presenter
+        Task { await presenter.notify(title: "Check this Mac's date and time", body: message, identifier: "carom.clock") }
+    }
+
+    private func showClockBanner(_ driftMs: Int) {
+        addBanner(Banner(kind: .clockSkew, message: UserMessages.clockOff(skewMs: driftMs), style: .warning))
+    }
 
     func showStatus(_ message: String) {
         statusMessage = message

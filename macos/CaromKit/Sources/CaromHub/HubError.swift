@@ -60,6 +60,10 @@ public struct HubAPIError: Sendable, Equatable {
     public var full: [String] { body["full"]?.arrayValue?.compactMap(\.stringValue) ?? [] }
     /// `429 {"quota": true}` on `PUT /v1/blobs/:id`: the Hub's blob storage is full.
     public var quota: Bool { body["quota"]?.boolValue ?? false }
+    /// `400 {"clock_skew": true, "hub_time": ms}` on `POST /v1/messages`: the msg_id time is outside
+    /// the Hub's window, so this device's clock is off. `hub_time` is the Hub's Unix time in ms.
+    public var clockSkew: Bool { body["clock_skew"]?.boolValue ?? false }
+    public var hubTime: Int? { clockSkew ? body["hub_time"]?.safeInt : nil }
     /// `409 {"kv": n}` on `PUT /v1/keyring`: the Hub's newest keyring version.
     public var keyringKv: Int? { body["kv"]?.safeInt }
 }

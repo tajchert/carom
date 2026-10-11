@@ -8,10 +8,10 @@ npx carom-hub deploy --jurisdiction eu
 npx carom-hub update                  # redeploy new code, same token and settings
 npx carom-hub info                    # show /v1/info
 npx carom-hub qr                      # reprint the setup QR (only while unclaimed)
-npx carom-hub reset [--new-token]     # erase all Hub data (asks you to type the hub name)
+npx carom-hub reset                   # new setup token + erase the Hub (asks you to type the hub name)
 ```
 
-Options: `--name <name>` (default `carom-hub`), `--jurisdiction <j>`, `--url <url>` (info), `--new-token` (reset, or deploy over an existing Hub with no saved state), `-y/--yes`.
+Options: `--name <name>` (default `carom-hub`), `--jurisdiction <j>`, `--url <url>` (info), `--new-token` (deploy over an existing Hub with no saved state), `-y/--yes`.
 
 ## How it works
 
@@ -29,10 +29,12 @@ Options: `--name <name>` (default `carom-hub`), `--jurisdiction <j>`, `--url <ur
   (`wrangler deploy --secrets-file`), deleted right after the deploy (also on Ctrl-C, SIGTERM and exit). The jurisdiction goes in as
   `--var HUB_JURISDICTION:<value>`.
 - Saves `{hubUrl, setupToken, jurisdiction, deployedAt}` to `~/.config/carom-hub/<name>.json` (`0600`).
-  Keep this file: it holds the setup token needed for `update` and `reset`.
-- `reset --new-token` rotates first and wipes second: it saves the new token to the state file (marked
-  `pendingReset`), redeploys with it, calls `/v1/reset` with the new token, then clears the flag. If any step
-  fails, run `carom-hub reset --new-token` again to resume; `update` redeploys the pending token meanwhile.
+  The token lives there only while the Hub is unclaimed: whenever a command sees `setup_done: true`
+  (`deploy`, `update`, `qr`, `info`) it deletes `setupToken` and keeps the rest. `update` and `deploy` without a
+  token deploy without a secrets file, so wrangler keeps the secret already on the Worker.
+- `reset` always rotates the token. It saves a new token, deploys it, polls `/v1/info` until `setup_done` is
+  `false` (the Hub erases itself on its first request under the new secret, which signs out every device), then
+  prints the setup QR. It needs your Cloudflare login. If a step fails, run `carom-hub reset` again.
 - The setup QR encodes `carom://setup?v=1&h=<hub url>&t=<token>`. Show it only on your own screen.
 - The jurisdiction cannot be changed after the first deploy without a reset.
 

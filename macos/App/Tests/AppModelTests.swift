@@ -464,6 +464,23 @@ struct AppModelTests {
         #expect(h.model.banners.isEmpty)
     }
 
+    @Test func clockDriftShowsABannerAndOneNoticePerEpisode() async {
+        let h = Harness()
+        await h.start()
+        h.model.clockDriftChanged(600_000)
+        h.model.clockDriftChanged(-720_000)  // same episode, new value
+        await settle()
+        #expect(h.model.banners.map(\.kind) == [.clockSkew])
+        #expect(h.model.banners.first?.message == UserMessages.clockOff(skewMs: -720_000))
+        #expect(h.model.banners.first?.message.hasPrefix("This Mac's clock is ahead by about 12 minutes.") == true)
+        #expect(h.presenter.notices.count == 1)
+        h.model.clockDriftChanged(nil)
+        #expect(h.model.banners.isEmpty)
+        h.model.clockDriftChanged(400_000)  // a new episode
+        await settle()
+        #expect(h.presenter.notices.count == 2)
+    }
+
     @Test func revokedReturnsToOnboarding() async {
         let h = Harness()
         await h.start()

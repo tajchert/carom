@@ -336,6 +336,26 @@ unchecked.
 - Text whose padded payload would exceed 65 536 bytes (roughly 60 KB of text) is refused with
   a message.
 
+## Clock check
+
+A wrong device clock makes the Hub refuse messages (SPEC §6 rule 8), so both apps watch for it.
+
+- **Skew** = Hub time − local time, in Unix epoch milliseconds. Hub time comes from the `Date`
+  header of any Hub HTTP response, or `hub_time` in the `400` with `clock_skew: true`. Local time is
+  `System.currentTimeMillis()` / `Date().timeIntervalSince1970`, read when the response arrives.
+  Ignore responses without a parseable `Date`.
+- **Timezones never matter.** Everything is epoch ms and GMT. Parse `Date` with a fixed GMT
+  RFC 1123 parser (`en_US_POSIX` on macOS) and never use local-time or Calendar APIs. A device
+  in any timezone with a correct clock has skew near 0, and a test proves it.
+- **Warn** when |skew| > 5 minutes. **Clear** only when |skew| < 4 minutes on a later response, so
+  the banner does not flicker.
+- Wording: "<Phone|This Mac>'s clock is off by about N minutes. Carom can't deliver messages until
+  it's fixed. Turn on automatic date and time." N is the rounded |skew| in minutes; skew < 0 means
+  the local clock is ahead.
+- Show a banner in the main UI, plus one system notification per drift episode (not per
+  response), and a button that opens the OS date and time settings where possible.
+- A `400` with `clock_skew` is not retried: the message is dropped like any 4xx.
+
 ## Device settings screen
 
 The screen lists every device: name, kind and last seen (from the directory).

@@ -11,6 +11,8 @@ struct Banner: Identifiable, Equatable, Sendable {
         case hubUnreachable
         case pairingRejected
         case sendFailed
+        /// This Mac's clock is far from the Hub's: messages are refused until it is fixed.
+        case clockSkew
     }
 
     enum Style: Sendable { case info, warning, error }
@@ -27,6 +29,6 @@ struct Banner: Identifiable, Equatable, Sendable {
         self.id = id ?? "\(kind)"
     }
 
-    /// Whether the user can close it (the 401 banner stays until resolved).
-    var isDismissible: Bool { kind != .tokenRejected }
+    /// Whether the user can close it (the 401 and clock banners stay until resolved).
+    var isDismissible: Bool { kind != .tokenRejected && kind != .clockSkew }
 }

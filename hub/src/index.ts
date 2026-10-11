@@ -1,11 +1,12 @@
-// The Worker in front of the Hub. It matches routes, enforces body limits, and verifies the
-// token MAC before anything reaches the Durable Object (SPEC §6).
+// The Worker in front of the Hub. It matches routes, enforces body and rate limits, verifies the
+// token MAC and the setup token before anything reaches the Durable Object (SPEC §6).
 
 import { hubStub, jurisdictionOf, setupTokenOf } from "./config";
-import { HttpError, errorResponse } from "./errors";
+import { HttpError, badRequest, errorResponse } from "./errors";
 import { DEVICE_HEADER, INTERNAL_PREFIX, TOKEN_HASH_HEADER } from "./headers";
 import { matchRoute, type Route } from "./routes";
-import { tokenHash, verifyTokenMac } from "./token";
+import { setupTokenMatches, tokenHash, verifyTokenMac } from "./token";
+import { expectObject, expectString } from "./validate";
 
 export { Hub } from "./hub";
 
@@ -46,6 +47,24 @@ async function readBody(request: Request, limit: number): Promise<ArrayBuffer | 
   return body.buffer;
 }
 
+/** Answers 429 once `key` has used up its budget in `limiter` (wrangler.jsonc). */
+async function enforceLimit(limiter: RateLimit, key: string): Promise<void> {
+  const { success } = await limiter.limit({ key });
+  if (!success) throw new HttpError("rate_limited", "too many requests; try again later");
+}
+
+/** Refuses a wrong setup token here, so guesses at /v1/setup never wake the Hub. */
+async function checkSetupToken(body: ArrayBuffer | null, env: Env): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(body ?? new ArrayBuffer(0)));
+  } catch {
+    throw badRequest("body must be valid JSON");
+  }
+  const token = expectString(expectObject(parsed, "body").setup_token, "setup_token");
+  if (!(await setupTokenMatches(setupTokenOf(env), token))) throw new HttpError("forbidden", "wrong setup token");
+}
+
 async function forwardHeaders(request: Request, route: Route, env: Env): Promise<Headers> {
   const headers = new Headers();
   for (const [name, value] of request.headers) {
@@ -55,6 +74,8 @@ async function forwardHeaders(request: Request, route: Route, env: Env): Promise
     const token = bearerToken(request);
     const deviceId = await verifyTokenMac(setupTokenOf(env), token);
     if (!deviceId) throw new HttpError("unauthorized", "invalid token");
+    // A revoked device's token still has a valid MAC, so this also caps its retries.
+    await enforceLimit(env.DEVICE_LIMITER, deviceId);
     headers.set(DEVICE_HEADER, deviceId);
     headers.set(TOKEN_HASH_HEADER, await tokenHash(token));
   }
@@ -68,24 +89,37 @@ async function handle(request: Request, env: Env): Promise<Response> {
   // Every route except /v1/info depends on SETUP_TOKEN; fail closed without a usable one.
   if (route.name !== "info") setupTokenOf(env);
 
+  if (route.auth === "none") {
+    // Per route, so a burst of /v1/info polls can't use up the budget for setup or pairing.
+    await enforceLimit(env.ANON_LIMITER, `${route.name}:${request.headers.get("CF-Connecting-IP") ?? "unknown"}`);
+  }
   const headers = await forwardHeaders(request, route, env);
-  const stub = hubStub(env);
   if (route.name === "ws") {
     // WebSocket upgrades must go through fetch() with the original request.
-    return stub.fetch(new Request(request, { headers }));
+    return hubStub(env).fetch(new Request(request, { headers }));
   }
   const body = route.maxBody > 0 ? await readBody(request, route.maxBody) : null;
-  return stub.fetch(new Request(url, { method: request.method, headers, body }));
+  if (route.name === "setup") await checkSetupToken(body, env);
+  return hubStub(env).fetch(new Request(url, { method: request.method, headers, body }));
+}
+
+/** Stamps the Hub's clock on a response (SPEC §6) so clients can detect a wrong device clock. */
+function withDate(response: Response): Response {
+  // A 101 carries the WebSocket and must not be rebuilt.
+  if (response.status === 101) return response;
+  const stamped = new Response(response.body, response);
+  stamped.headers.set("Date", new Date().toUTCString());
+  return stamped;
 }
 
 export default {
   async fetch(request, env): Promise<Response> {
     try {
-      return await handle(request, env);
+      return withDate(await handle(request, env));
     } catch (err) {
-      if (err instanceof HttpError) return err.toResponse();
+      if (err instanceof HttpError) return withDate(err.toResponse());
       console.error(JSON.stringify({ event: "worker_error", error: err instanceof Error ? err.message : "unknown" }));
-      return errorResponse("internal", "internal error");
+      return withDate(errorResponse("internal", "internal error"));
     }
   },
 } satisfies ExportedHandler<Env>;

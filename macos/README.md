@@ -150,7 +150,8 @@ swift test
   against the vector public keys, and every deterministic output (AEAD ciphertexts, boxes, HKDF
   outputs, AADs, signature inputs, payload and record JSON, tokens, QR URIs) is compared byte
   for byte.
-- **HubClient**: every route's method, path, headers and body through a `URLProtocol` stub, plus
+- **HubClient**: every route's method, path, headers and body through a `URLProtocol` stub, the
+  clock check (`Date` header, `hub_time` of a `clock_skew` 400), plus
   error mapping (409 `inactive`, 429 `full`, keyring 409 `kv`, 5xx, transport errors, 404 welcome).
 - **HubSocket**: frame parsing, acks, pings, watchdog, reconnect backoff, 4001 / `revoked`,
   sleep/wake and network changes, using a fake transport and millisecond timings.
@@ -167,8 +168,8 @@ Optional checks:
 CAROM_KEYCHAIN_TESTS=1 swift test --filter realKeychainRoundTrip
 
 # Setup + pair + messages + WebSocket state + revoke/rekey + self-leave + joiner transitional
-# trust + dismiss key check against a real Hub (deployed, or `wrangler dev`), which it then RESETS.
-# The Hub must be fresh, or add CAROM_RESET_FIRST=1 to wipe it first.
+# trust + dismiss key check against a real Hub (deployed, or `wrangler dev`), then revokes its devices.
+# The Hub must be fresh: there is no reset route, change its SETUP_TOKEN secret to wipe it.
 CAROM_HUB_URL=https://carom-hub.<account>.workers.dev CAROM_SETUP_TOKEN=... \
   swift test --filter HubIntegrationTests
 ```
@@ -335,7 +336,9 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
   Again…* erases the keys after confirmation), revocation (back to onboarding), removal notices
   ("<by> removed <name>", "<name> left your devices", or "removed without a key change"), Hub
   unreachable, failed pairing
-  checks and dropped sends.
+  checks and dropped sends. When this Mac's clock is more than 5 minutes off the Hub's (`Date` header
+  of any answer, `hub_time` of a `clock_skew` 400; `ClockSkewTracker` in CaromHub, cleared below 4
+  minutes) a banner offers *Open Date & Time Settings…* and one system notice is posted per episode.
 - **Privacy.** Recent notifications and clips live in memory only; sensitive clips are never
   shown. Logs carry no content, keys, tokens or URIs.
 
@@ -376,7 +379,7 @@ The test Hub on Cloudflare works too: deploy it with `node hub/bin/carom-hub.mjs
 carom-hub-dev` and pass its URL and `~/.config/carom-hub/carom-hub-dev.json` (it holds
 `setupToken`). Only use a throwaway Hub: the token ends up in the app's launch arguments.
 
-It resets the Hub, uses the `e2e` profile, and overwrites the clipboard with a test marker.
+It needs a fresh Hub (change its `SETUP_TOKEN` to wipe one), uses the `e2e` profile, and overwrites the clipboard with a test marker.
 Notification banners only appear once Carom is allowed to post notifications.
 
 ### README images

@@ -36,6 +36,14 @@ function onlineOf(hub: HubRuntime, to: readonly string[]): string[] {
   return to.filter((id) => hasLiveSocket(hub.ctx, id));
 }
 
+/** How far a msg_id timestamp may be ahead of the Hub's clock, or behind the end of its ttl (SPEC §6 rule 8). */
+export const MSG_ID_SKEW_MS = 300_000;
+
+/** The 48-bit Unix-ms timestamp of a UUIDv7 (already validated by parseEnvelope). */
+function msgIdTime(msgId: string): number {
+  return parseInt(msgId.slice(0, 8) + msgId.slice(9, 13), 16);
+}
+
 export const post: Handler = async (call) => {
   const { hub, now } = call;
   const caller = callerOf(call);
@@ -43,6 +51,12 @@ export const post: Handler = async (call) => {
   expectKeys(body, "body", ["envelope"]);
   const parsed = parseEnvelope(body.envelope);
   const env = parsed.envelope;
+
+  // A device with a wrong clock would mint ids that expire at once or sit in the future.
+  const t = msgIdTime(env.msg_id);
+  if (t > now + MSG_ID_SKEW_MS || t + env.ttl_s * 1000 + MSG_ID_SKEW_MS < now) {
+    throw new HttpError("bad_request", "msg_id time is outside the allowed window; check the device clock", { clock_skew: true, hub_time: now });
+  }
 
   if (env.from !== caller.id) throw new HttpError("forbidden", "envelope.from must be the calling device");
   if (!(await verifyEnvelope(parsed, b64decode(caller.sign_pub)!))) throw badRequest("envelope.sig does not verify");

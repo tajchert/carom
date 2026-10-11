@@ -34,4 +34,15 @@
     <string name="feature_clipboard_ongoing_channel_description">An optional silent notification with a Send clipboard button</string>
     <string name="feature_clipboard_ongoing_title">Carom</string>
     <string name="feature_clipboard_ongoing_text">Copy something, then tap Send clipboard.</string>
+    <string name="feature_clipboard_clock_channel_name">Clock problems</string>
+    <string name="feature_clipboard_clock_channel_description">A note when this phone\'s clock is too far off for Carom to deliver messages</string>
+    <string name="feature_clipboard_clock_title">Phone clock is off</string>
+    <plurals name="feature_clipboard_clock_ahead">
+        <item quantity="one">This phone\'s clock is ahead by about %1$d minute. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+        <item quantity="other">This phone\'s clock is ahead by about %1$d minutes. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+    </plurals>
+    <plurals name="feature_clipboard_clock_behind">
+        <item quantity="one">This phone\'s clock is behind by about %1$d minute. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+        <item quantity="other">This phone\'s clock is behind by about %1$d minutes. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+    </plurals>
 </resources>

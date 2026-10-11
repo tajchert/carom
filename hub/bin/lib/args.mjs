@@ -68,14 +68,13 @@ Commands:
   update   Redeploy the latest Hub code, keeping the same token and settings
   info     Show the Hub's /v1/info
   qr       Show the setup QR code again (only while the Hub is unclaimed)
-  reset    Erase all Hub data so it can be set up again
+  reset    Rotate the setup token and erase the Hub (signs out every device); prints a new setup QR
 
 Options:
   --name <name>          Worker name (default: ${DEFAULT_NAME})
   --jurisdiction <j>     deploy: Durable Object jurisdiction, e.g. eu (cannot be changed later)
   --url <url>            info: query this Hub URL instead of a deployed one
-  --new-token            reset: also rotate the setup token (signs out every device);
-                         deploy: allow replacing the token of an existing Hub you have no saved state for
+  --new-token            deploy: allow replacing the token of an existing Hub you have no saved state for
   -y, --yes              Skip confirmation prompts
   -h, --help             Show this help
   -v, --version          Show the version

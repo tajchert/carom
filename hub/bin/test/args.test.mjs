@@ -19,8 +19,8 @@ test('deploy options and defaults', () => {
   assert.deepEqual(parseCli(['update']).options, { name: 'carom-hub', jurisdiction: null, url: null, yes: false, newToken: false });
 });
 
-test('reset --new-token and info --url', () => {
-  assert.equal(parseCli(['reset', '--new-token']).options.newToken, true);
+test('deploy --new-token and info --url', () => {
+  assert.equal(parseCli(['deploy', '--new-token']).options.newToken, true);
   assert.equal(parseCli(['info', '--url', 'https://x.workers.dev']).options.url, 'https://x.workers.dev');
 });
 

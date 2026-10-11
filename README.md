@@ -102,6 +102,10 @@ node hub/bin/carom-hub.mjs deploy      # logs in to Cloudflare, deploys, prints 
 
 The **[setup guide](docs/SETUP.md)** walks through every step, permissions, daily use and troubleshooting.
 
+Your Hub's URL is public. The Hub rate-limits strangers before they can cost anything, but a flood
+from many addresses can still use up the Free plan's 100k daily requests. The Hub then pauses
+until the next day, and your data stays safe ([details](hub/README.md#limits-and-cost)).
+
 > **Early development.** There are no prebuilt app downloads yet, so build them from source (see the
 > [setup guide](docs/SETUP.md#building-from-source)).
 

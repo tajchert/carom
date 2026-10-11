@@ -10,7 +10,6 @@ import * as pairing from "./pairing";
 export const HANDLERS: Record<RouteName, Handler> = {
   info: admin.info,
   setup: admin.setup,
-  reset: admin.reset,
   "keyring.put": keyring.put,
   "keyring.get": keyring.get,
   "pair.offer": pairing.offer,

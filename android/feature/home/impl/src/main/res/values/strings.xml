@@ -27,6 +27,15 @@
     <string name="feature_home_banner_pair_again_action">Pair again</string>
     <string name="feature_home_banner_notification_access">Carom cannot read notifications, so it forwards nothing. Turn on notification access to fix this.</string>
     <string name="feature_home_banner_notification_access_action">Open settings</string>
+    <plurals name="feature_home_banner_clock_ahead">
+        <item quantity="one">This phone\'s clock is ahead by about %1$d minute. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+        <item quantity="other">This phone\'s clock is ahead by about %1$d minutes. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+    </plurals>
+    <plurals name="feature_home_banner_clock_behind">
+        <item quantity="one">This phone\'s clock is behind by about %1$d minute. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+        <item quantity="other">This phone\'s clock is behind by about %1$d minutes. Carom can\'t deliver messages until it\'s fixed. Turn on automatic date and time.</item>
+    </plurals>
+    <string name="feature_home_banner_clock_action">Open date settings</string>
     <string name="feature_home_banner_dismiss">Dismiss</string>
 
     <string name="feature_home_pair_again_title">Pair this phone again?</string>

@@ -185,6 +185,15 @@ public final class NotificationPresenter: NSObject, UNUserNotificationCenterDele
         try? await center.add(UNNotificationRequest(identifier: spec.identifier, content: content, trigger: nil))
     }
 
+    /// Posts a notice from Carom itself (not a phone's notification). The same identifier replaces
+    /// an earlier notice, and the notice is not tied to any phone, so it is never withdrawn with one.
+    public func notify(title: String, body: String, identifier: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        try? await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+    }
+
     public func withdraw(phoneId: String, key: String) {
         let id = NotificationContentSpec.identifier(phoneId: phoneId, key: key)
         center.removeDeliveredNotifications(withIdentifiers: [id])

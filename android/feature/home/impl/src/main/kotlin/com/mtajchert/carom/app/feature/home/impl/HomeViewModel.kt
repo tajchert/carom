@@ -8,6 +8,8 @@ import com.mtajchert.carom.app.core.data.runtime.NotificationAccess
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.SyncStatusRepository
 import com.mtajchert.carom.app.core.domain.ObserveHomeStatusUseCase
+import com.mtajchert.carom.app.core.hub.ClockDrift
+import com.mtajchert.carom.app.core.hub.ClockSkewTracker
 import com.mtajchert.carom.app.core.model.ConnectionStatus
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
@@ -26,6 +28,9 @@ import javax.inject.Inject
 sealed interface HomeBanner {
     /** The Hub answered `401`: this device was removed or the Hub was reset (SPEC §5.4). */
     data object PairAgain : HomeBanner
+
+    /** This phone's clock is off the Hub's by more than 5 minutes; messages are rejected until it is fixed. */
+    data class ClockOff(val minutes: Long, val ahead: Boolean) : HomeBanner
 
     /** The notification listener is off, so nothing is forwarded. */
     data object NotificationAccess : HomeBanner
@@ -60,6 +65,7 @@ class HomeViewModel @Inject constructor(
     private val syncStatus: SyncStatusRepository,
     private val notificationAccess: NotificationAccess,
     private val sync: CaromSync,
+    clockSkew: ClockSkewTracker,
 ) : ViewModel() {
 
     private val accessGranted = MutableStateFlow(notificationAccess.isGranted())
@@ -69,7 +75,8 @@ class HomeViewModel @Inject constructor(
         recentItems.latest(RECENT_LIMIT),
         syncStatus.dismissedNoticeId,
         accessGranted,
-    ) { status, recent, dismissedUpTo, granted ->
+        clockSkew.drift,
+    ) { status, recent, dismissedUpTo, granted, drift ->
         when (val session = status.session) {
             SessionState.Loading -> HomeUiState.Loading
             SessionState.NotPaired -> HomeUiState.NotPaired
@@ -79,7 +86,7 @@ class HomeViewModel @Inject constructor(
                 connection = status.connection,
                 pendingMessages = status.pendingMessages,
                 lastSyncAt = status.lastSyncAt,
-                banners = banners(status.mustPairAgain, granted, recent, dismissedUpTo),
+                banners = banners(status.mustPairAgain, granted, drift, recent, dismissedUpTo),
                 recent = recent,
             )
         }
@@ -105,12 +112,14 @@ class HomeViewModel @Inject constructor(
     private fun banners(
         mustPairAgain: Boolean,
         accessGranted: Boolean,
+        drift: ClockDrift?,
         recent: List<RecentItem>,
         dismissedUpTo: Long,
     ): List<HomeBanner> {
         // Nothing else matters until the device is paired again.
         if (mustPairAgain) return listOf(HomeBanner.PairAgain)
         return buildList {
+            if (drift != null) add(HomeBanner.ClockOff(drift.minutes, drift.localAhead))
             if (!accessGranted) add(HomeBanner.NotificationAccess)
             recent.filter { it.id > dismissedUpTo && it.kind in REMOVAL_KINDS }
                 .take(MAX_NOTICES)

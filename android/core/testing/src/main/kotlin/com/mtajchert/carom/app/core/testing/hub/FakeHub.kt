@@ -144,13 +144,6 @@ class FakeHub(
             return addDevice(signPub, kxPub, active = true)
         }
 
-        override suspend fun reset(setupToken: String) {
-            enter("POST /v1/reset")
-            if (setupToken != this@FakeHub.setupToken) throw http(403, HubErrorCode.FORBIDDEN)
-            devices.clear(); pairings.clear(); messages.clear(); keyring.clear(); sentMsgIds.clear(); blobs.clear()
-            claimed = false
-        }
-
         override suspend fun putKeyring(version: KeyringVersion) {
             val caller = caller("PUT /v1/keyring")
             if (version.by != caller.id) throw http(403, HubErrorCode.FORBIDDEN)

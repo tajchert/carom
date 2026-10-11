@@ -13,7 +13,6 @@ export type AuthKind = "none" | "device" | "candidate";
 export type RouteName =
   | "info"
   | "setup"
-  | "reset"
   | "keyring.put"
   | "keyring.get"
   | "pair.offer"
@@ -53,7 +52,6 @@ export const BLOB_BODY_LIMIT = 1_048_576 + 1024;
 export const ROUTES: readonly Route[] = [
   { name: "info", method: "GET", path: "/v1/info", auth: "none", maxBody: 0 },
   { name: "setup", method: "POST", path: "/v1/setup", auth: "none", maxBody: SMALL },
-  { name: "reset", method: "POST", path: "/v1/reset", auth: "none", maxBody: SMALL },
   { name: "keyring.put", method: "PUT", path: "/v1/keyring", auth: "device", maxBody: MEDIUM },
   { name: "keyring.get", method: "GET", path: "/v1/keyring", auth: "device", maxBody: 0 },
   { name: "pair.offer", method: "POST", path: "/v1/pair/offer", auth: "device", maxBody: SMALL },

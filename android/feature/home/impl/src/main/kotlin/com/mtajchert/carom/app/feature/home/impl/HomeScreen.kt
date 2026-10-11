@@ -67,6 +67,7 @@ class HomeActions(
     val onOpenSettings: () -> Unit = {},
     val onSendClipboard: () -> Unit = {},
     val onOpenNotificationAccess: () -> Unit = {},
+    val onOpenDateSettings: () -> Unit = {},
     val onPairAgain: () -> Unit = {},
     val onDismissNotices: () -> Unit = {},
 )
@@ -94,6 +95,7 @@ fun HomeScreen(
             onOpenSettings = onOpenSettings,
             onSendClipboard = { context.openClipboardSender() },
             onOpenNotificationAccess = { context.openNotificationAccessSettings() },
+            onOpenDateSettings = { context.openDateSettings() },
             onPairAgain = viewModel::pairAgain,
             onDismissNotices = viewModel::dismissNotices,
         ),
@@ -103,6 +105,14 @@ fun HomeScreen(
 /** The clipboard feature's transparent activity reads the clipboard once it has focus, sends it and finishes. */
 private fun Context.openClipboardSender() {
     startActivity(ClipboardSend.intent(this))
+}
+
+private fun Context.openDateSettings() {
+    try {
+        startActivity(Intent(Settings.ACTION_DATE_SETTINGS))
+    } catch (_: ActivityNotFoundException) {
+        startActivity(Intent(Settings.ACTION_SETTINGS))
+    }
 }
 
 private fun Context.openNotificationAccessSettings() {
@@ -192,6 +202,17 @@ private fun Paired(state: HomeUiState.Paired, actions: HomeActions, now: Long) {
                     text = stringResource(R.string.feature_home_banner_notification_access),
                     action = stringResource(R.string.feature_home_banner_notification_access_action),
                     onAction = actions.onOpenNotificationAccess,
+                )
+                is HomeBanner.ClockOff -> Banner(
+                    icon = Icons.Outlined.ErrorOutline,
+                    text = pluralStringResource(
+                        if (banner.ahead) R.plurals.feature_home_banner_clock_ahead else R.plurals.feature_home_banner_clock_behind,
+                        banner.minutes.toInt(),
+                        banner.minutes,
+                    ),
+                    action = stringResource(R.string.feature_home_banner_clock_action),
+                    onAction = actions.onOpenDateSettings,
+                    error = true,
                 )
                 is HomeBanner.DeviceRemoved -> Unit
             }

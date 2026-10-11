@@ -18,6 +18,8 @@ final class StubProtocol: URLProtocol {
 
     enum Reply: Sendable {
         case status(Int, String)
+        /// An answer with extra response headers (for example `Date`).
+        case statusWithHeaders(Int, String, [String: String])
         /// A binary answer (the blob routes).
         case bytes(Int, Data)
         case failure(URLError.Code)
@@ -63,10 +65,13 @@ final class StubProtocol: URLProtocol {
             s.requests.append(rec)
             return s.handler
         }
-        switch handler?(rec) ?? .status(500, "") {
-        case .status(let code, let text):
+        let reply = handler?(rec) ?? .status(500, "")
+        switch reply {
+        case .status(let code, let text), .statusWithHeaders(let code, let text, _):
+            var headers = ["Content-Type": "application/json"]
+            if case .statusWithHeaders(_, _, let extra) = reply { headers.merge(extra) { _, new in new } }
             let resp = HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: "HTTP/1.1",
-                                       headerFields: ["Content-Type": "application/json"])!
+                                       headerFields: headers)!
             client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Data(text.utf8))
             client?.urlProtocolDidFinishLoading(self)
@@ -187,7 +192,6 @@ struct HubClientTests {
         #expect(try await c.fetchMessages(limit: 500)
                 == MessagePage(messages: [InboundMessage(seq: 3, envelope: ["v": 1])], more: true))
         try await c.ack(upTo: 3)
-        try await c.reset(setupToken: "t")
 
         let seen = StubProtocol.requests.map { "\($0.method) \(URL(string: $0.url)!.path)\(URL(string: $0.url)!.query.map { "?" + $0 } ?? "")" }
         #expect(seen == [
@@ -203,7 +207,6 @@ struct HubClientTests {
             "POST /carom/v1/messages",
             "GET /carom/v1/messages?limit=200",
             "POST /carom/v1/acks",
-            "POST /carom/v1/reset",
         ])
         let bodies = StubProtocol.requests.map(\.json)
         #expect(bodies[0] == version.json)
@@ -211,8 +214,6 @@ struct HubClientTests {
         #expect(bodies[7] == ["record": sealed.json])
         #expect(bodies[9] == ["envelope": env.json])
         #expect(bodies[11] == ["up_to": 3])
-        #expect(bodies[12] == ["setup_token": "t", "confirm": "erase everything"])
-        #expect(StubProtocol.requests[12].headers["Authorization"] == nil)
     }
 
     @Test("SPEC §6: POST /v1/messages reports the recipients that were online")
@@ -378,6 +379,67 @@ struct HubClientTests {
         StubProtocol.install { _ in .status(200, "{}") }
         await #expect(throws: HubError.self) { try await client().revoke(deviceId: "../v1/reset") }
         #expect(StubProtocol.requests.isEmpty)
+    }
+
+    // MARK: Clock check
+
+    /// 2026-10-11 22:34:07 GMT.
+    static let hubNowMs = 1_791_758_047_000
+
+    func clockClient(localMs: Int, tracker: inout ClockSkewTracker?) -> HubClient {
+        let t = ClockSkewTracker(now: { localMs })
+        tracker = t
+        return HubClient(baseURL: base, token: "ct1.token", session: StubProtocol.session(), clockSkew: t)
+    }
+
+    @Test func dateHeaderFeedsTheClockTracker() async throws {
+        StubProtocol.install { _ in
+            .statusWithHeaders(200, "{}", ["Date": "Sun, 11 Oct 2026 22:34:07 GMT"])
+        }
+        var tracker: ClockSkewTracker?
+        // The local clock is 10 minutes behind the Hub.
+        let c = clockClient(localMs: Self.hubNowMs - 600_000, tracker: &tracker)
+        try await c.ack(upTo: 1)
+        #expect(tracker?.drift == 600_000)
+    }
+
+    @Test func missingOrBrokenDateHeaderIsIgnored() async throws {
+        StubProtocol.install { _ in .statusWithHeaders(200, "{}", ["Date": "yesterday"]) }
+        var tracker: ClockSkewTracker?
+        let c = clockClient(localMs: 0, tracker: &tracker)
+        try await c.ack(upTo: 1)
+        StubProtocol.install { _ in .status(200, "{}") }
+        try await c.ack(upTo: 2)
+        #expect(tracker?.drift == nil)
+    }
+
+    @Test func clockSkewBadRequestFeedsHubTime() async throws {
+        let body = #"{"error":{"code":"bad_request","message":"msg_id time is outside the allowed window; "#
+            + #"check the device clock"},"clock_skew":true,"hub_time":1791758047000}"#
+        StubProtocol.install { _ in .status(400, body) }
+        var tracker: ClockSkewTracker?
+        // The local clock is 20 minutes ahead.
+        let c = clockClient(localMs: Self.hubNowMs + 1_200_000, tracker: &tracker)
+        do {
+            _ = try await c.ack(upTo: 1)
+            Issue.record("expected an error")
+        } catch {
+            #expect(error.status == 400)
+            #expect(error.apiError?.clockSkew == true)
+            #expect(error.apiError?.hubTime == Self.hubNowMs)
+            #expect(!error.isRetryable)
+        }
+        #expect(tracker?.drift == -1_200_000)
+    }
+
+    @Test func plainBadRequestDoesNotTouchTheTracker() async throws {
+        StubProtocol.install { _ in
+            .status(400, #"{"error":{"code":"bad_request","message":"x"},"hub_time":1}"#)
+        }
+        var tracker: ClockSkewTracker?
+        let c = clockClient(localMs: Self.hubNowMs, tracker: &tracker)
+        await #expect(throws: HubError.self) { try await c.ack(upTo: 1) }
+        #expect(tracker?.drift == nil)
     }
 
     @Test func urls() {

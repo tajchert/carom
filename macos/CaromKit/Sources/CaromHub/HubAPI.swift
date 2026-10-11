@@ -6,7 +6,6 @@ import Foundation
 public protocol HubAPI: Sendable {
     func info() async throws(HubError) -> HubInfo
     func setup(setupToken: String, signPub: Data, kxPub: Data) async throws(HubError) -> HubCredentials
-    func reset(setupToken: String) async throws(HubError)
 
     func putKeyring(_ version: KeyringVersion) async throws(HubError)
     /// Raw versions newer than `have`, to be checked with `Rekey.open`.

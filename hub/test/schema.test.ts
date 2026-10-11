@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import type { Hub } from "../src/hub";
 import { DATA_TABLES, migrate } from "../src/schema";
 
+/** The v1–v4 lockouts table, which v5 drops; rewinding to an older version puts it back. */
+const LOCKOUTS = "CREATE TABLE lockouts (route TEXT PRIMARY KEY, window_start INTEGER NOT NULL, failures INTEGER NOT NULL, locked_until INTEGER NOT NULL) WITHOUT ROWID";
+
 describe("schema migrations", () => {
   it("v2 keeps queued v1 messages and adds the tombstone and expiry indexes", async () => {
     const stub = env.HUB.get(env.HUB.idFromName("migration-test"));
@@ -20,6 +23,7 @@ describe("schema migrations", () => {
         recipients TEXT NOT NULL, envelope TEXT NOT NULL, expires_at INTEGER NOT NULL, UNIQUE (sender, msg_id))`);
       sql.exec("CREATE UNIQUE INDEX messages_collapse ON messages (sender, collapse) WHERE collapse IS NOT NULL");
       sql.exec(`INSERT INTO messages VALUES (7, 'dev_a', 'm1', 'c1', '["dev_b"]', '{"x":1}', 123)`);
+      sql.exec(LOCKOUTS);
       sql.exec("UPDATE meta SET value = '1' WHERE key = 'schema_version'");
 
       migrate(state.storage);
@@ -31,7 +35,7 @@ describe("schema migrations", () => {
       };
     });
     expect(result).toEqual({
-      version: "4",
+      version: "5",
       rows: [{ seq: 7, sender: "dev_a", msg_id: "m1", collapse: "c1", recipients: '["dev_b"]', envelope: '{"x":1}', expires_at: 123 }],
       indexes: ["blobs_expires", "blobs_msg", "messages_collapse", "messages_expires", "messages_live", "pairings_expires"],
       nullable: 0,
@@ -52,6 +56,7 @@ describe("schema migrations", () => {
         push_sent_at INTEGER) WITHOUT ROWID`);
       sql.exec(`INSERT INTO devices VALUES ('dev_a', 'active', 'sp', 'kp', 'th', 1, 2, 5, '{"r":1}', 'https://p.example/x', 'k', 'a', 9)`);
       sql.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('vapid', '{}'), ('claimed', '1')");
+      sql.exec(LOCKOUTS);
       sql.exec("UPDATE meta SET value = '2' WHERE key = 'schema_version'");
 
       migrate(state.storage);
@@ -62,7 +67,7 @@ describe("schema migrations", () => {
       };
     });
     expect(result).toEqual({
-      version: "4",
+      version: "5",
       devices: [{ id: "dev_a", status: "active", sign_pub: "sp", kx_pub: "kp", token_hash: "th", created_at: 1, last_seen: 2, cursor: 5, record: '{"r":1}' }],
       meta: ["claimed", "schema_version"],
     });
@@ -73,6 +78,7 @@ describe("schema migrations", () => {
     const result = await runInDurableObject(stub, (_hub: Hub, state) => {
       const sql = state.storage.sql;
       sql.exec("DROP TABLE blobs");
+      sql.exec(LOCKOUTS);
       sql.exec("UPDATE meta SET value = '3' WHERE key = 'schema_version'");
       migrate(state.storage);
       return {
@@ -85,10 +91,24 @@ describe("schema migrations", () => {
       };
     });
     expect(result).toEqual({
-      version: "4",
+      version: "5",
       columns: ["id", "owner", "msg_id", "size", "data", "expires_at"],
       indexes: ["blobs_expires", "blobs_msg"],
     });
     expect(DATA_TABLES).toContain("blobs");
+  });
+
+  it("v5 drops the lockouts table, and reset no longer lists it", async () => {
+    const stub = env.HUB.get(env.HUB.idFromName("migration-test-v5"));
+    const tables = await runInDurableObject(stub, (_hub: Hub, state) => {
+      const sql = state.storage.sql;
+      sql.exec(LOCKOUTS);
+      sql.exec("INSERT INTO lockouts VALUES ('setup', 1, 0, 9999999999999)");
+      sql.exec("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+      migrate(state.storage);
+      return sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'lockouts'").toArray();
+    });
+    expect(tables).toEqual([]);
+    expect(DATA_TABLES).not.toContain("lockouts");
   });
 });

@@ -6,7 +6,15 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
-      miniflare: { bindings: { SETUP_TOKEN: TEST_SETUP_TOKEN } },
+      miniflare: {
+        bindings: { SETUP_TOKEN: TEST_SETUP_TOKEN },
+        // Every test request shares one key, so lift the deployed limits; test/worker.test.ts
+        // covers the 429 path with a stub limiter.
+        ratelimits: {
+          ANON_LIMITER: { namespace_id: "730101", simple: { limit: 1_000_000, period: 60 } },
+          DEVICE_LIMITER: { namespace_id: "730102", simple: { limit: 1_000_000, period: 60 } },
+        },
+      },
     }),
   ],
   test: {

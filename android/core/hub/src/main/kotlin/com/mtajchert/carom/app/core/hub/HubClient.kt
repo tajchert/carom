@@ -24,9 +24,6 @@ interface HubClient {
     /** `POST /v1/setup` (no auth). Only works once per Hub. */
     suspend fun setup(setupToken: String, signPub: String, kxPub: String): DeviceCredentials
 
-    /** `POST /v1/reset` (no auth). Wipes all Hub state. */
-    suspend fun reset(setupToken: String)
-
     /** `PUT /v1/keyring`. Throws [HubException.Http] with `conflict` when `kv` is not current + 1. */
     suspend fun putKeyring(version: KeyringVersion)
 

@@ -48,3 +48,11 @@ export async function setupTokenMatches(secret: string, presented: string): Prom
   const [a, b] = await Promise.all([sha256(utf8(secret)), sha256(utf8(presented))]);
   return constantTimeEqual(a, b);
 }
+
+/**
+ * What the Hub remembers of the SETUP_TOKEN it was set up under: b64(SHA-256(lp(label) || lp(token))).
+ * A different fingerprint later means the secret changed, which is how a reset is requested.
+ */
+export async function setupFingerprint(setupToken: string): Promise<string> {
+  return b64encode(await sha256(concat(lp("carom/v1/setup-fingerprint"), lp(setupToken))));
+}

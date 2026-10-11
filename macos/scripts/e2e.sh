@@ -4,7 +4,8 @@
 #   macos/scripts/e2e.sh <hub url> <setup token file> <path to Debug Carom.app> [work dir]
 #
 # Start the Hub first, for example `cd hub && npx wrangler dev --port 8790`, with the token from
-# the JSON file ({"setupToken": "..."}) in hub/.dev.vars. The script resets the Hub, launches the
+# the JSON file ({"setupToken": "..."}) in hub/.dev.vars. The Hub must be fresh (there is no
+# reset route: change its SETUP_TOKEN to wipe it). The script launches the
 # app with Debug-only launch arguments in a separate profile ("e2e": its own Application Support
 # folder and Keychain service), lets it set up the Hub and show a pair invite, pairs
 # macos/scripts/fake-phone.mjs through it, sends a notification and a clipboard item, then the V2
@@ -36,9 +37,7 @@ except Exception: pass
 print(t)' "$TOKEN_FILE")
 SETUP_URI=$(python3 -c 'import sys, urllib.parse as u; print("carom://setup?v=1&h=" + u.quote(sys.argv[1], safe="") + "&t=" + u.quote(sys.argv[2], safe=""))' "$HUB" "$TOKEN")
 
-echo "== reset Hub and the e2e profile"
-curl -fsS -X POST "$HUB/v1/reset" -H 'content-type: application/json' \
-  -d "{\"setup_token\":\"$TOKEN\",\"confirm\":\"erase everything\"}" >/dev/null
+echo "== reset the e2e profile (the Hub must be fresh)"
 rm -rf "$HOME/Library/Application Support/Carom-$PROFILE"
 while security delete-generic-password -s "$SERVICE" >/dev/null 2>&1; do :; done
 osascript -e 'tell application id "com.mtajchert.carom.mac" to quit' >/dev/null 2>&1 || true
