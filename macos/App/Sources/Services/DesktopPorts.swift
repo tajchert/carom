@@ -63,10 +63,12 @@ struct DesktopServices {
     var clipboard: any ClipboardWatching
     var hotkey: any HotkeyRegistering
     var loginItem: any LoginItemControlling
+    /// Where the Live Update chip is drawn.
+    var liveChipHost: any LiveChipHost = NullLiveChipHost()
 
     static func live() -> DesktopServices {
         DesktopServices(presenter: NotificationPresenter(center: .current()),
                         clipboard: ClipboardWatcher(pasteboard: .general, interval: 0.5),
-                        hotkey: HotkeyManager(), loginItem: SystemLoginItem())
+                        hotkey: HotkeyManager(), loginItem: SystemLoginItem(), liveChipHost: StatusItemChipHost())
     }
 }

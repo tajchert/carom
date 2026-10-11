@@ -117,6 +117,7 @@ final class AppModel {
     @ObservationIgnored private let loginItem: any LoginItemControlling
     /// Decrypted images of notifications and media, shared by every card.
     @ObservationIgnored let blobs: BlobStore
+    @ObservationIgnored private let liveChip: LiveChip
     @ObservationIgnored private let options: Options
     @ObservationIgnored private let log = Logger(subsystem: "com.mtajchert.carom.mac", category: "app")
 
@@ -131,6 +132,7 @@ final class AppModel {
     @ObservationIgnored private var suppressCopiesUntil = Date.distantPast
     @ObservationIgnored private var watcherRunning = false
     @ObservationIgnored private var sawNetworkPath = false
+    @ObservationIgnored private var liveUpdates: [(id: String, posted: NotificationPosted)] = []
 
     init(sync: any SyncService, desktop: DesktopServices, options: Options = Options()) {
         self.sync = sync
@@ -140,6 +142,7 @@ final class AppModel {
         loginItem = desktop.loginItem
         self.options = options
         blobs = BlobStore(directory: options.blobDirectory) { [sync] ref in await sync.fetchBlob(ref) }
+        liveChip = LiveChip(host: desktop.liveChipHost)
     }
 
     /// The production graph: Keychain secrets, a JSON state file in Application Support and the
@@ -274,6 +277,7 @@ final class AppModel {
         receiveRules = await sync.receiveRules
         if loadPreferences {
             preferences = Preferences(json: await sync.settings[Preferences.settingsKey])
+            applyLiveChipSetting()
         }
         applyDirectory(await sync.directory)
     }
@@ -288,6 +292,7 @@ final class AppModel {
         for gone in phones where !newIds.contains(gone.record.id) {
             presenter.withdrawAll(phoneId: gone.record.id)
             activity.removeNotifications(phoneId: gone.record.id)
+            forget(phoneId: gone.record.id)
         }
         directory = newDirectory
         deviceStatus = deviceStatus.filter { newIds.contains($0.key) }
@@ -420,6 +425,7 @@ final class AppModel {
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
                                             msgId: msgId, code: code, date: options.now()))
             await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
+            trackLive(phoneId: sender.id, posted: n)
             let presented = PresentedNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                                   appName: n.app.name, title: n.title, text: text, key: n.key,
                                                   msgId: msgId)
@@ -428,6 +434,7 @@ final class AppModel {
         case .notificationRemoved(let r):
             presenter.withdraw(phoneId: sender.id, key: r.key)
             activity.removeNotification(phoneId: sender.id, key: r.key)
+            untrackLive(phoneId: sender.id, key: r.key)
             trace("notification withdrawn")
         case .clipboardSet(let c):
             guard !preferences.paused, receives(.clipboard, from: sender.id) else { return }
@@ -442,6 +449,32 @@ final class AppModel {
         case .notificationAction, .notificationActionResult, .mediaState, .mediaCommand:
             break  // V2: handled by the Mac rich-notification milestones (M4a, M4b)
         }
+    }
+
+    // MARK: Live Updates
+
+    /// Keeps the menu-bar chip in step with the promoted Live Updates (newest first).
+    private func trackLive(phoneId: String, posted n: NotificationPosted) {
+        let id = "\(phoneId)/\(n.key)"
+        liveUpdates.removeAll { $0.id == id }
+        if n.live?.promoted == true { liveUpdates.insert((id: id, posted: n), at: 0) }
+        updateLiveChip()
+    }
+
+    private func untrackLive(phoneId: String, key: String) {
+        let id = "\(phoneId)/\(key)"
+        liveUpdates.removeAll { $0.id == id }
+        updateLiveChip()
+    }
+
+    private func updateLiveChip() { liveChip.update(liveUpdates.map(\.posted)) }
+
+    private func applyLiveChipSetting() { liveChip.enabled = preferences.showsLiveChip && !preferences.paused }
+
+    /// A phone left: what it showed goes with it.
+    private func forget(phoneId: String) {
+        liveUpdates.removeAll { $0.id.hasPrefix(phoneId + "/") }
+        updateLiveChip()
     }
 
     /// Engine events (SyncHandler).
@@ -596,6 +629,13 @@ final class AppModel {
         preferences.paused = paused
         savePreferences()
         updateWatcher()
+        applyLiveChipSetting()
+    }
+
+    func setLiveChip(_ on: Bool) {
+        preferences.liveChip = on
+        savePreferences()
+        applyLiveChipSetting()
     }
 
     func setAutomaticClipboard(_ on: Bool) {
@@ -679,7 +719,10 @@ final class AppModel {
         directory = []
         receiveRules = [:]
         preferences = Preferences()
+        applyLiveChipSetting()
         activity.clear()
+        liveUpdates = []
+        updateLiveChip()
         let blobs = self.blobs
         Task { await blobs.clear() }
         deviceStatus = [:]

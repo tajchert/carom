@@ -172,6 +172,19 @@ final class FakeHotkey: HotkeyRegistering {
 }
 
 @MainActor
+final class FakeChipHost: LiveChipHost {
+    /// "show text:5 min", "show progress:0.5", "hide".
+    var calls: [String] = []
+    func show(_ content: LiveChipContent) {
+        switch content {
+        case .text(let t): calls.append("show text:\(t)")
+        case .progress(let f): calls.append("show progress:\(f)")
+        }
+    }
+    func hide() { calls.append("hide") }
+}
+
+@MainActor
 final class FakeLoginItem: LoginItemControlling {
     var isEnabled = false
     var requiresApproval = false
@@ -195,6 +208,7 @@ struct Harness {
     let clipboard = FakeClipboard()
     let hotkey = FakeHotkey()
     let loginItem = FakeLoginItem()
+    let chipHost = FakeChipHost()
     let clock: TestClock
 
     init(directory: [DirectoryEntry] = [entry(record(phoneA, "Pixel", kind: .phone))],
@@ -215,7 +229,7 @@ struct Harness {
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
-                                                  loginItem: loginItem),
+                                                  loginItem: loginItem, liveChipHost: chipHost),
                          options: options)
     }
 

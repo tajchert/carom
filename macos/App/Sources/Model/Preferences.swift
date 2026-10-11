@@ -26,6 +26,9 @@ struct Preferences: Codable, Equatable, Sendable {
     var clipboardSendTo: [String]?
     /// The user finished onboarding (name and permissions steps).
     var onboardingComplete = false
+    /// "Show Live Updates in the menu bar". `nil` follows the default: on. Optional so that
+    /// settings saved before this existed still decode.
+    var liveChip: Bool?
 
     init() {}
 
@@ -43,6 +46,8 @@ struct Preferences: Codable, Equatable, Sendable {
     }
 
     func isMuted(_ appId: String) -> Bool { mutedApps.contains(appId) }
+
+    var showsLiveChip: Bool { liveChip ?? true }
 
     /// Records an app; returns true when something changed.
     @discardableResult

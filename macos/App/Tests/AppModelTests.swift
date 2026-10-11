@@ -505,3 +505,58 @@ struct BlobAndCodeTests {
         #expect(await h.sync.fetchedBlobs == ["blob1"])
     }
 }
+
+// MARK: - Live Update chip
+
+private let promoted: JSONObject = ["live": ["promoted": true, "short_critical_text": "5 min"]]
+
+@MainActor
+@Suite("Live Update chip")
+struct LiveChipWiringTests {
+    @Test func promotedLiveUpdateShowsTheChipUntilItIsRemoved() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        #expect(h.chipHost.calls == ["show text:5 min"])
+        await h.model.dispatch(.notificationRemoved(NotificationRemoved(key: "k1")), msgId: "m2", sender: pixel)
+        #expect(h.chipHost.calls == ["show text:5 min", "hide"])
+    }
+
+    @Test func anUpdateThatIsNoLongerPromotedEndsTheChip() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        await h.model.dispatch(rich("k1"), msgId: "m2", sender: pixel)
+        #expect(h.chipHost.calls == ["show text:5 min", "hide"])
+    }
+
+    @Test func plainNotificationsNeverShowTheChip() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        await h.model.dispatch(rich("k2", ["live": ["promoted": false, "short_critical_text": "x"]]), msgId: "m2",
+                               sender: pixel)
+        #expect(h.chipHost.calls.isEmpty)
+    }
+
+    @Test func chipSettingAndPauseHideIt() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        h.model.setLiveChip(false)
+        #expect(h.chipHost.calls.last == "hide")
+        h.model.setLiveChip(true)
+        #expect(h.chipHost.calls.last == "show text:5 min")
+        h.model.setPaused(true)
+        #expect(h.chipHost.calls.last == "hide")
+    }
+
+    @Test func removingThePhoneEndsItsChip() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        await h.sync.set(directory: [entry(galaxy)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.chipHost.calls == ["show text:5 min", "hide"])
+    }
+}

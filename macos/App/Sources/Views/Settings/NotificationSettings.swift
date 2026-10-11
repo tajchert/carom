@@ -68,6 +68,14 @@ struct NotificationSettings: View {
                 } footer: {
                     Footnote("Muted apps are hidden on this Mac only. Focus and Do Not Disturb apply as usual.")
                 }
+
+                Section {
+                    Toggle("Show Live Updates in the menu bar", isOn: Binding(
+                        get: { model.preferences.showsLiveChip },
+                        set: { model.setLiveChip($0) }))
+                } footer: {
+                    Footnote("Rides, deliveries and timers from your phone get a small item next to the Carom icon until they end.")
+                }
             }
             .formStyle(.grouped)
         }
