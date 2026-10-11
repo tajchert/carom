@@ -352,10 +352,16 @@ Debug builds accept launch arguments (Release builds ignore them; see
 | `-caromAutoApprove YES` | approve a verified pairing candidate |
 | `-caromEventLog <path>` | append event names and message types, never content |
 | `-caromShowWindows menu,settings` | open the popover content in a window, and Settings, for screenshots |
+| `-caromAutoReply <text>` | load the images of the first card with a reply action, then reply on it |
+| `-caromAutoMedia <command>` | send `play`, `pause`, `next` or `previous` to the first media session offering it |
 
 `scripts/e2e.sh` uses them to run the real app against a local Hub with a simulated phone
 (`scripts/fake-phone.mjs`, real crypto from `@carom/protocol`): setup, pairing, notification
-posted and removed, clipboard. It checks the event log and the pasteboard:
+posted and removed, clipboard, and the V2 set: an encrypted avatar blob (uploaded and read
+back), a rich messaging card with a reply action that the app answers and the phone confirms
+with `notification.action_result@1`, a progress Live Update with two updates, and a
+`media.state@1` that the app answers with `media.command@1`. It checks the event log and the
+pasteboard, then prints a short list of things to check on screen:
 
 ```sh
 npm install && (cd protocol/ts && npm run build)      # once, at the repository root
@@ -365,6 +371,10 @@ printf '{"setupToken":"%s"}' "$TOKEN" > /tmp/carom-token.json
 macos/scripts/e2e.sh http://localhost:8790 /tmp/carom-token.json \
   ~/Library/Developer/Xcode/DerivedData/Carom-*/Build/Products/Debug/Carom.app
 ```
+
+The test Hub on Cloudflare works too: deploy it with `node hub/bin/carom-hub.mjs update --name
+carom-hub-dev` and pass its URL and `~/.config/carom-hub/carom-hub-dev.json` (it holds
+`setupToken`). Only use a throwaway Hub: the token ends up in the app's launch arguments.
 
 It resets the Hub, uses the `e2e` profile, and overwrites the clipboard with a test marker.
 Notification banners only appear once Carom is allowed to post notifications.
