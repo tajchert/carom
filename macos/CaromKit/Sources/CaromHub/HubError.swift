@@ -58,6 +58,8 @@ public struct HubAPIError: Sendable, Equatable {
     public var inactive: [String] { body["inactive"]?.arrayValue?.compactMap(\.stringValue) ?? [] }
     /// `429 {"full": [ids]}` on `POST /v1/messages`.
     public var full: [String] { body["full"]?.arrayValue?.compactMap(\.stringValue) ?? [] }
+    /// `429 {"quota": true}` on `PUT /v1/blobs/:id`: the Hub's blob storage is full.
+    public var quota: Bool { body["quota"]?.boolValue ?? false }
     /// `409 {"kv": n}` on `PUT /v1/keyring`: the Hub's newest keyring version.
     public var keyringKv: Int? { body["kv"]?.safeInt }
 }
@@ -80,11 +82,11 @@ public enum HubError: Error, Sendable, Equatable {
     public var status: Int? { apiError?.status }
     public var code: HubErrorCode? { apiError?.code }
 
-    /// Worth retrying later with backoff: network errors, 5xx, and 429 without `full`.
+    /// Worth retrying later with backoff: network errors, 5xx, and 429 without `full` or `quota`.
     public var isRetryable: Bool {
         switch self {
         case .transport: true
-        case .api(let e): e.status >= 500 || (e.status == 429 && e.full.isEmpty)
+        case .api(let e): e.status >= 500 || (e.status == 429 && e.full.isEmpty && !e.quota)
         case .invalidResponse, .missingToken: false
         }
     }
