@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.mtajchert.carom.app.feature.notifications.impl.actions.ActiveCallTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,8 @@ class CaromListenerService : NotificationListenerService() {
     @Inject lateinit var extractor: NotificationExtractor
 
     @Inject lateinit var bridge: ActiveNotificationsBridge
+
+    @Inject lateinit var callTracker: ActiveCallTracker
 
     private var scope: CoroutineScope? = null
     private var forwarder: NotificationForwarder? = null
@@ -87,6 +90,7 @@ class CaromListenerService : NotificationListenerService() {
         val f = forwarder ?: return
         // Cheapest possible check on the main thread; everything else happens on the consumer.
         if (sbn.packageName == packageName) return
+        callTracker.onPosted(sbn)
         f.onPosted {
             val ranking = Ranking()
             val map = rankingMap ?: currentRanking
@@ -97,6 +101,7 @@ class CaromListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) = onNotificationPosted(sbn, null)
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?) {
+        callTracker.onRemoved(sbn.key)
         forwarder?.onRemoved(sbn.key)
     }
 
