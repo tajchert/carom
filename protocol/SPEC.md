@@ -56,6 +56,7 @@ Derived from `K`:
 ```
 msg_key(K, salt)  = HKDF(ikm=K, salt=salt, info="carom/v1/msg", L=32)
 K_collapse(K)     = HKDF(ikm=K, salt="",   info="carom/v1/collapse", L=32)
+blob_conv(K, P)   = HKDF(ikm=K, salt=SHA-256(P), info="carom/v1/blob-conv", L=32)   // §11.2, icons only
 ```
 
 ### 2.2 Device id
@@ -138,7 +139,9 @@ to_joined = lp(to[0]) || lp(to[1]) || ...      (in the order sent)
 ```
 
 Size limits: the (padded) plaintext payload is at most 65 536 bytes, and the envelope
-serialized as compact JSON is at most 98 304 bytes. The Worker also caps the raw request body. Larger content will use `blob.ref@1` (phase 2).
+serialized as compact JSON is at most 98 304 bytes. The Worker also caps the raw request body.
+Images never travel inside an envelope. A body carries a blob reference (§11.1), and the
+encrypted bytes are uploaded separately (§6). There is no blob message type.
 
 ### 3.1 Payload (plaintext inside `ct`)
 
@@ -190,26 +193,130 @@ Apply these in order. The first failure drops the message silently (log it local
    Before dropping a message for `unknown_kv` or an untrusted sender, the receiver refreshes
    the directory and the keyring once and re-checks. Only after that is the message dropped.
 5. The type is known (`caps`). Unknown types are acknowledged and ignored. A known type
-   whose body fails its schema is dropped (`bad_payload`).
+   whose body fails its schema is dropped (`bad_payload`). So is a type that requires
+   `reply_to` (§4) but has none.
 6. For `clipboard.set`: ignore it if `ts` is older than the last clipboard item applied locally.
 7. A message with `reply_to` is accepted only from a device that was in the `to` of the
-   original message. The original sender knows this. For `notification.dismiss@1`, the `key`
-   must also equal the key of that original message.
+   original message. The original sender knows this. In addition:
+   - `notification.dismiss@1` and `notification.action@1`: the `key` must equal the key of
+     the original `notification.posted@1`. The phone accepts a `reply_to` that names *any*
+     posted msg_id it still records for that key, not only the latest. Every update gets a
+     new msg_id, and the desktop may act on an older one.
+   - `notification.action_result@1`: the original must be a `notification.action@1` this
+     device sent.
+   - `media.command@1`: the original must be a `media.state@1` this device sent for the same
+     `session`, and that session must still be active.
 
-## 4. Message types (v1)
+## 4. Message types
 
 The JSON Schemas are in `schemas/`. Additive fields do not bump `@major`, and receivers
 MUST ignore unknown fields.
 
-| Type | Body | Default TTL | Collapse |
-|---|---|---|---|
-| `notification.posted@1` | `key, app{id,name}, title?, text?, sub_text?, category?, posted_at, redacted, ongoing?` | 2 days | `n:<key>` |
-| `notification.removed@1` | `key` | 2 days | `n:<key>` |
-| `notification.dismiss@1` | `key`, with `reply_to` set to the posted message's msg_id | 1 day | none |
-| `clipboard.set@1` | `mime` (`text/plain`), `text`, `sensitive` (bool), `source?` | 1 day | `clip` |
-| `device.status@1` | `battery?` (0–100), `charging?` | 1 day | `status` |
+| Type | Direction | Body | Default TTL | Collapse | `reply_to` |
+|---|---|---|---|---|---|
+| `notification.posted@1` | phone → desktop | `key, app{id,name,icon?}, title?, text?, sub_text?, category?, posted_at, redacted, ongoing?` and the fields of §4.1 | 2 days | `n:<key>` | — |
+| `notification.removed@1` | phone → desktop | `key` | 2 days | `n:<key>` | — |
+| `notification.dismiss@1` | desktop → phone | `key` | 1 day | none | required: the posted msg_id |
+| `clipboard.set@1` | any | `mime` (`text/plain`), `text`, `sensitive` (bool), `source?` | 1 day | `clip` | — |
+| `device.status@1` | any | `battery?` (0–100), `charging?` | 1 day | `status` | — |
+| `notification.action@1` | desktop → phone | `key, action` (§4.2) | 10 minutes | none | required: the posted msg_id |
+| `notification.action_result@1` | phone → desktop | `ok, error?` (§4.2) | 10 minutes | none | required: the action msg_id |
+| `media.state@1` | phone → desktop | §4.3 | 1 day | `m:<session>` | — |
+| `media.command@1` | desktop → phone | `session, command, position_ms?` (§4.3) | 10 minutes | none | required: a `media.state` msg_id of that session |
 
 Notification text is plain text. Receivers MUST NOT render markup or auto-open URLs.
+
+Integers in bodies are JSON numbers without a fraction. "int32" means a signed 32-bit value
+(a Java `int`), so an ARGB colour with the alpha bit set is negative.
+
+### 4.1 Rich notification fields
+
+All of these fields on `notification.posted@1` are optional, so a V1 receiver ignores them.
+Text fields are plain text.
+
+| Field | Type | Notes |
+|---|---|---|
+| `template` | string | `standard`, `big_text`, `inbox`, `messaging`, `big_picture`, `progress`, `call`, `media` or `custom`. Detected from `EXTRA_TEMPLATE` by class-name suffix. Receivers render an unknown value as `standard`. |
+| `color` | int32 | `Notification.color` (ARGB). Absent when it is the default. |
+| `colorized` | bool | Honoured only for foreground-service and media notifications. |
+| `app.icon` | blob ref | The app icon. Convergent key (§11.2). |
+| `small_icon` | blob ref | Alpha mask, tinted by `color`. Convergent key. |
+| `large_icon` | blob ref | |
+| `picture`, `picture_desc` | blob ref, string | Big picture and its content description. |
+| `big_text` | string | Expanded text. `text` stays the collapsed text. |
+| `lines` | string[], at most 7 | Inbox style. |
+| `summary_text` | string | |
+| `conversation` | `{title?, is_group, icon?}` | `icon` is a blob ref. |
+| `messages` | at most 6 of `{sender?, text, ts, image?}`, newest last | Messaging style. `sender` is `{name, key?, icon?}`. `image` and `icon` are blob refs. |
+| `actions` | at most 6 of `{index, title, semantic?, reply?: {label?, choices?: string[]}}` | `index` is the position in `Notification.actions`. `semantic` is the `SEMANTIC_ACTION_*` value. |
+| `can_open` | bool | The notification has a content intent. |
+| `progress` | `{value, max, indeterminate, segments?, points?, tracker_icon?, start_icon?, end_icon?}` | `ProgressStyle` or legacy progress. At most 10 `segments` of `{length, color?}` and 4 `points` of `{position, color?}`. The icons are blob refs. |
+| `live` | `{promoted, short_critical_text?}` | `promoted` is `FLAG_PROMOTED_ONGOING`. |
+| `when` | time ms | Shown only when `show_when` is true. |
+| `show_when` | bool | |
+| `chronometer` | `{count_down}` | Counts from `when`. The receiver ticks it locally. |
+| `call` | `{type, person?, is_video?, verification?}` | `type` is `incoming`, `ongoing`, `screening` or `unknown`, and receivers treat other values as `unknown`. `person` is `{name, key?, icon?}`. |
+| `group` | `{key, summary, sort_key?, alert}` | `alert` is `all`, `summary` or `children`, and receivers treat other values as `all`. |
+| `channel` | `{id, importance}` | `importance` is the `NotificationManager.IMPORTANCE_*` value. |
+
+`ongoing` is now filled in.
+
+Value types:
+
+- `index`, `semantic`, `value`, `max`, `length` and `position` are int32 ≥ 0.
+- `color` and `importance` are int32.
+- `ts` and `when` are time ms.
+
+A list longer than its cap fails the schema (§3.3 rule 5). The body must stay within the
+plaintext limit (§3): the sender cuts `messages` and `lines` first, then the text fields, and
+retries.
+
+When an app's mode on the phone is **Hide content**, the body carries only `key`, `app` (with
+its icon), `posted_at`, `redacted: true` and `can_open`. It has no text, images or actions.
+
+Receivers MUST render a notification without any image they cannot fetch or verify (§11.3).
+
+### 4.2 Actions
+
+`notification.action@1` asks the phone to act on a notification it posted. `action` is one of:
+
+- `"tap"`: send the notification's content intent ("Open on phone").
+- `"answer"` or `"decline"`: the call actions of a `call` notification.
+- `{index, title, reply_text?}`: the app's button at `index`. The phone checks that the button
+  at `index` still has this `title`, and answers `changed` otherwise. `reply_text` is the
+  inline reply for a button with `reply`.
+
+`notification.action_result@1` answers it with `ok`. When `ok` is false, `error` is one of:
+
+- `gone`: the notification no longer exists.
+- `changed`: its buttons changed.
+- `blocked`: Android blocked the activity start.
+- `failed`: anything else.
+
+Receivers treat an unknown `error` as `failed`.
+
+A phone lists `notification.action@1` and `media.command@1` in its `caps` only while the user
+allows actions from desktops. A desktop offers actions and media controls only for a phone
+that lists them.
+
+### 4.3 Media
+
+`media.state@1` describes one media session on the phone:
+`{session, app{id,name,icon?}, title?, artist?, album?, art?, state, position_ms?, position_at?, duration_ms?, controls}`.
+
+- `session` is a stable, non-empty, per-phone id for the session, for example a hash of the
+  package name and the session tag. It is also the collapse key (`m:<session>`).
+- `state` is `playing`, `paused`, `buffering` or `stopped`. When a session ends, the phone
+  sends `stopped`. Receivers treat an unknown state as `paused`.
+- `position_ms` was the position at time `position_at`. Receivers extrapolate while
+  `playing`. Position changes alone are not sent.
+- `controls` lists the commands the session accepts: `play`, `pause`, `next`, `previous` and
+  `seek`. Receivers ignore unknown entries.
+- `art` is a blob ref.
+
+`media.command@1` is `{session, command, position_ms?}`. `command` is one of `play`, `pause`,
+`next`, `previous` and `seek`, and `seek` requires `position_ms`. There is no result message:
+the next `media.state@1` shows the effect.
 
 ## 5. Devices, directory and trust
 
@@ -257,8 +364,11 @@ Default `receive` written at pairing:
 | `notification.posted@1`, `notification.removed@1`, `device.status@1` | — | `"*"` |
 | `clipboard.set@1` | `"*"` | `"*"` |
 | `notification.dismiss@1` | `"*"` (only replies to its own notifications arrive) | — |
+| `notification.action@1`, `media.command@1` | `"*"` (only replies to its own messages arrive) | — |
+| `notification.action_result@1`, `media.state@1` | — | `"*"` |
 
-A `cli` device receives only `clipboard.set@1` by default.
+A `cli` device receives only `clipboard.set@1` by default. Routing (§5.2) also requires the
+type in the recipient's `caps`, so a phone gets actions only while it lists them (§4.2).
 
 ### 5.2 Routing
 
@@ -372,16 +482,23 @@ Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with 
 | `GET /v1/devices` | device | → `{devices:[{id, sign_pub, kx_pub, created_at, last_seen, record?}]}` |
 | `PUT /v1/devices/self/record` | device | `{record}` → `{}` |
 | `DELETE /v1/devices/:id` | device | → `{}`. Revokes the device. `self` is allowed. |
-| `POST /v1/messages` | device | `{envelope}` → `{seq, duplicate}` |
+| `POST /v1/messages` | device | `{envelope}` → `{seq, duplicate, online}` |
 | `GET /v1/messages?limit=N` | device | → `{messages:[{seq, envelope}], more}` (unacknowledged, in `seq` order, N ≤ 200) |
 | `POST /v1/acks` | device | `{up_to: seq}` → `{}` (cumulative: everything ≤ `up_to` addressed to this device is acknowledged) |
 | `GET /v1/ws` | device | WebSocket upgrade, see §7 |
+| `PUT /v1/blobs/:id?ttl_s=N[&msg_id=uuid]` | device | raw ciphertext (`application/octet-stream`) → 201 `{id, size, expires_at}`, or 200 with the same fields when the blob already exists |
+| `HEAD /v1/blobs/:id[?touch=1&ttl_s=N]` | device | → 200 with an `x-expires-at` header, or 404 |
+| `GET /v1/blobs/:id` | device | → 200 with the ciphertext (`application/octet-stream`) and `x-expires-at`, or 404 |
 
 A pending device can only call `GET /v1/pair/:pair_id/welcome`. Every other route returns 403.
 `pair_id` is b64 of 16 random bytes (22 characters).
 
 `seq` is strictly increasing and is never reused, even after the newest message is
-collapsed away. A superseded post returns `{seq: null, duplicate: false, superseded: true}`.
+collapsed away. A superseded post returns `{seq: null, duplicate: false, superseded: true, online}`.
+
+`online` lists the ids in `to` that had a live WebSocket when the Hub accepted the post. It
+is also present for a duplicate or superseded post. A phone uses it to open its action window
+(§9).
 
 Rules the Hub enforces on `POST /v1/messages`:
 
@@ -398,6 +515,25 @@ Rules the Hub enforces on `POST /v1/messages`:
 7. The collapse rule from §3.2, which also compares against tombstones.
 
 The Hub never decrypts `ct` and never branches on message type.
+
+Blobs (§11) are stored as ciphertext only:
+
+1. Only active devices may call the blob routes. A pending device gets 403.
+2. `:id` must be b64(SHA-256(body)), 43 characters, or the Hub answers `400 bad_request`.
+   A body over 1 049 600 bytes (1 MiB + 1 KiB) is `413 too_large`. Senders keep blobs within
+   1 048 576 bytes.
+3. `ttl_s` is required on PUT and is clamped to 60–604 800. The blob expires `ttl_s` after
+   the upload. Re-uploading an existing id answers 200 and moves its expiry to the later of
+   the two. `HEAD` with `touch=1` and `ttl_s` does the same without a body.
+4. When a new blob would take the total stored ciphertext over 268 435 456 bytes (256 MiB),
+   the Hub answers `429 rate_limited` with `{"quota": true}`.
+5. A blob uploaded with `msg_id` is deleted when the uploader's message with that msg_id is
+   superseded through collapse. Senders pass `msg_id` only for a blob that belongs to that one
+   message, never for a convergent icon. Uploading the same id again with a different or no
+   `msg_id` detaches it, so that supersede no longer deletes it.
+6. Revoking a device deletes every blob it uploaded. The alarm deletes expired blobs (§10).
+   Any active device may fetch any blob: without the key from a message body, the bytes are
+   useless.
 
 Tokens have the form `ct1.<device_id>.<b64 rand32>.<b64 mac16>`, where:
 
@@ -511,6 +647,22 @@ when they are already awake for another reason (see `docs/CLIENTS.md`). So messa
 phone, such as clipboard items or dismiss requests, arrive when the phone next opens Carom or
 sends something. Senders SHOULD pick TTLs with this in mind.
 
+A phone MAY open a WebSocket for a short *action window*, so that desktop actions (§4.2)
+arrive quickly. It opens it only when it is already awake:
+
+- after forwarding a notification whose post response lists a desktop in `online` (§6), or
+- while a call or a playing media session is active.
+
+It closes the socket once the window ends with no further forward, action or media change.
+The user chooses one of:
+
+- a window of 2, 5 (the default) or 15 minutes,
+- no window at all, or
+- a socket kept open while a desktop is online, which costs battery.
+
+Outside the window, actions wait in the Hub until their 10-minute TTL ends. The desktop tells
+the user the phone is asleep after 30 seconds without a result.
+
 ## 10. Retention
 
 - Each device has an ack cursor. A message is deleted once every recipient's cursor has
@@ -518,4 +670,73 @@ sends something. Senders SHOULD pick TTLs with this in mind.
 - `last_seen` is written at most once every 10 minutes per device. It is updated by
   authenticated HTTP requests, WebSocket connects and `ack` frames.
 - Unclaimed pairings expire after 5 minutes. A pending device whose pairing expired is deleted.
-- The Hub uses one alarm, scheduled for the earliest expiry.
+- A blob is deleted at its own expiry, when the message it was uploaded with is superseded,
+  or when its uploader is revoked. `POST /v1/reset` deletes every blob.
+- The Hub uses one alarm, scheduled for the earliest expiry of any message, pairing or blob.
+
+## 11. Blobs
+
+Images are encrypted on the sending device and uploaded to the Hub as *blobs*. The Hub
+stores and serves ciphertext only (§6). A message body points at a blob with a reference.
+
+### 11.1 Reference
+
+```json
+{ "id": "b64(SHA-256(ct))", "key": "b64(32 bytes)", "mime": "image/webp",
+  "size": 18234, "hash": "b64(SHA-256(plaintext)[0..16])", "w": 96, "h": 96 }
+```
+
+| Field | Rules |
+|---|---|
+| `id` | b64 of the SHA-256 of the ciphertext, 43 characters |
+| `key` | b64 of the 32-byte blob key |
+| `mime` | not empty, for example `image/webp` |
+| `size` | plaintext bytes before padding, 0–1 044 476 |
+| `hash` | b64 of the first 16 bytes of the SHA-256 of the plaintext. The receiver's cache key and integrity check. |
+| `w`, `h` | optional pixel size, int32 ≥ 1 |
+
+The reference sits inside the sealed body. So the sender's envelope signature binds the blob
+to the message, and only group members learn its key.
+
+### 11.2 Encryption
+
+```
+padded = u32be(len(P)) || P || zero bytes   // length: the §3.1 bucket rule applied to 4 + len(P)
+aad    = lp("carom/v1/blob") || lp(mime)
+ct     = ChaCha20-Poly1305-Encrypt(key, nonce=0^12, aad, padded)
+id     = b64(SHA-256(ct))
+```
+
+The bucket rule is the one from §3.1 without its 65 536-byte cap: multiples of 256 up to
+4096, then multiples of 4096. The 4-byte length prefix is needed because images are binary
+and cannot be padded with trailing spaces. A blob's ciphertext is at most 1 048 576 bytes, so
+`P` is at most 1 044 476 bytes.
+
+Each key encrypts exactly one plaintext, so the zero nonce is safe:
+
+- Message images use a fresh random 32-byte key per blob. These are the large icon, big
+  picture, avatars, message images, album art and progress icons.
+- App icons and small icons use the convergent key `blob_conv(K, P)` (§2.1), where `K` is the
+  current group key. The same icon gives the same key, ciphertext and id, so it is uploaded
+  once per key version. After a rekey, icons are uploaded again.
+
+### 11.3 Upload and fetch
+
+The sender seals each image and uploads it with `PUT /v1/blobs/:id`, passing `msg_id` for
+message images. Only then does it send the message that references it. A failed upload drops
+that image, and the message is still sent. For a convergent icon, the sender first calls
+`HEAD ?touch=1` and skips the upload when the Hub already has it.
+
+A receiver fetches with `GET /v1/blobs/:id` and opens the blob in this order. It rejects at
+the first failure, with the codes that `vectors/blob.json` uses:
+
+1. The reference is well formed (`bad_ref`).
+2. `b64(SHA-256(ct)) == id` (`bad_id`).
+3. Decryption with `key` and `aad` succeeds (`decrypt_failed`).
+4. The padding is exact (`bad_padding`). The prefix fits in the remaining bytes, the padded
+   length is the bucket size for the prefix, and every padding byte is zero.
+5. The plaintext length equals `size` (`bad_size`).
+6. `b64(SHA-256(plaintext)[0..16]) == hash` (`bad_hash`).
+
+A missing, expired or rejected blob never fails the notification. The receiver renders it
+without that image.
