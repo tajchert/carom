@@ -93,7 +93,7 @@ Failures from untrusted input are `Result` values whose error `rawValue`s are th
 | Join | `beginJoin(uri:) -> JoinTicket` (show `fingerprint`), `completeJoin()`, `join(uri:)` |
 | Invite | `createPairingInvite() -> PairingInvite` (QR `uri`), `pollPairing(pairId:)`, `approvePairing(pairId:)`, `rejectPairing(pairId:)`, `cancelPairing(pairId:)` |
 | Directory | `refreshDirectory()`, `checkKeyring()`, `directory`, `rename(_:)`, `setReceiveRule(_:for:)` |
-| Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `flushOutbox()`, `outbox` |
+| Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `sendReturningMsgId(...)` (also the msg_id), `flushOutbox()`, `outbox` |
 | Receive | `fetchMessages()`, `process(_:)`, `handle(_ event: HubSocket.Event)` |
 | Realtime | `startRealtime(connector:configuration:) -> HubSocket?`, `stopRealtime()`, `realtimeState`, `realtimeStates()` (offline / connecting / connected; a fresh stream per call) |
 | Revoke | `revoke(deviceId:)` (another device: delete, then rekey; this device: rekey without itself, then delete, SPEC §5.4), `rekey(excluding:)`, `handleRevoked()` |
@@ -273,12 +273,26 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
 - **Connection state** comes from `SyncEngine.realtimeStates()` (connected after the first frame
   or pong; the engine pings once right away), combined with sleep and no-network from the system
   monitor. After 45 s without a connection a "Can't reach your Hub" banner appears.
-- **Notifications.** `notification.posted` → `NotificationPresenter.present` unless paused, the
+- **Notifications.** `notification.posted` → `NotificationCoordinator` (native copy via
+  `NotificationPresenter`) unless paused, the
   phone is turned off in our `receive` rules, or the app is muted locally. The phone name is shown
   only with more than one phone. `removed` withdraws it (and drops it from the menu). Redacted
   notifications with no text read "Content hidden on your phone." *Dismiss on phone* sends
   `notification.dismiss@1` with `reply_to`. Copying a code or text from a notification suppresses
   automatic sending for 2 s, so it is not sent straight back.
+- **Rich notifications.** `NotificationCoordinator` (CaromDesktop) receives every posted, removed
+  and action-result message. With *Show notifications as: Rich* (the default) a non-activating
+  `NSPanel` at the top right of the screen under the pointer shows Android-like cards: at most 4
+  stacks, then "+N more"; cards fade after 6 s unless the pointer is over them; conversations,
+  calls and Live Updates stay until handled or removed; one app's group collapses into
+  "App · N new". The native notification is posted at the passive level, so it lands in
+  Notification Center without a second banner. The panel takes the keyboard only while a reply
+  field is open. During a Focus only the native notification posts. The app's buttons, Reply and
+  Open on phone (`notification.action@1`) appear only for phones whose caps include it; a card
+  shows "Sending…", then the phone's result, or "Phone is asleep — will send when it wakes" after
+  30 s. When the phone re-posts a conversation with the user's own reply appended (newest
+  message without a sender), the card changes in place without a sound and still fades.
+  *Native only* uses banners and no panel.
 - **Clipboard.** `clipboard.set` is written with `ClipboardWatcher.write` (marker type, so the
   watcher skips it; the engine also suppresses echoes). Automatic sending defaults to on when
   pasteboard access is *Always allow* (`NSPasteboard.accessBehavior`, macOS 15.4+) and on macOS

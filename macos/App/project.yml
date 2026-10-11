@@ -59,6 +59,7 @@ targets:
         LSUIElement: true
         NSHumanReadableCopyright: Copyright © 2026 Michal Tajchert. Licensed under GPL-3.0.
         NSPrincipalClass: NSApplication
+        NSFocusStatusUsageDescription: Carom shows only the quiet macOS notification while a Focus is on.
     entitlements:
       path: Carom.entitlements
       # Hardened runtime, not sandboxed (Developer ID distribution later). The data protection

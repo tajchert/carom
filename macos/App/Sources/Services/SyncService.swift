@@ -48,6 +48,10 @@ protocol SyncService: AnyObject, Sendable {
     func rename(_ name: String) async throws
     func setReceiveRule(_ rule: ReceiveRule?, for type: MessageType) async throws
     func send<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws -> SendOutcome
+    /// `send`, also returning the msg_id (nil when nothing was sealed). Actions use it to match
+    /// the phone's `notification.action_result@1`.
+    func sendReturningMsgId<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws
+        -> (msgId: String?, outcome: SendOutcome)
     @discardableResult func flushOutbox() async -> [SendOutcome]
 
     /// Starts the engine's WebSocket; the app forwards sleep, wake and network changes to it.

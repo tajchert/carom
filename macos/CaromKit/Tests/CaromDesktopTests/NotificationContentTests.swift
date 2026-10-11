@@ -1,4 +1,5 @@
 import Testing
+import UserNotifications
 
 @testable import CaromDesktop
 
@@ -63,5 +64,51 @@ import Testing
         #expect(t?.action == .copiedText && t?.copy == "body")
         #expect(NotificationPresenter.resolve(actionId: "carom.copyCode", info: [:]) == nil)
         #expect(NotificationPresenter.resolve(actionId: "other", info: info) == nil)
+    }
+
+    @Test func copyCodeComesFirstAndReplyIsATextInput() {
+        let categories = NotificationPresenter.categories()
+        func ids(_ id: String) -> [String] {
+            categories.first { $0.identifier == id }?.actions.map(\.identifier) ?? []
+        }
+        #expect(ids(NotificationPresenter.categoryPlain) == ["carom.dismiss", "carom.copyText"])
+        #expect(ids(NotificationPresenter.categoryCode) == ["carom.copyCode", "carom.dismiss", "carom.copyText"])
+        #expect(ids(NotificationPresenter.categoryReply) == ["carom.reply", "carom.dismiss", "carom.copyText"])
+        #expect(ids(NotificationPresenter.categoryReplyCode)
+                == ["carom.copyCode", "carom.reply", "carom.dismiss", "carom.copyText"])
+        let reply = categories.first { $0.identifier == NotificationPresenter.categoryReply }?.actions.first
+        #expect(reply is UNTextInputNotificationAction)
+    }
+
+    @Test func replyTargetPicksTheReplyCategoryAndRoutes() {
+        var n = note(text: "Dinner?")
+        n.reply = ReplyTarget(index: 1, title: "Reply")
+        let s = NotificationContentSpec.make(n, showPhoneName: false)
+        #expect(s.categoryIdentifier == NotificationPresenter.categoryReply)
+        #expect(s.userInfo["replyIndex"] == "1")
+        #expect(s.userInfo["replyTitle"] == "Reply")
+        var c = note(text: "Your code is 482913")
+        c.reply = ReplyTarget(index: 1, title: "Reply")
+        #expect(NotificationContentSpec.make(c, showPhoneName: false).categoryIdentifier
+                == NotificationPresenter.categoryReplyCode)
+    }
+
+    @Test func passiveWhileThePanelShows() {
+        var n = note()
+        n.passive = true
+        #expect(NotificationContentSpec.make(n, showPhoneName: false).passive)
+        #expect(!NotificationContentSpec.make(note(), showPhoneName: false).passive)
+        #expect(NotificationPresenter.presentationOptions(passive: true) == [.list])
+        #expect(NotificationPresenter.presentationOptions(passive: false) == [.banner, .list])
+    }
+
+    @Test func replyResolvesWithTheTypedText() {
+        let info = ["phoneId": "p", "key": "k", "msgId": "m", "replyIndex": "1", "replyTitle": "Reply"]
+        let r = NotificationPresenter.resolve(actionId: "carom.reply", info: info, replyText: "  On my way ")
+        #expect(r?.action == .reply(phoneId: "p", key: "k", msgId: "m", index: 1, title: "Reply", text: "On my way"))
+        #expect(r?.copy == nil)
+        #expect(NotificationPresenter.resolve(actionId: "carom.reply", info: info, replyText: "   ") == nil)
+        #expect(NotificationPresenter.resolve(actionId: "carom.reply", info: info, replyText: nil) == nil)
+        #expect(NotificationPresenter.resolve(actionId: "carom.reply", info: ["phoneId": "p"], replyText: "x") == nil)
     }
 }

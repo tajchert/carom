@@ -1,3 +1,4 @@
+import CaromDesktop
 import SwiftUI
 
 struct NotificationSettings: View {
@@ -25,6 +26,19 @@ struct NotificationSettings: View {
                             Button("Allow") { Task { await model.requestNotificationPermission() } }
                         }
                     }
+                }
+
+                Section {
+                    Picker("Show notifications as", selection: Binding(
+                        get: { model.preferences.showAs },
+                        set: { model.setNotificationStyle($0) })) {
+                        Text("Rich").tag(NotificationStyle.rich)
+                        Text("Native only").tag(NotificationStyle.nativeOnly)
+                    }
+                } footer: {
+                    Footnote(model.preferences.showAs == .rich
+                             ? "Carom shows its own banner with images and the app's buttons. A quiet copy goes to Notification Center. During a Focus only the quiet copy is posted."
+                             : "macOS banners only, without images or the app's buttons.")
                 }
 
                 Section {

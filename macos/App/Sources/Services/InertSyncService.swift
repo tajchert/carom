@@ -30,6 +30,11 @@ final class InertSyncService: SyncService {
     func send<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws -> SendOutcome {
         .noRecipients
     }
+    func sendReturningMsgId<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws
+        -> (msgId: String?, outcome: SendOutcome)
+    {
+        (nil, .noRecipients)
+    }
     func flushOutbox() async -> [SendOutcome] { [] }
     func openRealtime() async -> HubSocket? { nil }
     func stopRealtime() async {}

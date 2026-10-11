@@ -1,6 +1,6 @@
 // swift-tools-version: 6.2
 // CaromKit: the reusable core of the Carom macOS app (protocol, Hub client, storage, sync engine).
-// Apple frameworks only (CryptoKit, Foundation, Security, Network, plus AppKit, UserNotifications, Carbon and ServiceManagement in CaromDesktop); no third-party dependencies.
+// Apple frameworks only (CryptoKit, Foundation, Security, Network, plus AppKit, SwiftUI, UserNotifications, Intents, Carbon and ServiceManagement in CaromDesktop); no third-party dependencies.
 
 import PackageDescription
 
@@ -28,9 +28,9 @@ let package = Package(
             dependencies: ["CaromProtocol", "CaromHub", "CaromStore"],
             swiftSettings: strict
         ),
-        // macOS-only services: notifications, pasteboard, global hotkey, login item.
-        .target(name: "CaromDesktop", swiftSettings: strict),
-        .testTarget(name: "CaromDesktopTests", dependencies: ["CaromDesktop"], swiftSettings: strict),
+        // macOS-only services: notifications (native and the rich panel), pasteboard, global hotkey, login item.
+        .target(name: "CaromDesktop", dependencies: ["CaromProtocol"], swiftSettings: strict),
+        .testTarget(name: "CaromDesktopTests", dependencies: ["CaromDesktop", "CaromProtocol"], swiftSettings: strict),
         .testTarget(name: "CaromProtocolTests", dependencies: ["CaromProtocol"], swiftSettings: strict),
         .testTarget(name: "CaromHubTests", dependencies: ["CaromHub"], swiftSettings: strict),
         .testTarget(name: "CaromStoreTests", dependencies: ["CaromStore"], swiftSettings: strict),
