@@ -223,8 +223,8 @@ class RichExtractor @Inject constructor(
      */
     private fun readMessaging(extras: Bundle, sources: MutableMap<ImageSlot, ImageSource>): Messaging? {
         val user = BundleCompat.getParcelable(extras, Notification.EXTRA_MESSAGING_PERSON, PlatformPerson::class.java)
-        val all = Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles(extras, Notification.EXTRA_HISTORIC_MESSAGES)) +
-            Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles(extras, Notification.EXTRA_MESSAGES))
+        val all = messagesFrom(bundles(extras, Notification.EXTRA_HISTORIC_MESSAGES)) +
+            messagesFrom(bundles(extras, Notification.EXTRA_MESSAGES))
         val kept = all.filter { it.text?.isNotBlank() == true || it.hasImage() }.takeLast(RichContent.MAX_MESSAGES)
         if (kept.isEmpty()) return null
 
@@ -259,6 +259,26 @@ class RichExtractor @Inject constructor(
 
     private fun Notification.MessagingStyle.Message.hasImage(): Boolean =
         dataUri != null && dataMimeType?.startsWith("image/") == true
+
+    /** `Message.getMessagesFromBundleArray` is public from API 30; Android 10 reads the same bundle keys by hand. */
+    private fun messagesFrom(bundles: Array<Parcelable>): List<Notification.MessagingStyle.Message> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles)
+        } else {
+            bundles.mapNotNull { (it as? Bundle)?.let(::legacyMessage) }
+        }
+
+    private fun legacyMessage(b: Bundle): Notification.MessagingStyle.Message? = try {
+        val text = b.getCharSequence("text")
+        val person = BundleCompat.getParcelable(b, "sender_person", PlatformPerson::class.java)
+        val message = Notification.MessagingStyle.Message(text ?: "", b.getLong("time"), person)
+        val mime = b.getString("type")
+        val uri = BundleCompat.getParcelable(b, "uri", android.net.Uri::class.java)
+        if (mime != null && uri != null) message.setData(mime, uri)
+        message
+    } catch (_: Exception) {
+        null
+    }
 
     private fun bundles(extras: Bundle, key: String): Array<Parcelable> =
         BundleCompat.getParcelableArray(extras, key, Bundle::class.java) ?: emptyArray()

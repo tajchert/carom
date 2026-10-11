@@ -1,17 +1,28 @@
 package com.mtajchert.carom.app.feature.notifications.impl.di
 
+import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import com.mtajchert.carom.app.core.data.sync.WipeHook
+import com.mtajchert.carom.app.feature.notifications.impl.BlobUploader
 import com.mtajchert.carom.app.feature.notifications.impl.ClearForwardedKeysOnWipe
+import com.mtajchert.carom.app.feature.notifications.impl.ClearIconCacheOnWipe
+import com.mtajchert.carom.app.feature.notifications.impl.DefaultBlobUploader
 import com.mtajchert.carom.app.feature.notifications.impl.ForwardedKeys
+import com.mtajchert.carom.app.feature.notifications.impl.GroupKeySource
+import com.mtajchert.carom.app.feature.notifications.impl.IconCache
+import com.mtajchert.carom.app.feature.notifications.impl.ImageEncoder
+import com.mtajchert.carom.app.feature.notifications.impl.ImageLoader
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationAppsRepository
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationDismissHandler
 import com.mtajchert.carom.app.feature.notifications.impl.RedactionDetector
 import com.mtajchert.carom.app.feature.notifications.impl.RoomForwardedKeys
+import com.mtajchert.carom.app.feature.notifications.impl.RoomIconCache
 import com.mtajchert.carom.app.feature.notifications.impl.RoomNotificationAppsRepository
+import com.mtajchert.carom.app.feature.notifications.impl.VaultGroupKeySource
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
 import dagger.Binds
+import dagger.BindsOptionalOf
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,6 +51,27 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsDismissHandler(impl: NotificationDismissHandler): IncomingMessageHandler
+
+    @Binds
+    abstract fun bindsImageLoader(impl: ImageEncoder): ImageLoader
+
+    @Binds
+    abstract fun bindsBlobUploader(impl: DefaultBlobUploader): BlobUploader
+
+    @Binds
+    abstract fun bindsIconCache(impl: RoomIconCache): IconCache
+
+    @Binds
+    abstract fun bindsGroupKeySource(impl: VaultGroupKeySource): GroupKeySource
+
+    /** Forgets uploaded icon ids when this device leaves its group. */
+    @Binds
+    @IntoSet
+    abstract fun bindsClearIconCacheOnWipe(impl: ClearIconCacheOnWipe): WipeHook
+
+    /** The action window (M3) binds the real signal; until then the forwarder runs without one. */
+    @BindsOptionalOf
+    abstract fun optionalActivitySignal(): ActivitySignal
 
     companion object {
         @Provides

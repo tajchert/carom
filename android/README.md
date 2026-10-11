@@ -17,8 +17,10 @@ Done (foundation):
   file in `protocol/vectors/`.
 - `core:hub`: an HTTP client for every SPEC §6 route and an OkHttp WebSocket client (§7).
 - `core:security`: Android Keystore-wrapped storage for identity keys, group keys and the token.
-- `core:database`, `core:datastore`: Room schema v2 (v1 to v2 adds `forwarded_notifications`;
-  `MigrationTest` checks every migration against the exported schemas) and preferences.
+- `core:database`, `core:datastore`: Room schema v4 (v1 to v2 adds `forwarded_notifications`, v2 to
+  v3 drops `directory.has_push`, v3 to v4 adds `notification_apps.forward_ongoing` and
+  `icon_uploads`; `MigrationTest` checks every migration against the exported schemas) and
+  preferences.
 - `core:data`: the `CaromSync` engine (directory, outbox send pipeline, SPEC §3.3 receive
   pipeline with refresh-before-drop, §5.3 transitional trust, §5.5 chained keyring verification,
   rekey/revocation, §5.4 removal notices and the `401` "pair again" latch, "Leave hub" rekeying
@@ -41,15 +43,27 @@ Done (foundation):
   `LiveHubConnection.pairCandidates`, so a `pair` frame on the foreground WebSocket shows the
   prompt at once.
 - `feature:notifications`: phone -> desktop mirroring. `CaromListenerService` (declared in the
-  module's own manifest, merged into the app) applies the CLIENTS.md filters, per-app modes
-  (Forward / Hide content / Off, with a small deny list of system packages), the global pause and
-  "only when locked" switches, Android 15 redaction detection, MessagingStyle mapping, 4000-char
-  truncation and a 2 s per-key update throttle, then sends through `CaromSync.send`. Forwarded
-  keys are kept in Room, so removals are sent across listener reconnects and process death; on
-  connect the listener sends `removed` for forwarded keys that are no longer showing.
+  module's own manifest, merged into the app, asking the system for every notification type)
+  hands each notification to `NotificationForwarder`. `RichExtractor` reads the whole
+  notification (V2 spec §3.3: template, colours, big text, inbox lines, messaging with avatars,
+  big picture, actions with reply choices, progress and Android 16 Live Updates through string
+  extras keys, calls, groups, channel) into a snapshot; the filters drop our own, system
+  autogroup summaries, local-only, minimum-importance and media notifications, and let ongoing
+  ones through only for Live Updates, progress, calls or an app set to "Ongoing: Forward".
+  `ImageEncoder` loads the images right away and encodes them as WebP within the caps (app icon
+  128 px, small icon 96 px alpha mask, large icon and avatars 192 px, big picture 1080 px and 400
+  KB); `DefaultBlobUploader` uploads them through `CaromSync.uploadBlob` (3 at a time, convergent
+  icons remembered in the `icon_uploads` table). Each notification key has one worker: the 1.5 s
+  trailing-edge throttle, the content-hash dedupe and the "one send in flight" rule keep an older
+  state from overtaking a newer one while images upload. `NotificationMapper` builds the body,
+  capped at 6 messages, 7 lines and 6 actions and trimmed to 65 000 bytes; *Hide content* sends
+  only the app (with its icon), the time, `redacted: true` and `can_open`. Forwarded keys are
+  kept in Room, so removals are sent across listener reconnects and process death; on connect the
+  listener sends `removed` for forwarded keys that are no longer showing.
   `notification.dismiss@1` cancels the notification if it is still showing (the engine has
-  already checked that the key matches the posted message it replies to). The "Apps" screen (`NotificationAppsRoute`) lists apps
-  seen posting notifications.
+  already checked that the key matches the posted message it replies to). The "Apps" screen
+  (`NotificationAppsRoute`) lists apps seen posting notifications with their Forward / Hide
+  content / Off mode and the "Ongoing: Forward / Off" switch.
 
 
 ### Fetching (docs/CLIENTS.md "Connection policy (phone)")
@@ -98,7 +112,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:protocol` | SPEC as code: `B64`, `lp`/`u64`, `Crypto` (Ed25519, X25519, HKDF, ChaCha20-Poly1305), `Envelopes`, `Payload`, `MessageTypes`/`MessageBodies` (V2 rich bodies, actions, media), `Blobs` (encrypted image blobs), `Receiver` (§3.3), `Records`, `Routing`, `Boxes`, `Pairing`, `Rekey`, `Tokens`, `QrUri`, `UuidV7Generator`, `Collapse` |
 | `:core:hub` | `HubClient` (one suspend function per route, including `putBlob`/`headBlob`/`getBlob`, `HubException` errors), `HubSocket`, `Backoff`, `HubClientFactory` |
 | `:core:security` | `SecretVault` / `FileSecretVault` / `AndroidKeystoreCipher` |
-| `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items) |
+| `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items, forwarded_notifications, icon_uploads) |
 | `:core:datastore` | `UserPreferencesDataSource` (Hub URL, device id/name, toggles, theme, last clipboard ts) |
 | `:core:data` | `CaromSync`/`DefaultCaromSync` (incl. `uploadBlob` for encrypted images), `Enrollment`, stores, repositories, `OutboxWorker`, `FetchWorker`, `IncomingMessageHandler`/`WipeHook`/`SyncStartHook` multibindings, `runtime/` (foreground socket, `SyncRuntime`, `ActionWindow.kt` with `ActivitySignal`, an optional Hilt binding declared in `di/ActivitySignalModule.kt`) |
 | `:core:domain` | `ObserveHomeStatusUseCase`, `SendClipboardUseCase`, rename/remove, receive matrix |
