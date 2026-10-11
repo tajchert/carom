@@ -12,6 +12,7 @@ import com.mtajchert.carom.app.feature.notifications.impl.RoomNotificationAppsRe
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.actions.AndroidPendingIntentSender
+import com.mtajchert.carom.app.feature.notifications.impl.actions.NotificationActionHandler
 import com.mtajchert.carom.app.feature.notifications.impl.actions.PendingIntentSender
 import dagger.Binds
 import dagger.Module
@@ -42,6 +43,11 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsDismissHandler(impl: NotificationDismissHandler): IncomingMessageHandler
+
+    /** Adds `notification.action@1` to this device's handlers; the setting decides whether it is advertised. */
+    @Binds
+    @IntoSet
+    abstract fun bindsActionHandler(impl: NotificationActionHandler): IncomingMessageHandler
 
     @Binds
     abstract fun bindsPendingIntentSender(impl: AndroidPendingIntentSender): PendingIntentSender
