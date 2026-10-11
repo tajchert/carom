@@ -45,13 +45,10 @@ class ActiveCallTrackerTest {
     }
 
     @Test
-    fun `an ongoing media notification holds, a paused one releases`() {
-        val playing = sbn(builder().setStyle(Notification.MediaStyle()).setOngoing(true).build())
-        tracker.onPosted(playing)
-        assertEquals(setOf("media-notification:${playing.key}"), held)
-
-        val paused = sbn(builder().setStyle(Notification.MediaStyle()).build())
-        tracker.onPosted(paused) // same key: the player reposted its notification as dismissible
+    fun `media notifications never hold, ongoing or not (the media bridge holds while playing)`() {
+        tracker.onPosted(sbn(builder().setStyle(Notification.MediaStyle()).setOngoing(true).build()))
+        tracker.onPosted(sbn(builder().setStyle(Notification.DecoratedMediaCustomViewStyle()).setOngoing(true).build(), id = 2))
+        tracker.onPosted(sbn(builder().setStyle(Notification.MediaStyle()).build(), id = 3))
         assertTrue(held.isEmpty())
     }
 
@@ -69,24 +66,11 @@ class ActiveCallTrackerTest {
     }
 
     @Test
-    fun `a media notification that is not ongoing does not hold`() {
-        tracker.onPosted(sbn(builder().setStyle(Notification.MediaStyle()).build()))
-        assertTrue(held.isEmpty())
-    }
-
-    @Test
-    fun `an ongoing DecoratedMediaCustomViewStyle player holds`() {
-        val playing = sbn(builder().setStyle(Notification.DecoratedMediaCustomViewStyle()).setOngoing(true).build())
-        tracker.onPosted(playing)
-        assertEquals(setOf("media-notification:${playing.key}"), held)
-    }
-
-    @Test
     fun `releaseAll drops every hold the tracker took`() {
         val call = sbn(builder().setCategory(Notification.CATEGORY_CALL).build())
-        val playing = sbn(builder().setStyle(Notification.MediaStyle()).setOngoing(true).build(), id = 2)
+        val call2 = sbn(builder().setCategory(Notification.CATEGORY_CALL).build(), id = 2)
         tracker.onPosted(call)
-        tracker.onPosted(playing)
+        tracker.onPosted(call2)
         assertEquals(2, held.size)
 
         tracker.releaseAll()

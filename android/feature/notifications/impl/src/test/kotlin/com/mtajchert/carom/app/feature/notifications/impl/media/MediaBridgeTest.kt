@@ -212,6 +212,58 @@ class MediaBridgeTest {
     }
 
     @Test
+    fun `a playing session holds the action window and a paused one releases it`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        val source = "media:" + MediaSessionIds.of("com.music", "main")
+        assertEquals(setOf(source), h.hold.held)
+
+        session.snapshot = session.snapshot.copy(state = MediaStates.PAUSED)
+        session.change()
+        settle()
+        assertTrue(h.hold.held.isEmpty())
+
+        session.snapshot = session.snapshot.copy(state = MediaStates.PLAYING)
+        session.change()
+        settle()
+        assertEquals(setOf(source), h.hold.held)
+
+        bridge.onRemoved(h.sbn(1))
+        runCurrent()
+        assertTrue(h.hold.held.isEmpty())
+    }
+
+    @Test
+    fun `a session that starts paused never holds, and stop releases every hold`() = runTest {
+        val paused = FakeMediaSession(tag = "a").also {
+            it.snapshot = it.snapshot.copy(state = MediaStates.PAUSED)
+            h.source.sessions[1] = it
+        }
+        FakeMediaSession(tag = "b").also { h.source.sessions[2] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        bridge.onPosted(h.sbn(2))
+        settle()
+        assertEquals(setOf("media:" + MediaSessionIds.of("com.music", "b")), h.hold.held)
+        assertEquals(MediaStates.PAUSED, paused.snapshot.state)
+
+        bridge.stop()
+        assertTrue(h.hold.held.isEmpty())
+    }
+
+    @Test
+    fun `a playing session of a blocked app does not hold`() = runTest {
+        h.apps.setMode("com.music", AppForwardingMode.OFF)
+        FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        assertTrue(h.hold.held.isEmpty())
+    }
+
+    @Test
     fun `removal sends stopped at once, drops the pending flush and unregisters`() = runTest {
         val session = FakeMediaSession().also { h.source.sessions[1] = it }
         val bridge = h.start(this)

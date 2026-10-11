@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Process
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
+import com.mtajchert.carom.app.core.data.runtime.ActionWindowHold
 import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
 import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesRepository
@@ -79,6 +80,19 @@ class FakeArtUploader : MediaArtUploader {
     }
 }
 
+/** The action-window holds the bridge currently has. */
+class RecordingHold : ActionWindowHold {
+    val held = linkedSetOf<String>()
+
+    override fun hold(source: String) {
+        held += source
+    }
+
+    override fun release(source: String) {
+        held -= source
+    }
+}
+
 class CountingSignal : ActivitySignal {
     var activity = 0
     val forwarded = mutableListOf<Set<String>>()
@@ -101,10 +115,11 @@ class MediaHarness(private val context: Context) {
     val source = FakeMediaSessionSource()
     val uploader = FakeArtUploader()
     val signal = CountingSignal()
+    val hold = RecordingHold()
     var locked = false
 
     fun start(scope: TestScope): MediaBridge {
-        val bridge = MediaBridge(source, sync, scheduler, uploader, apps, prefs, Optional.of(signal))
+        val bridge = MediaBridge(source, sync, scheduler, uploader, apps, prefs, Optional.of(signal), { hold })
         bridge.start(
             scope.backgroundScope,
             object : ForwardingEnvironment {

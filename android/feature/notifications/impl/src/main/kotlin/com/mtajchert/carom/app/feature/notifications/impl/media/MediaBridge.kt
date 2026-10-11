@@ -2,6 +2,7 @@ package com.mtajchert.carom.app.feature.notifications.impl.media
 
 import android.service.notification.StatusBarNotification
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.data.runtime.ActionWindowHold
 import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.SendResult
@@ -36,6 +37,8 @@ import javax.inject.Singleton
  * - album art goes out as a blob once per track, and again when the track plays on past
  *   [ART_REUSE_MS], so a new message never points at a blob close to expiry.
  * - when the media notification is removed, `state: stopped` is sent at once.
+ * - while a forwarded session is playing it holds the action window (`media:<session>`), so the
+ *   Mac's controls reach the phone; pausing, stopping or untracking releases the hold.
  *
  * Like [com.mtajchert.carom.app.feature.notifications.impl.NotificationForwarder], listener
  * callbacks only enqueue; one consumer coroutine owns all changes to the tracked sessions.
@@ -49,6 +52,8 @@ class MediaBridge @Inject constructor(
     private val apps: NotificationAppsRepository,
     private val preferences: UserPreferencesRepository,
     private val activity: Optional<ActivitySignal>,
+    // Lazy: the window is built from the sync engine, whose handlers reach back to this bridge.
+    private val hold: dagger.Lazy<ActionWindowHold>,
 ) {
     private sealed interface Event {
         class Posted(val sbn: StatusBarNotification) : Event
@@ -72,6 +77,9 @@ class MediaBridge @Inject constructor(
 
         /** When [art] was uploaded. */
         var artAt: Long = 0
+
+        /** True while this session holds the action window. */
+        var holding = false
 
         /** The last body sent, to drop flushes that only moved the position. */
         var lastSent: MessageBodies.MediaState? = null
@@ -113,7 +121,10 @@ class MediaBridge @Inject constructor(
     fun stop() {
         run?.events?.close()
         run = null
-        byKey.values.forEach(Tracked::release)
+        byKey.values.forEach {
+            setHolding(it, false)
+            it.release()
+        }
         byKey.clear()
         bySession.clear()
     }
@@ -212,6 +223,7 @@ class MediaBridge @Inject constructor(
             return
         }
         val snapshot = t.handle.snapshot()
+        setHolding(t, snapshot.state == MediaStates.PLAYING)
         refreshArt(t, snapshot.artKey, r.env.now())
         val body = MessageBodies.MediaState(
             session = t.session,
@@ -284,9 +296,18 @@ class MediaBridge @Inject constructor(
     }
 
     private fun untrack(t: Tracked) {
+        setHolding(t, false)
         t.release()
         byKey.remove(t.key, t)
         bySession.remove(t.session, t)
+    }
+
+    /** Holds the action window while [t] plays; idempotent, so every flush may call it. */
+    private fun setHolding(t: Tracked, playing: Boolean) {
+        if (t.holding == playing) return
+        t.holding = playing
+        val source = "media:${t.session}"
+        if (playing) hold.get().hold(source) else hold.get().release(source)
     }
 
     private suspend fun post(r: Run, body: MessageBodies.MediaState) {
