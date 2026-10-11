@@ -66,6 +66,17 @@ class BlobUploadTest {
     }
 
     @Test
+    fun `an image a receiver would reject returns null and uploads nothing`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        assertNull(phone.sync.uploadBlob(picture, "image/webp", 0, 64, convergent = false, ttlS = 3600))
+        assertNull(phone.sync.uploadBlob(picture, "image/webp", 96, 0, convergent = true, ttlS = 3600))
+        assertNull(phone.sync.uploadBlob(picture, "", null, null, convergent = false, ttlS = 3600))
+        assertTrue(h.hub.requests.none { it.contains("blobs") })
+        assertEquals(ConnectionStatus.IDLE, phone.sync.status.value)
+    }
+
+    @Test
     fun `an upload that fails returns null and leaves the sync status alone`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()

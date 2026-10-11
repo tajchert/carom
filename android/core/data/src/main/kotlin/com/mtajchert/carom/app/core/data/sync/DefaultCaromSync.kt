@@ -190,9 +190,10 @@ class DefaultCaromSync(
     ): MessageBodies.BlobRef? {
         if (plain.size > Protocol.Limits.MAX_BLOB_PLAINTEXT) return null
         val s = session() ?: return null
-        val key = if (convergent) Blobs.convergentKey(s.key.key, plain) else rng.bytes(Protocol.KEY_LENGTH)
-        val sealed = Blobs.seal(plain, mime, key, w, h)
         return try {
+            val key = if (convergent) Blobs.convergentKey(s.key.key, plain) else rng.bytes(Protocol.KEY_LENGTH)
+            // Throws IllegalArgumentException for an empty mime or a dimension below 1, which a receiver would reject.
+            val sealed = Blobs.seal(plain, mime, key, w, h)
             // A convergent icon may already be on the Hub; touching it extends its expiry.
             val known = convergent && s.client.headBlob(sealed.ref.id, ttlS)
             if (!known) s.client.putBlob(sealed.ref.id, sealed.ct, ttlS, msgId)
@@ -204,6 +205,9 @@ class DefaultCaromSync(
             } else {
                 log.log("blob_upload_failed", (e as? HubException.Http)?.let { "${it.status} ${it.code.code}" } ?: e.javaClass.simpleName)
             }
+            null
+        } catch (e: IllegalArgumentException) {
+            log.log("blob_upload_failed", e.javaClass.simpleName) // never the message: it may name the mime
             null
         }
     }

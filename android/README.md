@@ -100,7 +100,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:security` | `SecretVault` / `FileSecretVault` / `AndroidKeystoreCipher` |
 | `:core:database` | `CaromDatabase` (outbox, seen_messages, directory, notification_apps, recent_items) |
 | `:core:datastore` | `UserPreferencesDataSource` (Hub URL, device id/name, toggles, theme, last clipboard ts) |
-| `:core:data` | `CaromSync`/`DefaultCaromSync`, `Enrollment`, stores, repositories, `OutboxWorker`, `FetchWorker`, `IncomingMessageHandler`/`WipeHook`/`SyncStartHook` multibindings, `runtime/` (foreground socket, `SyncRuntime`) |
+| `:core:data` | `CaromSync`/`DefaultCaromSync` (incl. `uploadBlob` for encrypted images), `Enrollment`, stores, repositories, `OutboxWorker`, `FetchWorker`, `IncomingMessageHandler`/`WipeHook`/`SyncStartHook` multibindings, `runtime/` (foreground socket, `SyncRuntime`, `ActionWindow.kt` with `ActivitySignal`, an optional Hilt binding declared in `di/ActivitySignalModule.kt`) |
 | `:core:domain` | `ObserveHomeStatusUseCase`, `SendClipboardUseCase`, rename/remove, receive matrix |
 | `:core:model` | App models (`SessionState`, `ConnectionStatus`, `DeviceSummary`, `UserPreferences`, …) |
 | `:core:ui`, `:core:designsystem` | Shared composables and the Carom theme |

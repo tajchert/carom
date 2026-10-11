@@ -44,8 +44,9 @@ interface CaromSync {
      * uploaded once per key version; otherwise the key is random. Use a [msgId] only for message
      * images, so the Hub deletes them when that message is superseded.
      *
-     * Returns null on any failure (not paired, too large, network, quota): the caller drops that
-     * image and still sends the notification. Does CPU work, so call it off the main thread.
+     * Returns null on any failure (not paired, too large, an empty mime or a dimension below 1,
+     * network, quota): the caller drops that image and still sends the notification. Does CPU
+     * work, so call it off the main thread.
      */
     suspend fun uploadBlob(
         plain: ByteArray,
