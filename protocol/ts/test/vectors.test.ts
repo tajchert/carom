@@ -9,7 +9,9 @@ import { contextFromJson } from '../scripts/vectors/envelope.ts';
 import {
   b64decode,
   b64encode,
+  blobAad,
   collapseValue,
+  convergentKey,
   deviceIdFromSignPub,
   fromHex,
   identityFromSecrets,
@@ -17,19 +19,24 @@ import {
   isUuidV7,
   lp,
   makeToken,
+  openBlob,
   openBox,
   openEnvelope,
   openRecord,
   openRekey,
   openWelcome,
+  padBinary,
+  paddedBlobLength,
   paddedLength,
   parseQrUri,
   parseToken,
   receiveEnvelope,
+  sealBlob,
   tokenHash,
   tokenKey,
   toHex,
   u64,
+  unpadBinary,
   validateEnvelopeShape,
   verifyPairCandidate,
   verifyToken,
@@ -155,5 +162,31 @@ describe('reference implementation against vectors', () => {
     const u = load('uuidv7.json');
     for (const c of u.format) expect(isUuidV7(c.uuid)).toBe(true);
     for (const c of u.invalid) expect(isUuidV7(c.value)).toBe(false);
+  });
+
+  it('blobs', () => {
+    const v = load('blob.json');
+    for (const c of v.padding.cases) expect(paddedBlobLength(c.plain_length)).toBe(c.padded_length);
+    for (const c of v.padding.rejected) expect(() => padBinary(new Uint8Array(c.plain_length))).toThrow(RangeError);
+    for (const c of v.pad_examples) {
+      expect(toHex(padBinary(fromHex(c.plain_hex))), c.name).toBe(c.padded_hex);
+      expect(toHex(unpadBinary(fromHex(c.padded_hex))!), c.name).toBe(c.plain_hex);
+    }
+    for (const c of v.unpad_invalid) expect(unpadBinary(fromHex(c.padded_hex)), c.name).toBeNull();
+    for (const c of v.convergent_key) {
+      expect(toHex(convergentKey(fromHex(c.group_key_hex), fromHex(c.plain_hex))), c.name).toBe(c.key_hex);
+    }
+    for (const c of v.seal) {
+      const dims = c.ref.w === undefined ? undefined : { w: c.ref.w, h: c.ref.h };
+      const sealed = sealBlob(fromHex(c.plain_hex), c.mime, fromHex(c.key_hex), dims);
+      expect(toHex(blobAad(c.mime))).toBe(c.aad_hex);
+      expect(toHex(sealed.ct), c.name).toBe(c.ct_hex);
+      expect(sealed.ref, c.name).toEqual(c.ref);
+      expect(toHex(openBlob(c.ref, fromHex(c.ct_hex))!), c.name).toBe(c.plain_hex);
+    }
+    for (const c of v.open_cases) {
+      const plain = openBlob(c.ref, fromHex(c.ct_hex));
+      expect(plain === null ? null : toHex(plain), c.name).toBe(c.plain_hex);
+    }
   });
 });
