@@ -109,6 +109,25 @@ until the next day, and your data stays safe ([details](hub/README.md#limits-and
 > **Early development.** There are no prebuilt app downloads yet, so build them from source (see the
 > [setup guide](docs/SETUP.md#building-from-source)).
 
+## The Android app
+
+A modern, native Android app: 100% Kotlin and 100% Jetpack Compose with Material 3 (dynamic colour,
+light and dark themes), and no XML layouts. It follows the recommended Android architecture:
+unidirectional data flow with `StateFlow`-backed ViewModels, a single-activity Navigation 3 graph,
+and a modular `core:*` + `feature:*:api/impl` split wired with Hilt. Room and DataStore keep the
+state, WorkManager runs the background sends, and the protocol is pure Kotlin tested against the
+shared vectors. Layouts adapt to phones, foldables and tablets, and every screen is covered by
+Compose screenshot tests. The screenshots below are rendered straight from those tests.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/android-screen-home.png" width="200" alt="Home screen with connection status, quick actions and recent activity"><br><sub>Home</sub></td>
+    <td align="center"><img src="docs/images/android-screen-apps.png" width="200" alt="Per-app forwarding: Forward, Hide content or Off for each app"><br><sub>Per-app forwarding</sub></td>
+    <td align="center"><img src="docs/images/android-screen-settings.png" width="200" alt="Settings: device name, forwarding, clipboard and actions from Mac"><br><sub>Settings</sub></td>
+    <td align="center"><img src="docs/images/android-screen-devices.png" width="200" alt="Paired devices and what each may send to this phone"><br><sub>Devices</sub></td>
+  </tr>
+</table>
+
 ## Built to grow
 
 The apps and the Hub share one small, versioned protocol. The Hub only routes encrypted envelopes and
