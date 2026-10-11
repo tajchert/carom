@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Wipes local, non-secret state (preferences, caches) after a revocation. */
 fun interface LocalStateWiper {
@@ -57,6 +58,7 @@ fun interface LocalStateWiper {
  * outbox posting, receiving, then directory/keyring.
  *
  * SPEC behaviours implemented here, beyond plain send/receive:
+ * - §3.3 rule 7 / SPEC V2 §3.5: dismiss, action, action result and media command replies are bound to the message they answer.
  * - §3.3: one directory + keyring refresh before dropping for `unknown_kv` or an untrusted sender.
  * - §5.3: transitional trust for `kv − 1` records of devices boxed in the newest verified version.
  * - §5.4: removal notices ("<revoker> removed <device>", or "removed (no rekey)" after 2 minutes)
@@ -384,7 +386,7 @@ class DefaultCaromSync(
             originalRecipients = { id -> outbox.get(id)?.takeIf { it.state == OutboxState.SENT }?.recipients },
         )
         val result = Receiver.receive(message.envelope, ctx).let { r ->
-            if (r is Outcome.Ok && !dismissMatchesOriginal(r.value, identity, contents.keysByKv)) {
+            if (r is Outcome.Ok && !replyMatchesOriginal(r.value, identity, contents.keysByKv)) {
                 Outcome.Err(ReceiveError.REPLY_NOT_ALLOWED)
             } else {
                 r
@@ -410,21 +412,33 @@ class DefaultCaromSync(
     }
 
     /**
-     * SPEC §3.3 rule 7, second half: a `notification.dismiss@1` must name the `key` of the
-     * `notification.posted@1` it replies to. The original is reopened from our outbox (sealed by us,
-     * kept until it expires), so a recipient can only dismiss the notification it was sent.
+     * SPEC §3.3 rule 7, second half, extended by SPEC V2 §3.5: a reply must answer a message of the
+     * right type that this device sent. Which original, and what must match inside it:
+     *
+     * | reply | original | must match |
+     * |---|---|---|
+     * | `notification.dismiss@1`, `notification.action@1` | `notification.posted@1` | `key` |
+     * | `media.command@1` | `media.state@1` | `session` |
+     * | `notification.action_result@1` | `notification.action@1` | nothing |
+     *
+     * The original is reopened from our outbox (sealed by us, kept until it expires), so a peer can
+     * only act on what it was sent. Any msg_id still in the outbox qualifies, not only the latest
+     * one for a key, because an update creates a new msg_id and the Mac may act on an older card.
+     * That the sender was a recipient of the original is checked earlier, by [Receiver.receive].
      */
-    private suspend fun dismissMatchesOriginal(received: Received, identity: Identity, keys: Map<Long, ByteArray>): Boolean {
-        if (received.payload.type != MessageTypes.NOTIFICATION_DISMISS) return true
+    private suspend fun replyMatchesOriginal(received: Received, identity: Identity, keys: Map<Long, ByteArray>): Boolean {
+        val type = received.payload.type
+        val originalType = REPLY_ORIGINAL_TYPES[type] ?: return true
         val replyTo = received.payload.replyTo ?: return false
-        val original = outbox.get(replyTo)?.takeIf { it.state == OutboxState.SENT && it.type == MessageTypes.NOTIFICATION_POSTED }
-            ?: return false
+        val original = outbox.get(replyTo)?.takeIf { it.state == OutboxState.SENT && it.type == originalType } ?: return false
+        val field = REPLY_BOUND_FIELD[type] ?: return true
         val opened = (Envelopes.open(parseJsonOrNull(original.envelopeJson), identity.signPub, keys) as? Outcome.Ok)?.value ?: return false
-        if (opened.payload.type != MessageTypes.NOTIFICATION_POSTED) return false
-        val postedKey = MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), opened.payload.body)?.key ?: return false
-        val dismissKey = MessageBodies.fromJson(MessageBodies.NotificationDismiss.serializer(), received.payload.body)?.key ?: return false
-        return postedKey == dismissKey
+        if (opened.payload.type != originalType) return false
+        val expected = opened.payload.body.stringField(field) ?: return false
+        return expected == received.payload.body.stringField(field)
     }
+
+    private fun JsonObject.stringField(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     // -------------------------------------------------------------------------
     // Directory and trust (SPEC §5.3, §5.4)
@@ -895,5 +909,20 @@ class DefaultCaromSync(
         const val REMOVAL_GRACE_MS = 2 * 60_000L
 
         private val REFRESH_FIRST = setOf(ReceiveError.UNTRUSTED_SENDER, ReceiveError.UNKNOWN_KV)
+
+        /** Reply type to the type of message it must answer (SPEC V2 §3.5). */
+        private val REPLY_ORIGINAL_TYPES = mapOf(
+            MessageTypes.NOTIFICATION_DISMISS to MessageTypes.NOTIFICATION_POSTED,
+            MessageTypes.NOTIFICATION_ACTION to MessageTypes.NOTIFICATION_POSTED,
+            MessageTypes.NOTIFICATION_ACTION_RESULT to MessageTypes.NOTIFICATION_ACTION,
+            MessageTypes.MEDIA_COMMAND to MessageTypes.MEDIA_STATE,
+        )
+
+        /** Reply type to the body field that must be equal in the reply and its original. */
+        private val REPLY_BOUND_FIELD = mapOf(
+            MessageTypes.NOTIFICATION_DISMISS to "key",
+            MessageTypes.NOTIFICATION_ACTION to "key",
+            MessageTypes.MEDIA_COMMAND to "session",
+        )
     }
 }
