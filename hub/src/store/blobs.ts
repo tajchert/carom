@@ -53,3 +53,31 @@ export function extendBlob(sql: SqlStorage, id: string, expiresAt: number, detac
   if (detach) sql.exec("UPDATE blobs SET expires_at = ?, msg_id = NULL WHERE id = ?", expiresAt, id);
   else sql.exec("UPDATE blobs SET expires_at = ? WHERE id = ?", expiresAt, id);
 }
+
+/** Deletes the matching rows and gives their bytes back to the counter. */
+function deleteWhere(sql: SqlStorage, where: string, ...args: SqlStorageValue[]): void {
+  const freed = sql
+    .exec<{ size: number }>(`DELETE FROM blobs WHERE ${where} RETURNING size`, ...args)
+    .toArray()
+    .reduce((n, r) => n + r.size, 0);
+  if (freed > 0) addBlobBytes(sql, -freed);
+}
+
+/** Supersede cascade (SPEC §6): the blobs `owner` uploaded with the replaced message's msg_id. */
+export function deleteBlobsOfMessage(sql: SqlStorage, owner: string, msgId: string): void {
+  deleteWhere(sql, "owner = ? AND msg_id = ?", owner, msgId);
+}
+
+/** Revocation (SPEC §5.4): every blob the device uploaded. */
+export function deleteBlobsOf(sql: SqlStorage, owner: string): void {
+  deleteWhere(sql, "owner = ?", owner);
+}
+
+/** Alarm sweep: an index range over the expired rows only. */
+export function purgeExpiredBlobs(sql: SqlStorage, now: number): void {
+  deleteWhere(sql, "expires_at <= ?", now);
+}
+
+export function earliestBlobExpiry(sql: SqlStorage): number | null {
+  return sql.exec<{ t: number | null }>("SELECT MIN(expires_at) AS t FROM blobs").one().t;
+}

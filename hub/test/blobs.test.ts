@@ -1,17 +1,22 @@
 // Blob routes (SPEC §6, §11): the Hub checks hash, size, quota and expiry, never the content.
 
+import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { Hub } from "../src/hub";
 import { BLOB_QUOTA_BYTES } from "../src/handlers/blobs";
 import { BLOB_BODY_LIMIT } from "../src/routes";
 import {
   api,
+  b64,
   blobId,
   call,
   expectError,
   filled,
   hubSql,
+  hubStub,
   pairDevice,
   putBlob,
+  send,
   setupFirstDevice,
   TestDevice,
   uuidv7,
@@ -156,5 +161,73 @@ describe("PUT, HEAD and GET /v1/blobs/:id", () => {
     await expectError(api("GET", `/v1/blobs/${blobId(data)}`, { token: pending.token }), 403, "forbidden");
     expect((await api("HEAD", `/v1/blobs/${blobId(data)}`, { token: pending.token })).status).toBe(403);
     expect((await stored()).ids).toEqual([blobId(data)]);
+  });
+});
+
+const COLLAPSE = b64(new Uint8Array(16).fill(3));
+
+describe("blob lifetime", () => {
+  it("is part of the single alarm and deleted by it once expired", async () => {
+    const a = await setupFirstDevice();
+    const b = await pairDevice(a);
+    await send(a, { to: [b.id], ttl_s: 3600 });
+    const soon = filled(100, 16);
+    const later = filled(300, 17);
+    await putBlob(a, later, "ttl_s=3600");
+    await putBlob(a, soon, "ttl_s=60");
+    // The alarm follows the earliest expiry of messages, pairings and blobs.
+    const alarm = await runInDurableObject(hubStub(), (_hub: Hub, state) => state.storage.getAlarm());
+    expect(alarm).not.toBeNull();
+    expect(alarm!).toBeLessThanOrEqual(Date.now() + 60_000);
+
+    await hubSql("UPDATE blobs SET expires_at = ? WHERE id = ?", Date.now() - 1, blobId(soon));
+    expect(await runDurableObjectAlarm(hubStub())).toBe(true);
+    expect(await stored()).toEqual({ ids: [blobId(later)], bytes: 300 });
+  });
+
+  it("superseding a message deletes only the blobs uploaded with its msg_id", async () => {
+    const a = await setupFirstDevice();
+    const b = await pairDevice(a);
+    const olderId = uuidv7();
+    const oldId = uuidv7();
+    const oldImage = filled(100, 20);
+    const icon = filled(110, 21);
+    const othersBlob = filled(120, 22);
+    await putBlob(a, oldImage, `ttl_s=3600&msg_id=${oldId}`);
+    // Convergent icons carry no msg_id.
+    await putBlob(a, icon);
+    // Same msg_id string from another device: not a's message.
+    await putBlob(b, othersBlob, `ttl_s=3600&msg_id=${oldId}`);
+    await send(a, { to: [b.id], collapse: COLLAPSE, msg_id: oldId });
+
+    const newId = uuidv7();
+    const newImage = filled(130, 23);
+    await putBlob(a, newImage, `ttl_s=3600&msg_id=${newId}`);
+    await send(a, { to: [b.id], collapse: COLLAPSE, msg_id: newId });
+    const kept = [blobId(icon), blobId(othersBlob), blobId(newImage)].sort();
+    expect(await stored()).toEqual({ ids: kept, bytes: 360 });
+
+    // A late retry of an older msg_id is superseded and deletes nothing.
+    expect(await send(a, { to: [b.id], collapse: COLLAPSE, msg_id: olderId })).toMatchObject({ seq: null, superseded: true });
+    expect((await stored()).ids).toEqual(kept);
+  });
+
+  it("revoking a device deletes every blob it uploaded", async () => {
+    const a = await setupFirstDevice();
+    const b = await pairDevice(a);
+    const mine = filled(100, 30);
+    await putBlob(a, mine);
+    await putBlob(b, filled(200, 31));
+    await putBlob(b, filled(300, 32), `ttl_s=3600&msg_id=${uuidv7()}`);
+    await call("DELETE", `/v1/devices/${b.id}`, { token: a.token });
+    expect(await stored()).toEqual({ ids: [blobId(mine)], bytes: 100 });
+  });
+
+  it("a reset wipes every blob and the byte counter", async () => {
+    const a = await setupFirstDevice();
+    await putBlob(a, filled(100, 40));
+    await wipeHub();
+    expect(await hubSql("SELECT id FROM blobs")).toEqual([]);
+    expect(await hubSql("SELECT value FROM meta WHERE key = 'blob_bytes'")).toEqual([]);
   });
 });

@@ -5,6 +5,7 @@ import { b64decode } from "../encoding";
 import { HttpError, badRequest } from "../errors";
 import { parseEnvelope, verifyEnvelope } from "../envelope";
 import { backlogOf, hasLiveSocket, messageFrame, safeSend, sendMessageFrame, setBacklog } from "../sockets";
+import { deleteBlobsOfMessage } from "../store/blobs";
 import { activeDeviceIds, setCursor, type DeviceRow } from "../store/devices";
 import {
   deleteMessage,
@@ -53,7 +54,10 @@ export const post: Handler = async (call) => {
   const full = env.to.filter((id) => pendingCount(hub.sql, id, now, MAX_PENDING, stored?.seq ?? 0) >= MAX_PENDING);
   if (full.length > 0) throw new HttpError("rate_limited", `recipients may have at most ${MAX_PENDING} pending messages`, { full });
 
-  if (stored) deleteMessage(hub.sql, stored.seq);
+  if (stored) {
+    deleteMessage(hub.sql, stored.seq);
+    deleteBlobsOfMessage(hub.sql, caller.id, stored.msg_id);
+  }
   const seq = insertMessage(hub.sql, {
     sender: caller.id,
     msgId: env.msg_id,
