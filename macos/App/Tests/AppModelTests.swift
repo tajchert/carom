@@ -59,6 +59,17 @@ struct AppModelTests {
 
     // MARK: Notifications
 
+    @Test func nativeReplySendsAnAction() async {
+        let h = Harness()
+        await h.start()
+        await h.model.perform(.reply(phoneId: phoneA, key: "k1", msgId: "m1", index: 1, title: "Reply",
+                                     text: "On my way"))
+        let expected = CaromProtocol.NotificationAction(
+            key: "k1", action: .button(index: 1, title: "Reply", replyText: "On my way"))
+        #expect(await h.sync.sent == [FakeSync.Sent(type: .notificationAction, body: expected.json, replyTo: "m1",
+                                                    only: nil)])
+    }
+
     @Test func presentsPostedNotification() async {
         let h = Harness()
         await h.start()

@@ -486,6 +486,10 @@ final class AppModel {
         case .copiedCode, .copiedText:
             // Our own copy: do not send it straight back to the phone.
             suppressCopiesUntil = options.now().addingTimeInterval(options.copySuppression)
+        case .reply(_, let key, let msgId, let index, let title, let text):
+            let body = CaromProtocol.NotificationAction(
+                key: key, action: .button(index: index, title: title, replyText: text))
+            _ = try? await sync.send(body, replyTo: msgId, only: nil)
         }
     }
 
