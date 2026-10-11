@@ -14,7 +14,7 @@ func cardItem(_ extra: JSONObject = [:], acts: Bool = true) -> CardItem {
     var body: JSONObject = ["key": "k", "app": ["id": "a", "name": "Rides"], "title": "Your driver is coming",
                             "posted_at": 1, "redacted": false]
     for (k, v) in extra { body[k] = v }
-    return CardItem(id: "p/k", phoneId: "p", phoneName: "Pixel", msgId: "m1", posted: NotificationPosted(json: body)!,
+    return CardItem(phoneId: "p", phoneName: "Pixel", msgId: "m1", posted: NotificationPosted(json: body)!,
                     receivedAt: Date(), phoneAcceptsActions: acts)
 }
 

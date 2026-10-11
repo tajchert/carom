@@ -12,6 +12,19 @@ public struct CardItem: Identifiable, Sendable, Equatable {
     public var posted: NotificationPosted
     public var receivedAt: Date
     public var phoneAcceptsActions: Bool   // phone caps include notification.action@1
+
+    public init(phoneId: String, phoneName: String?, msgId: String, posted: NotificationPosted,
+                receivedAt: Date, phoneAcceptsActions: Bool) {
+        id = Self.id(phoneId: phoneId, key: posted.key)
+        self.phoneId = phoneId
+        self.phoneName = phoneName
+        self.msgId = msgId
+        self.posted = posted
+        self.receivedAt = receivedAt
+        self.phoneAcceptsActions = phoneAcceptsActions
+    }
+
+    public static func id(phoneId: String, key: String) -> String { phoneId + "/" + key }
 }
 
 public enum CardAction: Sendable, Equatable {

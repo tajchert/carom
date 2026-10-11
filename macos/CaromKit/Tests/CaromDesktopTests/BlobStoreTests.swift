@@ -27,7 +27,7 @@ private actor Fetcher {
     }
 }
 
-private final class TickClock: @unchecked Sendable {
+private final class BlobTestClock: @unchecked Sendable {
     private let lock = NSLock()
     private var value = Date(timeIntervalSince1970: 1_800_000_000)
     var now: Date { lock.withLock { value } }
@@ -190,7 +190,7 @@ private func files(_ dir: URL) -> [String] {
         let icon = png(10), a = png(11), b = png(12), c = png(13)
         let refs = [ref("icon", for: icon), ref("a", for: a), ref("b", for: b), ref("c", for: c)]
         for (r, d) in zip(refs, [icon, a, b, c]) { await fetcher.set(r.id, d) }
-        let clock = TickClock()
+        let clock = BlobTestClock()
         // Room for three of the four files.
         let limit = icon.count + a.count + b.count + c.count - 1
         let store = BlobStore(directory: dir, limitBytes: limit, now: { clock.now }) { await fetcher.fetch($0) }
