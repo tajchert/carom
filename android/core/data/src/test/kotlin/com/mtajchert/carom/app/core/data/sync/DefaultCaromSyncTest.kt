@@ -69,6 +69,26 @@ class DefaultCaromSyncTest {
     }
 
     @Test
+    fun `a sent message reports which recipients are online`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        val laptop = h.join(phone, "Laptop")
+
+        val none = phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k1")) as SendResult.Sent
+        assertEquals(emptySet<String>(), none.online)
+
+        h.hub.onlineDevices += mac.id
+        h.hub.onlineDevices += "dev_not_a_recipient"
+        val one = phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k2")) as SendResult.Sent
+        assertEquals(setOf(mac.id), one.online)
+
+        h.hub.onlineDevices += laptop.id
+        val both = phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k3")) as SendResult.Sent
+        assertEquals(setOf(mac.id, laptop.id), both.online)
+    }
+
+    @Test
     fun `a stored receive rule is published and survives republishing`() = runTest {
         val h = SyncHarness(this)
         val phone = h.setUp()

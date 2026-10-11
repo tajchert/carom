@@ -152,7 +152,7 @@ class DefaultCaromSync(
         return when (val result = attempt(s, item)) {
             is Attempt.Sent -> {
                 sentListener.onSent()
-                SendResult.Sent(msgId)
+                SendResult.Sent(msgId, result.online)
             }
             is Attempt.Retry -> SendResult.Queued(msgId)
             is Attempt.Dropped -> SendResult.Dropped(msgId, result.code)
@@ -177,7 +177,7 @@ class DefaultCaromSync(
     }
 
     private sealed interface Attempt {
-        data object Sent : Attempt
+        data class Sent(val online: Set<String>) : Attempt
         data object Retry : Attempt
         data class Dropped(val code: String) : Attempt
     }
@@ -192,7 +192,7 @@ class DefaultCaromSync(
                 val result = s.client.postMessage(envelope)
                 outbox.put(item.copy(state = OutboxState.SENT, attempts = item.attempts + 1, lastError = null, seq = result.seq))
                 statusFlow.value = ConnectionStatus.IDLE
-                return Attempt.Sent
+                return Attempt.Sent(result.online.filter { it in item.recipients }.toSet())
             } catch (e: HubException.Http) {
                 when {
                     e.code == HubErrorCode.CONFLICT && e.inactive.isNotEmpty() -> {

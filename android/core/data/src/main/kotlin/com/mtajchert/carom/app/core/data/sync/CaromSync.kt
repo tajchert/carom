@@ -67,8 +67,11 @@ interface CaromSync {
 }
 
 sealed interface SendResult {
-    /** Posted (or a duplicate/superseded post, which is also final). */
-    data class Sent(val msgId: String) : SendResult
+    /**
+     * Posted (or a duplicate/superseded post, which is also final). [online] holds the recipients
+     * that had a live WebSocket when the Hub accepted the message (SPEC V2 §3.7).
+     */
+    data class Sent(val msgId: String, val online: Set<String> = emptySet()) : SendResult
 
     /** Stored in the outbox; it will be retried (network error, 5xx). */
     data class Queued(val msgId: String) : SendResult
