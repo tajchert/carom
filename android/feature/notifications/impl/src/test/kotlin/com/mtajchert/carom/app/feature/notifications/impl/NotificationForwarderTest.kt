@@ -135,7 +135,7 @@ class NotificationForwarderTest {
     }
 
     @Test
-    fun `updates are throttled to one per 2 seconds per key and the newest wins`() = runTest {
+    fun `updates are throttled to one per 1_5 seconds per key and the newest wins`() = runTest {
         val f = forwarder()
         f.onPosted { snapshot(text = "1") }
         runCurrent()
@@ -148,7 +148,11 @@ class NotificationForwarderTest {
         runCurrent()
         assertEquals(listOf("1", "x"), fake.sent.indices.map { postedText(it) })
 
-        advanceTimeBy(1_001)
+        advanceTimeBy(499) // t = 1499
+        runCurrent()
+        assertEquals(2, fake.sent.size)
+
+        advanceTimeBy(1) // t = 1500
         runCurrent()
         assertEquals(listOf("1", "x", "3"), fake.sent.indices.map { postedText(it) })
 
