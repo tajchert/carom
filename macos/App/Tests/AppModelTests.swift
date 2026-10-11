@@ -468,3 +468,40 @@ struct AppModelTests {
         #expect(await h.sync.revoked == [phoneA])
     }
 }
+
+// MARK: - Blobs and one-time codes
+
+/// A notification built from the wire JSON, with `extra` fields on top of a minimal body.
+private func rich(_ key: String = "k1", app: String = "com.ride", _ extra: JSONObject = [:]) -> Message {
+    var body: JSONObject = ["key": .string(key), "app": ["id": .string(app), "name": "Rides"], "posted_at": 1,
+                            "redacted": false]
+    for (k, v) in extra { body[k] = v }
+    return Message(type: .notificationPosted, body: body)!
+}
+
+@MainActor
+@Suite("Blobs and codes")
+struct BlobAndCodeTests {
+    @Test func menuCodeIsFoundInTheWholeNotification() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", ["text": "New message", "big_text": "Your code is 1234567890"]), msgId: "m1",
+                               sender: pixel)
+        #expect(h.model.activity.notifications.first?.code == "1234567890")
+    }
+
+    @Test func redactedNotificationHasNoCode() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", ["text": "Your code is 482913", "redacted": true]), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.first?.code == nil)
+    }
+
+    @Test func blobsAreFetchedThroughTheSyncEngine() async {
+        let h = Harness()
+        await h.start()
+        let ref = BlobRef(id: "blob1", key: "", mime: "image/webp", size: 1, hash: "AAAAAAAAAAAAAAAAAAAAAA==")
+        #expect(await h.model.blobs.image(for: ref) == nil)  // the fake has no such blob: a placeholder
+        #expect(await h.sync.fetchedBlobs == ["blob1"])
+    }
+}

@@ -54,6 +54,9 @@ actor FakeSync: SyncService {
     var rejected: [String] = []
     var cancelled: [String] = []
     var setupURIs: [String] = []
+    /// Blob plaintexts by id, and the ids that were asked for.
+    var blobs: [String: Data] = [:]
+    var fetchedBlobs: [String] = []
 
     init(directory: [DirectoryEntry] = [], settings: [String: JSON] = [:], configured: Bool = true) {
         self.directory = directory
@@ -98,6 +101,10 @@ actor FakeSync: SyncService {
     nonisolated let realtime = AsyncStream.makeStream(of: RealtimeState.self)
     nonisolated func realtimeStates() -> AsyncStream<RealtimeState> { realtime.stream }
     func stopRealtime() async { stopRealtimeCalls += 1 }
+    func fetchBlob(_ ref: BlobRef) async -> Data? {
+        fetchedBlobs.append(ref.id)
+        return blobs[ref.id]
+    }
     func revoke(deviceId: String) async throws { revoked.append(deviceId) }
     func wipe() async {
         wiped = true

@@ -79,6 +79,9 @@ final class AppModel {
         var autoApprove = false
         /// Debug builds only (`-caromEventLog`): receives event names and message types.
         var trace: (@MainActor (String) -> Void)?
+        /// Where decrypted images are cached. Every `Options()` gets a folder of its own, so
+        /// tests do not share a cache.
+        var blobDirectory = URL.temporaryDirectory.appending(path: "carom-blobs-\(UUID().uuidString)")
     }
 
     // MARK: State read by the views
@@ -112,6 +115,8 @@ final class AppModel {
     @ObservationIgnored private let clipboard: any ClipboardWatching
     @ObservationIgnored private let hotkey: any HotkeyRegistering
     @ObservationIgnored private let loginItem: any LoginItemControlling
+    /// Decrypted images of notifications and media, shared by every card.
+    @ObservationIgnored let blobs: BlobStore
     @ObservationIgnored private let options: Options
     @ObservationIgnored private let log = Logger(subsystem: "com.mtajchert.carom.mac", category: "app")
 
@@ -134,6 +139,7 @@ final class AppModel {
         hotkey = desktop.hotkey
         loginItem = desktop.loginItem
         self.options = options
+        blobs = BlobStore(directory: options.blobDirectory) { [sync] ref in await sync.fetchBlob(ref) }
     }
 
     /// The production graph: Keychain secrets, a JSON state file in Application Support and the
@@ -149,6 +155,7 @@ final class AppModel {
                                 state: state, hub: HubClient.factory())
         var options = Options()
         options.autoApprove = launch.autoApprove
+        options.blobDirectory = URL.applicationSupportDirectory.appending(path: "\(folder)/blobs")
         if let path = launch.eventLog {
             let log = DebugEventLog(path: path)
             options.trace = { log.write($0) }
@@ -408,10 +415,11 @@ final class AppModel {
             // instead of showing an empty notification. Apps set to Hide content on the phone send
             // their own placeholder text with `redacted: false` (docs/CLIENTS.md).
             let text = n.redacted && (n.text ?? "").isEmpty ? UserMessages.contentHiddenOnPhone : n.text
+            let code = CodeExtractor.code(in: n)
             activity.add(RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
-                                            msgId: msgId, code: n.redacted ? nil : text.flatMap(CodeExtractor.code(in:)),
-                                            date: options.now()))
+                                            msgId: msgId, code: code, date: options.now()))
+            await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
             let presented = PresentedNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                                   appName: n.app.name, title: n.title, text: text, key: n.key,
                                                   msgId: msgId)
@@ -672,6 +680,8 @@ final class AppModel {
         receiveRules = [:]
         preferences = Preferences()
         activity.clear()
+        let blobs = self.blobs
+        Task { await blobs.clear() }
         deviceStatus = [:]
         pairing = .idle
         connection = .offline
