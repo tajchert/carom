@@ -1,6 +1,43 @@
 import CaromProtocol
 import SwiftUI
 
+/// The decisions behind the card: which buttons are drawn, whether they are enabled, whether the
+/// position is a seek slider, and whether the hint shows. Kept apart from the view so they are testable.
+struct NowPlayingLayout: Equatable {
+    struct Button: Equatable {
+        let symbol: String
+        let label: String
+        let control: MediaControl
+        let large: Bool
+    }
+
+    let buttons: [Button]
+    let buttonsEnabled: Bool
+    let showsHint: Bool
+    let showsProgress: Bool
+    let usesSeekSlider: Bool
+
+    init(session: MediaSession, canControl: Bool) {
+        let state = session.state
+        var buttons: [Button] = []
+        if session.offers("previous") { buttons.append(Button(symbol: "backward.fill", label: "Previous", control: .previous, large: false)) }
+        if session.isPlaying {
+            if session.offers("pause") { buttons.append(Button(symbol: "pause.fill", label: "Pause", control: .pause, large: true)) }
+        } else if session.offers("play") {
+            buttons.append(Button(symbol: "play.fill", label: "Play", control: .play, large: true))
+        }
+        if session.offers("next") { buttons.append(Button(symbol: "forward.fill", label: "Next", control: .next, large: false)) }
+        self.buttons = buttons
+        buttonsEnabled = canControl
+        showsHint = !canControl
+        showsProgress = state.durationMs != nil && state.positionMs != nil
+        usesSeekSlider = canControl && session.offers("seek") && (state.durationMs ?? 0) > 0
+    }
+
+    /// The command sent when the slider is released at `target` milliseconds.
+    static func seekCommand(to target: Double) -> MediaControl { .seek(positionMs: Int(target)) }
+}
+
 /// The Now Playing card of the menu popover: art, title, artist, a progress bar extrapolated from
 /// the last `media.state`, and the controls the phone offers. Commands go out through `send`.
 public struct NowPlayingView: View {
@@ -21,6 +58,7 @@ public struct NowPlayingView: View {
     }
 
     private var state: MediaState { session.state }
+    private var layout: NowPlayingLayout { NowPlayingLayout(session: session, canControl: canControl) }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -38,9 +76,9 @@ public struct NowPlayingView: View {
                 }
                 Spacer(minLength: 0)
             }
-            if state.durationMs != nil, state.positionMs != nil { progress }
+            if layout.showsProgress { progress }
             controls
-            if !canControl {
+            if layout.showsHint {
                 Text("Turn on Actions from Mac in Carom on the phone to control playback here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -59,10 +97,10 @@ public struct NowPlayingView: View {
             let position = MediaMath.positionMs(of: session, now: context.date) ?? 0
             let shown = dragging ?? Double(position)
             VStack(spacing: 2) {
-                if canControl, session.offers("seek"), duration > 0 {
+                if layout.usesSeekSlider {
                     Slider(value: Binding(get: { shown }, set: { dragging = $0 }), in: 0...Double(duration)) { editing in
                         if !editing, let target = dragging {
-                            send(.seek(positionMs: Int(target)))
+                            send(NowPlayingLayout.seekCommand(to: target))
                             dragging = nil
                         }
                     }
@@ -87,12 +125,9 @@ public struct NowPlayingView: View {
     private var controls: some View {
         HStack(spacing: 18) {
             Spacer()
-            if session.offers("previous") { button("backward.fill", "Previous", .previous) }
-            if session.offers(session.isPlaying ? "pause" : "play") {
-                button(session.isPlaying ? "pause.fill" : "play.fill", session.isPlaying ? "Pause" : "Play",
-                       session.isPlaying ? .pause : .play, large: true)
+            ForEach(layout.buttons, id: \.label) { item in
+                button(item.symbol, item.label, item.control, large: item.large)
             }
-            if session.offers("next") { button("forward.fill", "Next", .next) }
             Spacer()
         }
     }
@@ -102,7 +137,7 @@ public struct NowPlayingView: View {
             Image(systemName: symbol).font(large ? .title2 : .body).frame(width: 28, height: 28)
         }
         .buttonStyle(.plain)
-        .disabled(!canControl)
+        .disabled(!layout.buttonsEnabled)
         .accessibilityLabel(label)
     }
 }
