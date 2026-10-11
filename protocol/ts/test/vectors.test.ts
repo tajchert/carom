@@ -10,15 +10,20 @@ import {
   b64decode,
   b64encode,
   blobAad,
+  collapseRealKey,
   collapseValue,
+  DEFAULT_TTL_S,
   convergentKey,
   deviceIdFromSignPub,
   fromHex,
   identityFromSecrets,
   isDeviceId,
+  isValidBody,
   isUuidV7,
   lp,
   makeToken,
+  MESSAGE_TYPES,
+  type MessageType,
   openBlob,
   openBox,
   openEnvelope,
@@ -31,6 +36,7 @@ import {
   parseQrUri,
   parseToken,
   receiveEnvelope,
+  requiresReplyTo,
   sealBlob,
   tokenHash,
   tokenKey,
@@ -162,6 +168,22 @@ describe('reference implementation against vectors', () => {
     const u = load('uuidv7.json');
     for (const c of u.format) expect(isUuidV7(c.uuid)).toBe(true);
     for (const c of u.invalid) expect(isUuidV7(c.value)).toBe(false);
+  });
+
+  it('message bodies, TTLs and collapse keys', () => {
+    const m = load('messages.json');
+    expect(m.defaults.map((c: Json) => c.type)).toEqual([...MESSAGE_TYPES]);
+    for (const c of m.defaults) {
+      expect(DEFAULT_TTL_S[c.type as MessageType], c.type).toBe(c.default_ttl_s);
+      expect(requiresReplyTo(c.type), c.type).toBe(c.reply_to_required);
+    }
+    for (const c of m.collapse_cases) expect(collapseRealKey(c.type, c.body), c.type).toBe(c.real_key);
+    for (const c of m.valid) expect(isValidBody(c.payload.type, c.payload.body), c.name).toBe(true);
+    for (const c of m.invalid_bodies) expect(isValidBody(c.type, c.body), c.name).toBe(false);
+    for (const c of m.missing_reply_to) {
+      expect(isValidBody(c.payload.type, c.payload.body), c.name).toBe(true);
+      expect(requiresReplyTo(c.payload.type) && c.payload.reply_to === undefined, c.name).toBe(true);
+    }
   });
 
   it('blobs', () => {

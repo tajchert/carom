@@ -1,5 +1,5 @@
 {
-  "description": "Receiver rules (SPEC §3.3) applied in order: shape (bad_shape); 1. own id in to (not_addressed), from in the trusted directory with device_id(sign_pub) == from (untrusted_sender); 2. signature (bad_signature), kv known (unknown_kv), decryption (decrypt_failed), payload JSON wrapper {type, ts, reply_to?, body} (bad_payload); 3. now - ts <= ttl_s*1000 + 300000 (expired) and ts - now <= 300000 (from_future), both inclusive; 4. msg_id not seen (replay); 5. type known / in caps (unknown_type, acknowledged and ignored); 6. clipboard.set older than the last applied (stale_clipboard, equal ts is accepted); 7. reply_to only from a recipient of the original (reply_not_allowed). context.directory maps device id to b64 sign_pub, context.keys maps kv to group key hex. expected is \"ok\" or the first failing error code. Every failure is dropped silently and still acknowledged.",
+  "description": "Receiver rules (SPEC §3.3) applied in order: shape (bad_shape); 1. own id in to (not_addressed), from in the trusted directory with device_id(sign_pub) == from (untrusted_sender); 2. signature (bad_signature), kv known (unknown_kv), decryption (decrypt_failed), payload JSON wrapper {type, ts, reply_to?, body} (bad_payload); 3. now - ts <= ttl_s*1000 + 300000 (expired) and ts - now <= 300000 (from_future), both inclusive; 4. msg_id not seen (replay); 5. type known / in caps (unknown_type, acknowledged and ignored), then a known body that fails its schema, or a notification.dismiss@1, notification.action@1, notification.action_result@1 or media.command@1 without reply_to (bad_payload); 6. clipboard.set older than the last applied (stale_clipboard, equal ts is accepted); 7. reply_to only from a recipient of the original (reply_not_allowed). context.directory maps device id to b64 sign_pub, context.keys maps kv to group key hex. expected is \"ok\" or the first failing error code. Every failure is dropped silently and still acknowledged.",
   "cases": [
     {
       "name": "valid clipboard.set",
@@ -1469,6 +1469,99 @@
         "original_recipients": {}
       },
       "expected": "reply_not_allowed"
+    },
+    {
+      "name": "notification.action@1 without reply_to",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-fb88-750f-aa8e-931b539571bb",
+        "from": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "to": [
+          "dev_3xlhcrwNLeOI88IkAOPtCQ"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "cIqcejfZ2HpzBQRB3pEMfstk2qsw23vJlDWA7ptWzxI",
+        "ct": "QDJVKGQQdPGvATAumzPiJ6AOLrEbRsdOPuYGniRZQdkzW20BxDDWA00feo4j9-FZe7r3J18DMEuyKlokzh2x620-w_hGyv-9Bge6O2put2i56ToATuHVSXO4HIfZRGSpgE_L9JalNI8Z5OpMupgLtUyLD_nnMoXRIt-FwZT-xyyDZF72iUfnfJZGMzpYCvesEEhhB9bHbzJ-l11-wpmQuHszVj_Zp9F0KWIpZVhJp-0GW01t60qLFaxfGcaNoMRcvS2PtYOTrR_C7osKwIeJlmu5q_VONR1p4NM8dUPSKaSsDI51fPRxdvUFO-Ca38XxWTZeyc2tKV06J2OvtEZi34ZEs2JwTN0KawXKh2gNSiw",
+        "sig": "OMntyUl7Tq2bXor_54GYPms5L9JybH-M4Av-1rFj6_vCW_Wdao1JbpYjyPjeWZJ0z7D6Ph_HNjFQXgkvzlC7Dg"
+      },
+      "context": {
+        "self_id": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "now": 1791648006000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {}
+      },
+      "expected": "bad_payload"
+    },
+    {
+      "name": "notification.action@1 from a recipient of the original",
+      "envelope": {
+        "v": 1,
+        "msg_id": "01a1268a-fb88-73da-8d8b-5a8ef32ecfce",
+        "from": "dev_yEtJsCLemxZR0R2zF9V93Q",
+        "to": [
+          "dev_3xlhcrwNLeOI88IkAOPtCQ"
+        ],
+        "ttl_s": 86400,
+        "kv": 1,
+        "salt": "6pMcOj5gV4Ch2_mvk1GvrCS1jeqDgcR6jPhMZPc34Pk",
+        "ct": "0DtK0Dbk1A6V7-jOIyioMHIqY6pW1JqDrr_aGGe7Ek4AoeNasCmZoHGGLFo5KT9ULFGTeJqXH_nVWZ5fogB2Rf-fIMmslEfhUaApdGItCFkpqfS8mcAHGCTI-Wbxd8H9bCVYc8pvsdxxs_ttyGugb2uEcQ4cnaIG64Hhk3JZZVv9W4h7xfLvJ-7qh8gWip7zVoHxQaqYQa-q-Tw3gmPxnUQzHChWiThqKnIYw95l8Ff9YakpMkJbTAFWMLybUwpFkFlnKdPnN6QT7DYsJ1RrodWo4yfrSxR9q79X0sK5Xn5qiFoXgNalB_AxibtVpSlIDm3_Cmwv391isZRtzX8ebmj51NlrglHEJKjYZTu4KV0",
+        "sig": "67cwMRkURtvhet6rne5Kma4Qg1hdAb6EJpAMq4mC5VSTCqKtw129_sNKlt2Ygp09bVezKIVoN3jX1T5yqORNAA"
+      },
+      "context": {
+        "self_id": "dev_3xlhcrwNLeOI88IkAOPtCQ",
+        "now": 1791648006000,
+        "directory": {
+          "dev_3xlhcrwNLeOI88IkAOPtCQ": "9V9tS08Cyf3ZSyLeg7lmM6WBC29H8qABibZnutWwULg",
+          "dev_yEtJsCLemxZR0R2zF9V93Q": "5mJeypwuJViiUmevz4vhWm21S5Ee1cMUXAKENbf0Mf8",
+          "dev_9uxH-5VhZAm0ozgjLN74Xw": "03Rr8dP0pRn0H83tXtiamLVhEB_EpvKZ58FtvwVU-Jc",
+          "dev__p1GmcgGJKiAkqtjBJlAhg": "oJdHyUZQHwEePvk_EwFBW1RCImRkjiJdpylvt2L0X-s"
+        },
+        "keys": {
+          "1": "aac1b0938ae11203704cb819e1a94bad35cd7f677fb8e8d2201a45ee2387408a"
+        },
+        "seen_msg_ids": [],
+        "known_types": [
+          "notification.posted@1",
+          "notification.removed@1",
+          "notification.dismiss@1",
+          "clipboard.set@1",
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
+        ],
+        "last_clipboard_ts": null,
+        "original_recipients": {
+          "01a1268a-e800-76da-a9c7-692ec75d5ab0": [
+            "dev_yEtJsCLemxZR0R2zF9V93Q",
+            "dev_9uxH-5VhZAm0ozgjLN74Xw"
+          ]
+        }
+      },
+      "expected": "ok"
     }
   ]
 }

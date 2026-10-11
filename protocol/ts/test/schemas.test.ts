@@ -57,6 +57,13 @@ describe('JSON Schemas', () => {
     expect(validate('welcome', vectors('pairing.json').welcome.welcome)).toBe(true);
   });
 
+  it('agree with the message vectors', () => {
+    const m = vectors('messages.json');
+    for (const c of m.valid) expect(validate('payload', c.payload), c.name).toBe(true);
+    for (const c of m.invalid_bodies) expect(validate(c.type, c.body), c.name).toBe(false);
+    for (const c of m.missing_reply_to) expect(validate('payload', c.payload), c.name).toBe(false);
+  });
+
   it('b64 patterns reject non-canonical values', () => {
     for (const c of vectors('b64.json').encode) {
       expect(ajv.validate({ $ref: 'urn:carom:v1:common#/$defs/b64' }, c.b64), c.b64).toBe(true);

@@ -51,6 +51,11 @@ Main entry points, all exported from `@carom/protocol`:
 - Tokens: `makeToken`, `parseToken`, `verifyToken`, `tokenHash`.
 - QR: `buildSetupUri`, `buildPairUri`, `parseQrUri`.
 - Ids and routing: `createUuidV7Generator`, `isUuidV7`, `routeRecipients`, `defaultReceive`.
+- Messages (SPEC §4): `MESSAGE_TYPES`, `DEFAULT_TTL_S`, `collapseRealKey`, `isValidBody`
+  (including the V2 rich fields), `requiresReplyTo`, `LIST_LIMITS`, `MEDIA_COMMANDS`.
+- Blobs (SPEC §11): `sealBlob`, `openBlob` (checks id, tag, padding, size and hash),
+  `convergentKey`, `padBinary`, `unpadBinary`, `paddedBlobLength`, `blobId`, `blobHash`,
+  `blobAad`, `isValidBlobRef`.
 
 Failures that come from untrusted input return `{ ok: false, error: '<code>' }` (or `null`
 for simple parsers). Programmer errors, such as a wrong key length, throw `RangeError`.
@@ -79,6 +84,13 @@ error codes it uses. Conventions:
   keys by kv, clock, seen ids, caps, last clipboard ts, original recipients of sent
   messages) so each case is independent.
 - `envelope_shape.json` is for the Hub. It needs no keys.
+- `blob.json` covers binary padding, convergent keys, byte-exact blob seals, and
+  `open_cases` with the SPEC §11.3 rejection codes in order (`bad_ref`, `bad_id`,
+  `decrypt_failed`, `bad_padding`, `bad_size`, `bad_hash`).
+- `messages.json` lists each type's default TTL, whether `reply_to` is required, collapse
+  keys, rich bodies every port must parse, and bodies it must reject as `bad_payload`. The
+  rich posted, inline reply, media state and seek payloads are also sealed in
+  `envelope_seal.json`.
 - In `uuidv7.json`, only the `format`, `invalid` and ordering properties are normative. The
   generator sequence documents the reference generator.
 

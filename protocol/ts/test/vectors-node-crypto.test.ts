@@ -209,7 +209,7 @@ describe('node:crypto cross-check of vectors', () => {
   });
 
   it('envelope receive rules', () => {
-    const TYPES_NEEDING_REPLY = new Set(['notification.dismiss@1']);
+    const TYPES_NEEDING_REPLY = new Set(['notification.dismiss@1', 'notification.action@1', 'notification.action_result@1', 'media.command@1']);
     for (const c of load('envelope_receive.json').cases) {
       const e = c.envelope;
       const x = c.context;

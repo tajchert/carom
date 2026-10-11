@@ -27,6 +27,7 @@ import {
   TABLET,
   type VectorFile,
 } from './fixtures.ts';
+import { ACTION_REPLY, MEDIA_COMMAND, MEDIA_SESSION, MEDIA_STATE, RICH_KEY, RICH_POSTED } from './rich.ts';
 
 interface SealSpec {
   name: string;
@@ -144,12 +145,61 @@ const status: SealSpec = {
   label: 'status',
 };
 
+// Labels must stay in step with the msgId(label, ts) reply_to values in rich.ts.
+const richPosted: SealSpec = {
+  name: 'notification.posted@1 with V2 rich fields (messaging, blob references, actions)',
+  sender: PHONE,
+  to: [MAC, LAPTOP],
+  groupKey: K1,
+  kv: 1,
+  payload: RICH_POSTED,
+  collapseRealKey: `n:${RICH_KEY}`,
+  ttlS: 172_800,
+  label: 'rich-posted',
+};
+
+const actionReply: SealSpec = {
+  name: 'notification.action@1 inline reply from mac to the phone (reply_to = posted msg_id, no collapse)',
+  sender: MAC,
+  to: [PHONE],
+  groupKey: K1,
+  kv: 1,
+  payload: ACTION_REPLY,
+  collapseRealKey: null,
+  ttlS: 600,
+  label: 'action-reply',
+};
+
+const mediaState: SealSpec = {
+  name: 'media.state@1 from phone (collapse m:<session>)',
+  sender: PHONE,
+  to: [MAC, LAPTOP],
+  groupKey: K1,
+  kv: 1,
+  payload: MEDIA_STATE,
+  collapseRealKey: `m:${MEDIA_SESSION}`,
+  ttlS: 86_400,
+  label: 'media-state',
+};
+
+const mediaCommand: SealSpec = {
+  name: 'media.command@1 seek from mac (reply_to = media.state msg_id, no collapse)',
+  sender: MAC,
+  to: [PHONE],
+  groupKey: K1,
+  kv: 1,
+  payload: MEDIA_COMMAND,
+  collapseRealKey: null,
+  ttlS: 600,
+  label: 'media-command',
+};
+
 export function envelopeSealVectors(): VectorFile {
   return {
     description:
       'Envelope seal (SPEC §2.3, §3). tag = "carom/v1/env"; H = [u64(v), msg_id, from, to_joined, collapse_or_empty, u64(ttl_s)] with to_joined = lp(to[0]) || lp(to[1]) || ...; aad = lp(tag) || lp(H[0]) || ... || lp(u64(kv)) || lp(salt); ct = ChaCha20-Poly1305(msg_key(K, salt), nonce = 12 zero bytes, aad, plaintext); sig = Ed25519(sign_sk, aad || lp(ct)). Payload JSON is padded with spaces (SPEC §3.1); plaintext_hex is the exact padded plaintext. Opening with sender_sign_pub and group_key MUST yield plaintext_hex. ' +
       SIG_NOTE,
-    cases: [posted, removed, clipboard, dismissReply, status].map((spec) => {
+    cases: [posted, removed, clipboard, dismissReply, status, richPosted, actionReply, mediaState, mediaCommand].map((spec) => {
       const { env, plaintext, salt, collapse } = sealSpec(spec);
       return {
         name: spec.name,
@@ -337,6 +387,28 @@ export function envelopeReceiveVectors(): VectorFile {
       context: { ...baseContext(PHONE, T0 + 6_000) },
       expected: 'reply_not_allowed',
     },
+    {
+      name: 'notification.action@1 without reply_to',
+      envelope: sealed('recv-action-no-reply', {
+        sender: MAC,
+        to: [PHONE],
+        payload: { type: 'notification.action@1', ts: T0 + 5_000, body: { key: NOTIF_KEY, action: 'tap' } },
+        collapseRealKey: null,
+      }),
+      context: { ...baseContext(PHONE, T0 + 6_000) },
+      expected: 'bad_payload',
+    },
+    {
+      name: 'notification.action@1 from a recipient of the original',
+      envelope: sealed('recv-action-ok', {
+        sender: MAC,
+        to: [PHONE],
+        payload: { type: 'notification.action@1', ts: T0 + 5_000, reply_to: originalMsgId, body: { key: NOTIF_KEY, action: 'tap' } },
+        collapseRealKey: null,
+      }),
+      context: { ...baseContext(PHONE, T0 + 6_000), original_recipients: { [originalMsgId]: [MAC.deviceId, LAPTOP.deviceId] } },
+      expected: 'ok',
+    },
   ];
 
   for (const c of cases) {
@@ -347,7 +419,7 @@ export function envelopeReceiveVectors(): VectorFile {
 
   return {
     description:
-      'Receiver rules (SPEC §3.3) applied in order: shape (bad_shape); 1. own id in to (not_addressed), from in the trusted directory with device_id(sign_pub) == from (untrusted_sender); 2. signature (bad_signature), kv known (unknown_kv), decryption (decrypt_failed), payload JSON wrapper {type, ts, reply_to?, body} (bad_payload); 3. now - ts <= ttl_s*1000 + 300000 (expired) and ts - now <= 300000 (from_future), both inclusive; 4. msg_id not seen (replay); 5. type known / in caps (unknown_type, acknowledged and ignored); 6. clipboard.set older than the last applied (stale_clipboard, equal ts is accepted); 7. reply_to only from a recipient of the original (reply_not_allowed). context.directory maps device id to b64 sign_pub, context.keys maps kv to group key hex. expected is "ok" or the first failing error code. Every failure is dropped silently and still acknowledged.',
+      'Receiver rules (SPEC §3.3) applied in order: shape (bad_shape); 1. own id in to (not_addressed), from in the trusted directory with device_id(sign_pub) == from (untrusted_sender); 2. signature (bad_signature), kv known (unknown_kv), decryption (decrypt_failed), payload JSON wrapper {type, ts, reply_to?, body} (bad_payload); 3. now - ts <= ttl_s*1000 + 300000 (expired) and ts - now <= 300000 (from_future), both inclusive; 4. msg_id not seen (replay); 5. type known / in caps (unknown_type, acknowledged and ignored), then a known body that fails its schema, or a notification.dismiss@1, notification.action@1, notification.action_result@1 or media.command@1 without reply_to (bad_payload); 6. clipboard.set older than the last applied (stale_clipboard, equal ts is accepted); 7. reply_to only from a recipient of the original (reply_not_allowed). context.directory maps device id to b64 sign_pub, context.keys maps kv to group key hex. expected is "ok" or the first failing error code. Every failure is dropped silently and still acknowledged.',
     cases,
   };
 }

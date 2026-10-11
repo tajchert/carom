@@ -6,6 +6,7 @@ import { envelopeReceiveVectors, envelopeSealVectors, envelopeShapeVectors } fro
 import type { VectorFile } from './fixtures.ts';
 import { boxVectors, pairingVectors, rekeyVectors } from './keys.ts';
 import { qrVectors, tokenVectors, uuidVectors } from './misc.ts';
+import { messageVectors } from './rich.ts';
 import { recordVectors } from './record.ts';
 
 export function buildVectors(): Record<string, VectorFile> {
@@ -27,6 +28,7 @@ export function buildVectors(): Record<string, VectorFile> {
     'qr.json': qrVectors(),
     'uuidv7.json': uuidVectors(),
     'blob.json': blobVectors(),
+    'messages.json': messageVectors(),
   };
 }
 
