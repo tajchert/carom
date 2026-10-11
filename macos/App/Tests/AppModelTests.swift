@@ -139,6 +139,24 @@ struct AppModelTests {
         #expect(h.model.notifications.cards.isEmpty)
     }
 
+    @Test func directoryChangeRecomputesTheActionCapOfExistingCards() async {
+        let h = Harness(directory: [entry(pixel)])
+        await h.start()
+        await h.model.dispatch(replyable(), msgId: "m1", sender: pixel)
+        let id = CardItem.id(phoneId: phoneA, key: "k1")
+        #expect(h.model.notifications.cards[id]?.phoneAcceptsActions == false)
+
+        await h.sync.set(directory: [entry(actionPhone(phoneA, "Pixel"))])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.notifications.cards[id]?.phoneAcceptsActions == true)
+        #expect(h.model.notifications.cards[id]?.replyAction != nil)
+
+        await h.sync.set(directory: [entry(pixel)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.notifications.cards[id]?.phoneAcceptsActions == false)
+        #expect(h.model.notifications.cards[id]?.phoneButtons.isEmpty == true)
+    }
+
     @Test func focusAccessIsRequestedWhenReady() async {
         let h = Harness()
         await h.start()

@@ -25,6 +25,23 @@ import Testing
         #expect(!native.presented[0].showPhoneName)
     }
 
+    @Test func actionCapChangeUpdatesThatPhonesCardsWithoutReposting() async {
+        let (c, native, panel, _) = makeCoordinator(timers: timers)
+        await c.posted(Fixture.card(Fixture.withActions(Fixture.posted()), actions: false))
+        await c.posted(Fixture.card(Fixture.withActions(Fixture.posted("k2")), phone: "other", actions: false))
+        let id = Fixture.id("k1")
+        #expect(c.cards[id]?.phoneButtons.isEmpty == true)
+
+        c.setPhoneAcceptsActions(true, phoneId: Fixture.phone)
+        #expect(c.cards[id]?.phoneAcceptsActions == true)
+        #expect(c.cards[id]?.phoneButtons.isEmpty == false)
+        #expect(c.cards[CardItem.id(phoneId: "other", key: "k2")]?.phoneAcceptsActions == false)
+        #expect(native.presented.count == 2 && panel.alerts.count == 2, "nothing is presented again")
+
+        c.setPhoneAcceptsActions(false, phoneId: Fixture.phone)
+        #expect(c.cards[id]?.phoneButtons.isEmpty == true)
+    }
+
     @Test func phoneNameAndReplyReachTheNativeCopy() async {
         let (c, native, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted()), phoneName: "Pixel"))
