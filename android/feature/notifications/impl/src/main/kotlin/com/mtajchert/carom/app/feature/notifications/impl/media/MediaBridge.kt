@@ -113,6 +113,23 @@ class MediaBridge @Inject constructor(
         bySession.clear()
     }
 
+    /** True while [session] is tracked, i.e. its media notification is still showing (spec §3.5). */
+    fun isActive(session: String): Boolean = bySession.containsKey(session)
+
+    /**
+     * Runs [command] on [session] when the session is active, advertises the control, and the
+     * arguments are valid. Called from the sync engine's thread; it only reads the maps.
+     */
+    fun command(session: String, command: String, positionMs: Long?): CommandOutcome {
+        val tracked = bySession[session] ?: return CommandOutcome.UNKNOWN_SESSION
+        if (command !in MediaControls.ALL) return CommandOutcome.UNSUPPORTED
+        if (command == MediaControls.SEEK && (positionMs == null || positionMs < 0)) return CommandOutcome.BAD_ARGUMENT
+        if (command !in tracked.handle.snapshot().controls) return CommandOutcome.UNSUPPORTED
+        val done = tracked.handle.perform(command, positionMs)
+        activity.ifPresent { it.onActivity() }
+        return if (done) CommandOutcome.DONE else CommandOutcome.UNSUPPORTED
+    }
+
     fun onPosted(sbn: StatusBarNotification) {
         val r = run ?: return
         if (sbn.packageName == r.env.ownPackage) return
