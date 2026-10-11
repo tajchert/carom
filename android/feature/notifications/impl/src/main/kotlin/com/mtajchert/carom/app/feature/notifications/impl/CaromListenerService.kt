@@ -45,6 +45,12 @@ class CaromListenerService : NotificationListenerService() {
                 Log.i(TAG, "dismiss_unavailable")
             }
         }
+
+        override fun find(key: String): StatusBarNotification? = try {
+            getActiveNotifications(arrayOf(key))?.firstOrNull { it.key == key }
+        } catch (_: SecurityException) {
+            null // access was revoked between the check and the call
+        }
     }
 
     override fun onListenerConnected() {
@@ -130,6 +136,9 @@ class ActiveNotificationsBridge @Inject constructor() {
     interface Listener {
         fun isActive(key: String): Boolean
         fun cancel(key: String)
+
+        /** The live notification for [key], or null when it is gone or access was revoked. */
+        fun find(key: String): StatusBarNotification? = null
     }
 
     @Volatile
@@ -150,4 +159,7 @@ class ActiveNotificationsBridge @Inject constructor() {
         l.cancel(key)
         return true
     }
+
+    /** The live notification for [key] from the connected listener, or null when none is connected or it is gone. */
+    fun find(key: String): StatusBarNotification? = listener?.find(key)
 }

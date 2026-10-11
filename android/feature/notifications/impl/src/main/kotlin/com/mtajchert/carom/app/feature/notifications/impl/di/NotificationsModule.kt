@@ -11,6 +11,8 @@ import com.mtajchert.carom.app.feature.notifications.impl.RoomForwardedKeys
 import com.mtajchert.carom.app.feature.notifications.impl.RoomNotificationAppsRepository
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.actions.AndroidPendingIntentSender
+import com.mtajchert.carom.app.feature.notifications.impl.actions.PendingIntentSender
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -40,6 +42,9 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsDismissHandler(impl: NotificationDismissHandler): IncomingMessageHandler
+
+    @Binds
+    abstract fun bindsPendingIntentSender(impl: AndroidPendingIntentSender): PendingIntentSender
 
     companion object {
         @Provides
