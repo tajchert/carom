@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.core.testing.hub
 
+import com.mtajchert.carom.app.core.hub.BlobInfo
 import com.mtajchert.carom.app.core.hub.DeviceCredentials
 import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.hub.HubClientFactory
@@ -16,6 +17,7 @@ import com.mtajchert.carom.app.core.hub.PairStatus
 import com.mtajchert.carom.app.core.hub.PostMessageResult
 import com.mtajchert.carom.app.core.protocol.B64
 import com.mtajchert.carom.app.core.protocol.Box
+import com.mtajchert.carom.app.core.protocol.Crypto
 import com.mtajchert.carom.app.core.protocol.DeviceIds
 import com.mtajchert.carom.app.core.protocol.Envelope
 import com.mtajchert.carom.app.core.protocol.Envelopes
@@ -37,7 +39,8 @@ import java.io.IOException
  * tested against each other on the JVM. It checks auth, `from`, active recipients (409), msg_id
  * duplicates, the collapse rule, cumulative acks, the keyring kv rule and pairing states.
  *
- * Not modelled: rate limits, WebSockets, TTL expiry and signature checks.
+ * Not modelled: rate limits other than the blob quota, WebSockets (devices in [onlineDevices] count as
+ * connected), the expiry alarm (blobs expire on access) and signature checks.
  */
 class FakeHub(
     val setupToken: String = "fake-setup-token-0123456789abcdef-0123",
@@ -69,6 +72,30 @@ class FakeHub(
     private val messages = mutableListOf<Message>()
     private val sentMsgIds = mutableMapOf<Pair<String, String>, Long?>()
     private val keyring = mutableListOf<KeyringVersion>()
+
+    private class Blob(val owner: String, val msgId: String?, val data: ByteArray, var expiresAt: Long)
+
+    private val blobs = linkedMapOf<String, Blob>()
+
+    /** Devices with a live WebSocket: the recipients reported in `online` of a post. */
+    val onlineDevices = mutableSetOf<String>()
+
+    /** The `online` list of the most recent accepted post. */
+    var lastOnline: Set<String> = emptySet()
+        private set
+
+    /** Total blob bytes the Hub accepts (SPEC V2 §3.7: 256 MB). */
+    var blobQuotaBytes: Long = DEFAULT_BLOB_QUOTA
+
+    val blobIds: Set<String> get() = purgeExpiredBlobs().let { blobs.keys.toSet() }
+    fun blobExpiresAt(id: String): Long? = purgeExpiredBlobs().let { blobs[id]?.expiresAt }
+
+    private fun purgeExpiredBlobs() {
+        val t = now()
+        blobs.entries.removeAll { it.value.expiresAt <= t }
+    }
+
+    private fun expiryFor(ttlS: Long) = now() + ttlS.coerceIn(60, 604_800) * 1000
     private var seq = 0L
     private var claimed = false
 
@@ -120,7 +147,7 @@ class FakeHub(
         override suspend fun reset(setupToken: String) {
             enter("POST /v1/reset")
             if (setupToken != this@FakeHub.setupToken) throw http(403, HubErrorCode.FORBIDDEN)
-            devices.clear(); pairings.clear(); messages.clear(); keyring.clear(); sentMsgIds.clear()
+            devices.clear(); pairings.clear(); messages.clear(); keyring.clear(); sentMsgIds.clear(); blobs.clear()
             claimed = false
         }
 
@@ -206,6 +233,7 @@ class FakeHub(
             val caller = caller("DELETE /v1/devices/:id")
             val id = if (deviceId == HubClient.SELF) caller.id else deviceId
             devices.remove(id) ?: throw http(404, HubErrorCode.NOT_FOUND)
+            blobs.entries.removeAll { it.value.owner == id }
         }
 
         override suspend fun postMessage(envelope: Envelope): PostMessageResult {
@@ -219,12 +247,19 @@ class FakeHub(
             val key = caller.id to envelope.msgId
             if (key in sentMsgIds) return PostMessageResult(seq = sentMsgIds[key], duplicate = true)
             val stored = envelope.collapse?.let { c -> messages.firstOrNull { it.from == caller.id && it.collapse == c } }
-            if (stored != null && envelope.msgId < stored.msgId) return PostMessageResult(seq = null, superseded = true)
-            stored?.let { messages.remove(it) }
+            if (stored != null && envelope.msgId < stored.msgId) {
+                dropBlobsOf(caller.id, envelope.msgId)
+                return PostMessageResult(seq = null, superseded = true)
+            }
+            stored?.let {
+                messages.remove(it)
+                dropBlobsOf(caller.id, it.msgId)
+            }
             val s = ++seq
             messages += Message(s, caller.id, envelope.msgId, envelope.collapse, envelope.to, envelope.toJson())
             sentMsgIds[key] = s
-            return PostMessageResult(seq = s)
+            lastOnline = envelope.to.filter { it in onlineDevices }.toSet()
+            return PostMessageResult(seq = s, online = envelope.to.filter { it in onlineDevices })
         }
 
         override suspend fun messages(limit: Int): MessagesPage {
@@ -237,6 +272,45 @@ class FakeHub(
             val caller = caller("POST /v1/acks")
             caller.cursor = maxOf(caller.cursor, minOf(upTo, seq))
         }
+
+        override suspend fun putBlob(id: String, ct: ByteArray, ttlS: Long, msgId: String?): BlobInfo {
+            val caller = caller("PUT /v1/blobs/:id")
+            purgeExpiredBlobs()
+            if (ct.size > MAX_BLOB_BODY) throw http(413, HubErrorCode.TOO_LARGE)
+            if (B64.encode(Crypto.sha256(ct)) != id) throw http(400, HubErrorCode.BAD_REQUEST)
+            val expires = expiryFor(ttlS)
+            blobs[id]?.let { existing ->
+                existing.expiresAt = maxOf(existing.expiresAt, expires)
+                return BlobInfo(id, existing.data.size.toLong(), existing.expiresAt)
+            }
+            if (blobs.values.sumOf { it.data.size.toLong() } + ct.size > blobQuotaBytes) {
+                throw HubException.Http(
+                    429,
+                    HubErrorCode.RATE_LIMITED,
+                    "quota",
+                    buildJsonObject {
+                        put("error", buildJsonObject { put("code", "rate_limited"); put("message", "quota") })
+                        put("quota", true)
+                    },
+                )
+            }
+            blobs[id] = Blob(caller.id, msgId, ct.copyOf(), expires)
+            return BlobInfo(id, ct.size.toLong(), expires)
+        }
+
+        override suspend fun headBlob(id: String, touchTtlS: Long?): Boolean {
+            caller("HEAD /v1/blobs/:id")
+            purgeExpiredBlobs()
+            val blob = blobs[id] ?: return false
+            if (touchTtlS != null) blob.expiresAt = maxOf(blob.expiresAt, expiryFor(touchTtlS))
+            return true
+        }
+
+        override suspend fun getBlob(id: String): ByteArray? {
+            caller("GET /v1/blobs/:id")
+            purgeExpiredBlobs()
+            return blobs[id]?.data?.copyOf()
+        }
     }
 
     private fun addDevice(signPub: String, kxPub: String, active: Boolean): DeviceCredentials {
@@ -247,6 +321,10 @@ class FakeHub(
         return DeviceCredentials(id, token)
     }
 
+    private fun dropBlobsOf(owner: String, msgId: String) {
+        blobs.entries.removeAll { it.value.owner == owner && it.value.msgId == msgId }
+    }
+
     private fun http(status: Int, code: HubErrorCode) = HubException.Http(status, code, code.code, errorBody(code))
 
     private fun errorBody(code: HubErrorCode): JsonObject = buildJsonObject {
@@ -254,6 +332,9 @@ class FakeHub(
     }
 
     companion object {
+        private const val MAX_BLOB_BODY = 1_048_576 + 1024
+        private const val DEFAULT_BLOB_QUOTA = 256L * 1024 * 1024
+
         /** A network failure to put into [failures]. */
         fun networkFailure(): HubException = HubException.Network(IOException("offline"))
     }
