@@ -486,7 +486,7 @@ Errors use the form `{"error": {"code": "snake_case", "message": "…"}}`, with 
 | `GET /v1/messages?limit=N` | device | → `{messages:[{seq, envelope}], more}` (unacknowledged, in `seq` order, N ≤ 200) |
 | `POST /v1/acks` | device | `{up_to: seq}` → `{}` (cumulative: everything ≤ `up_to` addressed to this device is acknowledged) |
 | `GET /v1/ws` | device | WebSocket upgrade, see §7 |
-| `PUT /v1/blobs/:id?ttl_s=N[&msg_id=uuid]` | device | raw ciphertext (`application/octet-stream`) → 201 `{id, size, expires_at}`, or 200 with the same fields when the blob already exists |
+| `PUT /v1/blobs/:id?ttl_s=N[&msg_id=uuid]` | device | raw ciphertext (`application/octet-stream`) → 201 `{id, size, expires_at}`, or 200 with the same fields when the blob already exists. `size` is the stored ciphertext length in bytes, not the BlobRef's plaintext `size` (§11.1) |
 | `HEAD /v1/blobs/:id[?touch=1&ttl_s=N]` | device | → 200 with an `x-expires-at` header, or 404 |
 | `GET /v1/blobs/:id` | device | → 200 with the ciphertext (`application/octet-stream`) and `x-expires-at`, or 404 |
 
@@ -525,6 +525,8 @@ Blobs (§11) are stored as ciphertext only:
 3. `ttl_s` is required on PUT and is clamped to 60–604 800. The blob expires `ttl_s` after
    the upload. Re-uploading an existing id answers 200 and moves its expiry to the later of
    the two. `HEAD` with `touch=1` and `ttl_s` does the same without a body.
+   The `size` in the PUT reply is the stored ciphertext length in bytes, not the plaintext
+   `size` a BlobRef carries (§11.1).
 4. When a new blob would take the total stored ciphertext over 268 435 456 bytes (256 MiB),
    the Hub answers `429 rate_limited` with `{"quota": true}`.
 5. A blob uploaded with `msg_id` is deleted when the uploader's message with that msg_id is
@@ -658,7 +660,8 @@ The user chooses one of:
 
 - a window of 2, 5 (the default) or 15 minutes,
 - no window at all, or
-- a socket kept open while a desktop is online, which costs battery.
+- a socket kept open while paired, reconnecting with a backoff of up to 15 minutes while no
+  desktop is online, which costs battery.
 
 Outside the window, actions wait in the Hub until their 10-minute TTL ends. The desktop tells
 the user the phone is asleep after 30 seconds without a result.
