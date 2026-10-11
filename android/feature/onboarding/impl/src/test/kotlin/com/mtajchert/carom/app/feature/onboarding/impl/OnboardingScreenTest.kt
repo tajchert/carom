@@ -19,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtajchert.carom.app.core.data.sync.Clock
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
 import com.mtajchert.carom.app.core.testing.hub.FakeHub
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -138,5 +139,65 @@ class OnboardingScreenTest {
         composeRule.onNodeWithText("Allow").performScrollTo().performClick()
         composeRule.onNodeWithText("Open settings").performScrollTo().performClick()
         assertEquals(listOf("post", "battery"), events)
+    }
+
+    @Test
+    fun `the verification codes card appears on Android 15 and opens the enable screen`() {
+        composeRule.setContent {
+            CaromTheme {
+                OnboardingContent(
+                    step = OnboardingStep.Permissions,
+                    actions = OnboardingActions(onEnableCodeForwarding = { events += "codes" }),
+                    camera = CameraAccess.GRANTED,
+                    permissions = PermissionStatus(
+                        notificationAccess = true,
+                        postNotifications = null,
+                        batteryUnrestricted = true,
+                        showRestrictedSettingsHint = false,
+                        codeForwarding = CodeForwardingState.NOT_ENABLED,
+                    ),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Verification codes").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Enable").performScrollTo().performClick()
+        assertEquals(listOf("codes"), events)
+    }
+
+    @Test
+    fun `the verification codes card shows allowed once enabled and is hidden below Android 15`() {
+        composeRule.setContent {
+            CaromTheme {
+                OnboardingContent(
+                    step = OnboardingStep.Permissions,
+                    actions = OnboardingActions(),
+                    camera = CameraAccess.GRANTED,
+                    permissions = PermissionStatus(
+                        notificationAccess = false,
+                        postNotifications = null,
+                        batteryUnrestricted = false,
+                        showRestrictedSettingsHint = false,
+                        codeForwarding = CodeForwardingState.ENABLED,
+                    ),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Verification codes").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Allowed").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `no verification codes card when the system does not hide codes`() {
+        composeRule.setContent {
+            CaromTheme {
+                OnboardingContent(
+                    step = OnboardingStep.Permissions,
+                    actions = OnboardingActions(),
+                    camera = CameraAccess.GRANTED,
+                    permissions = PermissionStatus(false, null, false, false),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Verification codes").assertDoesNotExist()
     }
 }

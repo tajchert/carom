@@ -9,6 +9,7 @@ import com.mtajchert.carom.app.core.protocol.QrPayload
 import com.mtajchert.carom.app.core.protocol.QrUri
 import com.mtajchert.carom.app.core.testing.hub.FakeHub
 import com.mtajchert.carom.app.core.testing.util.MainDispatcherRule
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -177,5 +178,13 @@ class OnboardingViewModelTest {
     fun `the scan state never prints what was pasted`() {
         val scan = OnboardingStep.Scan(ConnectMode.SETUP, input = "carom://setup?v=1&t=secret")
         assertTrue("secret" !in scan.toString())
+    }
+
+    @Test
+    fun `code forwarding state and intent come from the access`() {
+        device.codeForwarding.current = CodeForwardingState.NOT_ENABLED
+        assertEquals(CodeForwardingState.NOT_ENABLED, vm.codeForwardingState())
+        device.codeForwarding.current = CodeForwardingState.ENABLED
+        assertEquals(CodeForwardingState.ENABLED, vm.codeForwardingState())
     }
 }

@@ -61,6 +61,7 @@ dependencies {
     implementation(projects.core.designsystem)
     implementation(projects.core.ui)
     implementation(projects.core.common)
+    implementation(projects.feature.notifications.api)
 
     // QR scanning: CameraX preview + analysis, zxing core to decode
     implementation(libs.bundles.camerax)

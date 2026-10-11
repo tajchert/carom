@@ -12,6 +12,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 
 /** What the permissions step shows. [postNotifications] is null below Android 13 (nothing to ask). */
 data class PermissionStatus(
@@ -20,6 +21,8 @@ data class PermissionStatus(
     val batteryUnrestricted: Boolean,
     /** Android 13+ blocks notification access for sideloaded apps until "Allow restricted settings". */
     val showRestrictedSettingsHint: Boolean,
+    /** UNSUPPORTED below Android 15: the card is hidden. Filled in by the ViewModel, not by [SystemAccess]. */
+    val codeForwarding: CodeForwardingState = CodeForwardingState.UNSUPPORTED,
 )
 
 /** System checks and settings deep links for onboarding. Nothing here needs a new permission. */

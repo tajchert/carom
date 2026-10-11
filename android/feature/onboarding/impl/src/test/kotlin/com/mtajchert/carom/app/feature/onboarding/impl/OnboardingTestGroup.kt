@@ -28,9 +28,10 @@ class TestDevice(hub: FakeHub, clock: Clock) {
     val hubProvider = HubProvider { state.enrollment?.let { (url, _, _) -> hub.factory.client(url) { vault.load().deviceToken } } }
     val enrollment = Enrollment(vault, hub.factory, hubProvider, state, sync, clock)
     val preferences = FakeUserPreferencesRepository()
+    val codeForwarding = FakeCodeForwardingAccess()
 
     fun onboarding(defaultName: String = "Pixel 9") =
-        OnboardingViewModel(enrollment, preferences, sync, DeviceNameProvider { defaultName })
+        OnboardingViewModel(enrollment, preferences, sync, DeviceNameProvider { defaultName }, codeForwarding)
 }
 
 fun FakeHub.setupUri(): String = QrUri.buildSetup(url, setupToken)
