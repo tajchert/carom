@@ -16,7 +16,8 @@ The contracts are [`protocol/SPEC.md`](../protocol/SPEC.md) (wire format) and
 
 - Xcode 27 (Swift 6.4), macOS 27 to build. The package targets **macOS 14** and later.
 - Swift 6 language mode with strict concurrency; every target treats warnings as errors.
-- Apple frameworks only: CryptoKit, Foundation, Security, Network. No third-party dependencies.
+- Apple frameworks only: CryptoKit, Foundation, Security, Network, and in `CaromDesktop` AppKit,
+  SwiftUI, UserNotifications, Intents, Carbon and ServiceManagement. No third-party dependencies.
 
 ## Layout
 
@@ -28,14 +29,18 @@ CaromKit/
     CaromHub/        SPEC §6–§7: HTTP client, WebSocket client, network path observer
     CaromStore/      Keychain secrets, sync state persistence
     CaromSync/       docs/CLIENTS.md sync engine (an actor)
+    CaromDesktop/    Desktop services and views: clipboard watcher, hotkey, login item, notification
+                     presenter and coordinator, rich cards, Live Updates, media, calls, blob store
   Tests/
     CaromProtocolTests/  every file in protocol/vectors + unit tests
     CaromHubTests/       HubClient over a URLProtocol stub, HubSocket with a fake transport
     CaromStoreTests/     vault, state file, Keychain attributes
     CaromSyncTests/      two in-memory devices against a fake Hub; optional real-Hub test
+    CaromDesktopTests/   coordinator routing, cards and stacks, Live maths, BlobStore, CodeExtractor
 ```
 
-Dependency graph: `CaromProtocol` ← `CaromHub`, `CaromStore` ← `CaromSync`.
+Dependency graph: `CaromProtocol` ← `CaromHub`, `CaromStore` ← `CaromSync`; `CaromDesktop` depends
+on `CaromProtocol` only.
 
 ### CaromProtocol
 
@@ -54,6 +59,24 @@ Dependency graph: `CaromProtocol` ← `CaromHub`, `CaromStore` ← `CaromSync`.
 
 Failures from untrusted input are `Result` values whose error `rawValue`s are the vector codes
 (`bad_signature`, `untrusted_sender`, …). Programmer errors trap.
+
+`Blobs.swift` (SPEC §11: seal and open, the convergent key) and `RichNotification.swift` /
+`RichMessages.swift` (the V2 `notification.posted@1` fields, `notification.action@1`,
+`notification.action_result@1`, `media.state@1`, `media.command@1`) hold the V2 types.
+
+### CaromDesktop
+
+| Path | Contents |
+|---|---|
+| `NotificationCoordinator.swift` | Routes every posted, removed, media and action-result event to the panel, native notifications, the Live chip and history. Owns the card timers ("Sending…", "Phone is asleep" after 30 s) |
+| `NotificationPresenter.swift` | The native macOS notification (passive while the panel is on), its categories (Copy code, Reply, Dismiss on phone, Copy text) |
+| `Rich/` | `RichPanel` (the non-activating `NSPanel`), `CardModel`, `CardStack` (grouping, order, "+N more"), card views and styles, `CardActionsRow` (buttons, reply field), `FocusStatus` (`INFocusStatusCenter`) |
+| `Live/` | `LiveUpdateCardView`, `LiveMath` (segments, chronometer, countdown), `LiveChip` (menu-bar item) |
+| `Media/` | `MediaSession` (state extrapolation), `NowPlayingView` |
+| `Call/` | `CallCardView`, `CallRinger` (looped sound) |
+| `BlobStore.swift` | Fetch, hash check, decrypt, disk cache (50 MB, LRU, icons last), 4 fetches at a time |
+| `CodeExtractor.swift` | One-time codes: 4 to 10 digits, letter-digit with keyword |
+| `ClipboardWatcher.swift`, `HotkeyManager.swift`, `LoginItem.swift` | Clipboard polling and writes, the global hotkey, the login item |
 
 ### CaromHub
 

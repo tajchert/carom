@@ -64,6 +64,21 @@ Done (foundation):
   already checked that the key matches the posted message it replies to). The "Apps" screen
   (`NotificationAppsRoute`) lists apps seen posting notifications with their Forward / Hide
   content / Off mode and the "Ongoing: Forward / Off" switch.
+- Actions, media and code forwarding (`feature:notifications:impl`, packages `actions/`, `media/`
+  and `codes/`). `ActionExecutor` runs `notification.action@1` (tap, answer, decline, the app's
+  buttons, inline reply) through `PendingIntent.send` with background activity start allowed, and
+  answers with `notification.action_result@1` (`gone`, `changed`, `blocked`, `failed`).
+  `MediaBridge` sends `media.state@1` (debounced to 1 s, art as a blob) and
+  `MediaCommandHandler` runs `media.command@1` through the session's transport controls.
+  `ActiveCallTracker` holds the action window open for calls and playing media.
+  `ActionsForegroundService` is the "Always" mode. The code-forwarding screen creates a
+  `CompanionDeviceManager` association (self-managed profile first) and falls back to the adb
+  command (`AdbFallback`). `RedactionPrompt` posts the quiet "Tap to enable" notification.
+  Which association profile unlocks codes on Android 15 and 16 still needs checking on a device
+  (`docs/V2-DEVICE-CHECKLIST.md`).
+- Settings → "Actions from Mac" (Off / After a notification with 2, 5 or 15 minutes / Always). Off
+  removes `notification.action@1` and `media.command@1` from the published `caps`
+  (`SetActionsFromMacUseCase`).
 
 
 ### Fetching (docs/CLIENTS.md "Connection policy (phone)")
@@ -72,10 +87,12 @@ Done (foundation):
 |---|---|
 | App visible (`ProcessLifecycleOwner` start) | `ForegroundSync`: flush outbox, refresh directory, then a WebSocket (`ForegroundSocketSession`) that processes and acks frames, refreshes on `dir`, wipes on `revoked`, reconnects with jittered backoff. Closed when the app goes to the background. |
 | After a successful send | `PiggybackFetch` schedules a `FetchWorker`, unless the socket is live. |
+| A forward whose send response lists a desktop in `online` | `ActionWindow` opens a `ForegroundSocketSession` for the configured minutes. Each forward, received action or media change restarts the timer. A call or playing media holds it open. "Always" keeps it open while paired (`ActionsForegroundService`). |
 
 `LiveHubConnection.pairCandidates` exposes `pair` frames from the live socket for the pairing screen.
 There is no push and no periodic background polling (SPEC §9): messages from a desktop to this
-phone (`clipboard.set`, `notification.dismiss`) are fetched only while the app is awake, which is
+phone (`clipboard.set`, `notification.dismiss`) are fetched only while the app is awake or an action
+window is open, which is
 why the Clipboard settings tell the user that a clipboard from a Mac arrives when Carom is opened.
 
 ## Baseline
@@ -121,6 +138,7 @@ app ── feature/*/impl ── feature/*/api
 | `:core:common` | Dispatcher qualifiers, `Result` |
 | `:core:testing` | `FakeHub` (in-memory Hub with a blob store and `online` recipients), `InMemorySecretVault`, in-memory stores, `FakeCaromSync`, fake repositories, `MainDispatcherRule` |
 | `:feature:{home,onboarding,pairing,devices,settings,notifications}:{api,impl}` | api: one `NavKey` route each. impl: screen, ViewModel, `xxxEntries(...)` navigation contribution |
+| `:feature:notifications:impl` | `CaromListenerService`, `RichExtractor`, `NotificationFilter`, `ImageEncoder`, `BlobUploader`, `UpdateThrottle`, `NotificationMapper`; `actions/` (`ActionExecutor`, `NotificationActionHandler`, `ActiveCallTracker`, `ActionsForegroundService`); `media/` (`MediaBridge`, `MediaCommandHandler`, art encoding and upload); `codes/` (code-forwarding screen, `CompanionDeviceManager` association, `AdbFallback`, `RedactionPrompt`) |
 | `:feature:clipboard:{api,impl}` | Two-way clipboard: `ClipboardSend.intent`, transparent `ClipboardSendActivity`, exported share target `ShareTargetActivity` and Quick Settings tile, `clipboard.set@1` handler (sensitive flag, 10 s echo guard, optional quiet notification with "Copy again"), clipboard settings screen (`ClipboardSettingsRoute`; "Send clipboard to" is stored locally, "Receive clipboard from" goes through `SetReceiveRuleUseCase`), the optional ongoing "Carom" notification with a Send clipboard action |
 | `:benchmark` | Startup Macrobenchmark, Baseline Profile generator, `StartupSmokeTest` |
 
