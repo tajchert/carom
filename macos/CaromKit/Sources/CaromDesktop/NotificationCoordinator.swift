@@ -83,6 +83,17 @@ public final class NotificationCoordinator {
     @ObservationIgnored private var fadeTasks: [String: Task<Void, Never>] = [:]
     /// Cards the user acted on: they fade even if they would otherwise stay.
     @ObservationIgnored private var handled: Set<String> = []
+    /// Sends a `notification.action@1` for a card. Set by the app.
+    @ObservationIgnored public var sendAction: (@MainActor (CardItem, ActionRef) async -> ActionDelivery)?
+    /// Sends a `notification.dismiss@1` for a card. Set by the app.
+    @ObservationIgnored public var sendDismiss: (@MainActor (CardItem) async -> Void)?
+    /// Writes a code to the clipboard without syncing it back. Set by the app.
+    @ObservationIgnored public var copy: (@MainActor (String) -> Void)?
+    @ObservationIgnored private var asleepTasks: [String: Task<Void, Never>] = [:]
+    /// Action msg_id → card id, until the phone's result arrives.
+    @ObservationIgnored private var pendingActions: [String: String] = [:]
+    /// Results that arrived before their send returned its msg_id (newest last, at most 16).
+    @ObservationIgnored private var earlyResults: [(msgId: String, result: NotificationActionResult)] = []
 
     public init(native: any NativeNotifying, panel: any CardPanelHosting, focus: any FocusStatusProviding,
                 options: Options = Options(), now: @escaping @MainActor () -> Date = { Date() }) {
@@ -168,6 +179,98 @@ public final class NotificationCoordinator {
         scheduleFade(id)
     }
 
+    // MARK: Actions
+
+    /// Runs a card's action. Phone actions need the phone's `notification.action@1` cap. Returns
+    /// false when the card is unknown (for example after a restart).
+    @discardableResult
+    public func perform(_ action: CardAction, on cardId: String) -> Bool {
+        guard let item = cards[cardId] else { return false }
+        switch action {
+        case .copyCode(let code):
+            copy?(code)
+            markHandled(cardId)
+        case .dismiss:
+            let send = sendDismiss
+            Task { await send?(item) }
+            removed(phoneId: item.phoneId, key: item.posted.key)
+        case .tap:
+            deliver(.tap, for: item)
+        case .button(let index, let title):
+            deliver(.button(index: index, title: title, replyText: nil), for: item)
+        case .reply(let index, let title, let text):
+            if replyingTo == cardId { endReply() }
+            deliver(.button(index: index, title: title, replyText: text), for: item)
+        case .answer:
+            deliver(.answer, for: item)
+        case .decline:
+            deliver(.decline, for: item)
+        }
+        return true
+    }
+
+    /// The phone's `notification.action_result@1`; `replyTo` is the action's msg_id.
+    public func actionResult(replyTo: String, _ result: NotificationActionResult) {
+        guard let cardId = pendingActions.removeValue(forKey: replyTo) else {
+            earlyResults.append((replyTo, result))
+            if earlyResults.count > 16 { earlyResults.removeFirst(earlyResults.count - 16) }
+            return
+        }
+        apply(result, to: cardId)
+    }
+
+    private func deliver(_ ref: ActionRef, for item: CardItem) {
+        guard item.phoneAcceptsActions, let send = sendAction else { return }
+        statuses[item.id] = .sending
+        armAsleep(item.id)
+        Task { [weak self] in
+            let delivery = await send(item, ref)
+            self?.delivered(delivery, cardId: item.id)
+        }
+    }
+
+    private func delivered(_ delivery: ActionDelivery, cardId: String) {
+        guard cards[cardId] != nil else { return }
+        switch delivery {
+        case .accepted(let msgId):
+            if let i = earlyResults.firstIndex(where: { $0.msgId == msgId }) {
+                let early = earlyResults.remove(at: i)
+                apply(early.result, to: cardId)
+            } else {
+                pendingActions[msgId] = cardId
+            }
+        case .failed:
+            asleepTasks.removeValue(forKey: cardId)?.cancel()
+            statuses[cardId] = .failed
+            markHandled(cardId)
+        }
+    }
+
+    private func apply(_ result: NotificationActionResult, to cardId: String) {
+        asleepTasks.removeValue(forKey: cardId)?.cancel()
+        guard cards[cardId] != nil else { return }
+        statuses[cardId] = ActionStatus(result: result)
+        markHandled(cardId)
+    }
+
+    /// "Phone is asleep — will send when it wakes" when no result came in time. The action stays
+    /// queued at the Hub (TTL 10 min), so a later result still updates the status.
+    private func armAsleep(_ cardId: String) {
+        asleepTasks.removeValue(forKey: cardId)?.cancel()
+        let delay = options.asleepAfter
+        asleepTasks[cardId] = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            self.asleepTasks[cardId] = nil
+            if self.statuses[cardId] == .sending { self.statuses[cardId] = .asleep }
+        }
+    }
+
+    private func markHandled(_ cardId: String) {
+        handled.insert(cardId)
+        scheduleFade(cardId)
+    }
+
     // MARK: Panel membership
 
     private func place(_ item: CardItem, isUpdate: Bool) {
@@ -215,5 +318,8 @@ public final class NotificationCoordinator {
         takeOffPanel(id)
         cards[id] = nil
         handled.remove(id)
+        statuses[id] = nil
+        asleepTasks.removeValue(forKey: id)?.cancel()
+        pendingActions = pendingActions.filter { $0.value != id }
     }
 }
