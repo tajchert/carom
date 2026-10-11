@@ -36,7 +36,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -78,7 +82,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -120,7 +128,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -162,7 +174,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -204,7 +220,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -245,7 +265,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -288,7 +312,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -330,7 +358,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -371,7 +403,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -413,7 +449,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -456,7 +496,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -498,7 +542,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -540,7 +588,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -582,7 +634,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -624,7 +680,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -666,7 +726,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -708,7 +772,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -750,7 +818,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -792,7 +864,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -834,7 +910,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -876,7 +956,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -918,7 +1002,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -960,7 +1048,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -1004,7 +1096,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -1046,7 +1142,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -1087,7 +1187,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}
@@ -1167,7 +1271,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": 1791648000001,
         "original_recipients": {}
@@ -1209,7 +1317,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": 1791648000000,
         "original_recipients": {}
@@ -1249,7 +1361,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {
@@ -1294,7 +1410,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {
@@ -1339,7 +1459,11 @@
           "notification.removed@1",
           "notification.dismiss@1",
           "clipboard.set@1",
-          "device.status@1"
+          "device.status@1",
+          "notification.action@1",
+          "notification.action_result@1",
+          "media.state@1",
+          "media.command@1"
         ],
         "last_clipboard_ts": null,
         "original_recipients": {}

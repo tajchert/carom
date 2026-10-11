@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
+import { isValidBlobRef, sealBlob } from '../src/blob.ts';
 import { isValidBody, MESSAGE_TYPES, type MessageType } from '../src/messages.ts';
 import { isValidDeviceRecord } from '../src/record.ts';
 
@@ -23,6 +24,8 @@ const validate = (id: string, value: unknown): boolean => {
   if (!fn) throw new Error(`schema ${id} not found`);
   return fn(value) as boolean;
 };
+const REF = sealBlob(new Uint8Array(10), 'image/webp', new Uint8Array(32).fill(1), { w: 96, h: 96 }).ref;
+const MIN_POSTED = { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 1, redacted: false };
 
 describe('JSON Schemas', () => {
   it('all compile under draft 2020-12 strict mode', () => {
@@ -82,6 +85,41 @@ describe('JSON Schemas', () => {
     ['notification.posted@1', { key: 'k', app: { id: 'a' }, posted_at: 1, redacted: false }, false],
     ['notification.posted@1', { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 1 }, false],
     ['notification.posted@1', { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 1, redacted: false, title: 5 }, false],
+    ['notification.posted@1', { ...MIN_POSTED, app: { id: 'a', name: 'A', icon: REF }, redacted: true, can_open: true }, true],
+    [
+      'notification.posted@1',
+      {
+        ...MIN_POSTED,
+        template: 'messaging',
+        color: -16_734_076,
+        colorized: false,
+        large_icon: REF,
+        conversation: { is_group: true },
+        messages: [{ sender: { name: 'Anna', icon: REF }, text: 'hi', ts: 1, image: REF }],
+        actions: [{ index: 0, title: 'Reply', semantic: 1, reply: { choices: ['ok'] } }],
+      },
+      true,
+    ],
+    [
+      'notification.posted@1',
+      {
+        ...MIN_POSTED,
+        template: 'progress',
+        progress: { value: 1, max: 2, indeterminate: false, segments: [{ length: 1, color: -1 }], points: [{ position: 1 }], tracker_icon: REF },
+        live: { promoted: true },
+        chronometer: { count_down: false },
+        when: 5,
+        show_when: true,
+      },
+      true,
+    ],
+    ['notification.posted@1', { ...MIN_POSTED, call: { type: 'incoming', person: { name: 'Anna' } }, group: { key: 'g', summary: false, alert: 'all' }, channel: { id: 'c', importance: 4 } }, true],
+    ['notification.posted@1', { ...MIN_POSTED, color: 4_278_233_220 }, false],
+    ['notification.posted@1', { ...MIN_POSTED, lines: Array(8).fill('x') }, false],
+    ['notification.posted@1', { ...MIN_POSTED, actions: Array.from({ length: 7 }, (_, i) => ({ index: i, title: 't' })) }, false],
+    ['notification.posted@1', { ...MIN_POSTED, large_icon: { ...REF, id: 'x' } }, false],
+    ['notification.posted@1', { ...MIN_POSTED, conversation: { title: 't' } }, false],
+    ['notification.posted@1', { ...MIN_POSTED, progress: { value: 1, max: 2 } }, false],
     ['notification.removed@1', { key: 'k' }, true],
     ['notification.removed@1', {}, false],
     ['notification.dismiss@1', { key: 'k' }, true],
@@ -91,10 +129,57 @@ describe('JSON Schemas', () => {
     ['device.status@1', { battery: 100, charging: false }, true],
     ['device.status@1', { battery: 101 }, false],
     ['device.status@1', { battery: 50.5 }, false],
+    ['notification.action@1', { key: 'k', action: 'tap' }, true],
+    ['notification.action@1', { key: 'k', action: { index: 0, title: 'Reply', reply_text: 'ok' } }, true],
+    ['notification.action@1', { key: 'k', action: 'press' }, false],
+    ['notification.action@1', { key: 'k', action: { index: 0 } }, false],
+    ['notification.action_result@1', { ok: true }, true],
+    ['notification.action_result@1', { ok: false, error: 'gone' }, true],
+    ['notification.action_result@1', { error: 'gone' }, false],
+    ['media.state@1', { session: 's', app: { id: 'a', name: 'A' }, state: 'playing', controls: ['play'] }, true],
+    ['media.state@1', { session: '', app: { id: 'a', name: 'A' }, state: 'playing', controls: [] }, false],
+    ['media.state@1', { session: 's', app: { id: 'a', name: 'A' }, state: 'playing' }, false],
+    ['media.command@1', { session: 's', command: 'next' }, true],
+    ['media.command@1', { session: 's', command: 'seek', position_ms: 1_000 }, true],
+    ['media.command@1', { session: 's', command: 'seek' }, false],
+    ['media.command@1', { session: 's', command: 'stop' }, false],
   ];
   it.each(bodies)('%s body validator matches the schema: %j', (type, body, expected) => {
     expect(validate(type, body)).toBe(expected);
     expect(isValidBody(type, body)).toBe(expected);
+  });
+
+  it('payload schema requires reply_to for actions, results and media commands', () => {
+    const replyTo = '01928f3c-7b1e-7c4a-9d2f-5e8a1b2c3d4e';
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ['notification.action@1', { key: 'k', action: 'tap' }],
+      ['notification.action_result@1', { ok: true }],
+      ['media.command@1', { session: 's', command: 'play' }],
+    ];
+    for (const [type, body] of cases) {
+      expect(validate('payload', { type, ts: 1, reply_to: replyTo, body }), type).toBe(true);
+      expect(validate('payload', { type, ts: 1, body }), type).toBe(false);
+    }
+    const state = { session: 's', app: { id: 'a', name: 'A' }, state: 'paused', controls: [] };
+    expect(validate('payload', { type: 'media.state@1', ts: 1, body: state })).toBe(true);
+  });
+
+  it('blob_ref schema matches isValidBlobRef', () => {
+    const variants: unknown[] = [
+      REF,
+      { ...REF, extra: 1 },
+      { ...REF, id: REF.id.slice(1) },
+      { ...REF, key: REF.key + 'A' },
+      { ...REF, mime: '' },
+      { ...REF, size: -1 },
+      { ...REF, size: 1_044_477 },
+      { ...REF, hash: REF.id },
+      { ...REF, w: 0 },
+      { id: REF.id },
+    ];
+    for (const v of variants) {
+      expect(ajv.validate({ $ref: 'urn:carom:v1:common#/$defs/blob_ref' }, v), JSON.stringify(v)).toBe(isValidBlobRef(v));
+    }
   });
 
   it('record validator matches the schema', () => {
