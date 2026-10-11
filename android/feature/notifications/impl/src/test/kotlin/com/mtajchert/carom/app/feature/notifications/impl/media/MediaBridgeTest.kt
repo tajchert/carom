@@ -80,18 +80,33 @@ class MediaBridgeTest {
     }
 
     @Test
-    fun `a position-only playback change sends nothing`() = runTest {
+    fun `a position-only progress tick sends nothing`() = runTest {
         val session = FakeMediaSession().also { h.source.sessions[1] = it }
         val bridge = h.start(this)
         bridge.onPosted(h.sbn(1))
         settle()
         assertEquals(1, h.sync.sent.size)
 
-        session.snapshot = session.snapshot.copy(positionMs = 90_000, positionAt = 95_000)
+        session.snapshot = session.snapshot.copy(positionMs = 91_000, positionAt = 95_000)
         session.change()
         settle()
         assertEquals(1, h.sync.sent.size)
         assertEquals(1, h.signal.activity)
+    }
+
+    @Test
+    fun `a seek that departs from the extrapolated position is sent`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        assertEquals(1, h.sync.sent.size)
+
+        session.snapshot = session.snapshot.copy(positionMs = 90_000, positionAt = 6_000)
+        session.change()
+        settle()
+        assertEquals(2, h.sync.sent.size)
+        assertEquals(90_000L, h.states().last().positionMs)
     }
 
     @Test

@@ -195,9 +195,23 @@ class MediaBridge @Inject constructor(
             controls = snapshot.controls,
         )
         val last = t.lastSent
-        if (last != null && last.withoutPosition() == body.withoutPosition()) return
+        if (last != null && last.withoutPosition() == body.withoutPosition() && !positionJumped(last, body)) return
         t.lastSent = body
         post(r, body)
+    }
+
+    /**
+     * True when the new position departs from what the Mac extrapolates from the last sent anchor
+     * (a seek). Ordinary progress ticks stay within [POSITION_TOLERANCE_MS] and send nothing.
+     */
+    private fun positionJumped(last: MessageBodies.MediaState, body: MessageBodies.MediaState): Boolean {
+        val lastPos = last.positionMs
+        val lastAt = last.positionAt
+        val pos = body.positionMs
+        val at = body.positionAt
+        if (lastPos == null || lastAt == null || pos == null || at == null) return (lastPos == null) != (pos == null)
+        val expected = if (last.state == MediaStates.PLAYING) lastPos + (at - lastAt) else lastPos
+        return kotlin.math.abs(pos - expected) > POSITION_TOLERANCE_MS
     }
 
     private fun MessageBodies.MediaState.withoutPosition() = copy(positionMs = null, positionAt = null)
@@ -243,5 +257,6 @@ class MediaBridge @Inject constructor(
 
     companion object {
         const val DEBOUNCE_MS = 1_000L
+        const val POSITION_TOLERANCE_MS = 2_000L
     }
 }
