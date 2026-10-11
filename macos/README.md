@@ -93,7 +93,7 @@ Failures from untrusted input are `Result` values whose error `rawValue`s are th
 | Join | `beginJoin(uri:) -> JoinTicket` (show `fingerprint`), `completeJoin()`, `join(uri:)` |
 | Invite | `createPairingInvite() -> PairingInvite` (QR `uri`), `pollPairing(pairId:)`, `approvePairing(pairId:)`, `rejectPairing(pairId:)`, `cancelPairing(pairId:)` |
 | Directory | `refreshDirectory()`, `checkKeyring()`, `directory`, `rename(_:)`, `setReceiveRule(_:for:)` |
-| Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `flushOutbox()`, `outbox` |
+| Send | `send(_ body:, replyTo:, only:) -> SendOutcome`, `sendReturningMsgId(...)` (also the msg_id), `flushOutbox()`, `outbox` |
 | Receive | `fetchMessages()`, `process(_:)`, `handle(_ event: HubSocket.Event)` |
 | Realtime | `startRealtime(connector:configuration:) -> HubSocket?`, `stopRealtime()`, `realtimeState`, `realtimeStates()` (offline / connecting / connected; a fresh stream per call) |
 | Revoke | `revoke(deviceId:)` (another device: delete, then rekey; this device: rekey without itself, then delete, SPEC §5.4), `rekey(excluding:)`, `handleRevoked()` |

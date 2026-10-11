@@ -580,14 +580,23 @@ public actor SyncEngine {
     public func send<B: MessageBody>(_ body: B, replyTo: String? = nil, only: Set<String>? = nil) async throws
         -> SendOutcome
     {
+        try await sendReturningMsgId(body, replyTo: replyTo, only: only).outcome
+    }
+
+    /// `send`, also returning the msg_id the message was sealed under (nil when nothing was
+    /// sealed: an echo, or no recipients). A sender that waits for a reply matches the reply's
+    /// `reply_to` against it (`notification.action@1` -> `notification.action_result@1`).
+    public func sendReturningMsgId<B: MessageBody>(_ body: B, replyTo: String? = nil, only: Set<String>? = nil)
+        async throws -> (msgId: String?, outcome: SendOutcome)
+    {
         guard let s = secrets, let key = s.current, let selfId = state.deviceId else { throw SyncError.notConfigured }
         let now = clock()
-        if let clip = body as? ClipboardSet, echo.shouldSuppress(clip.text, now: now) { return .suppressedEcho }
+        if let clip = body as? ClipboardSet, echo.shouldSuppress(clip.text, now: now) { return (nil, .suppressedEcho) }
 
         var to: [String]
         if let replyTo {
             guard let original = state.received[replyTo]?.peers.first, state.directory[original] != nil else {
-                return .noRecipients
+                return (nil, .noRecipients)
             }
             to = Routing.recipients(type: B.type.rawValue, sender: selfId, directory: [], replyToSender: original)
         } else {
@@ -595,7 +604,7 @@ public actor SyncEngine {
                                     directory: state.directory.values.map(\.record))
             if let only { to = to.filter(only.contains) }
         }
-        guard !to.isEmpty else { return .noRecipients }
+        guard !to.isEmpty else { return (nil, .noRecipients) }
 
         let plaintext: Data
         do { plaintext = try Payload(type: B.type.rawValue, ts: now, replyTo: replyTo, body: body).encode() } catch {
@@ -611,7 +620,7 @@ public actor SyncEngine {
                                        notificationKey: (body as? NotificationPosted)?.key,
                                        messageType: B.type.rawValue, mediaSession: (body as? MediaState)?.session))
         persist()
-        return await deliver(msgId: msgId)
+        return (msgId, await deliver(msgId: msgId))
     }
 
     /// Retries queued messages that are due. Call on reconnect, on a timer, and after wake.
