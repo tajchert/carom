@@ -129,15 +129,15 @@ struct AppModelTests {
         #expect(sent == [FakeSync.Sent(type: .notificationDismiss, body: ["key": "k1"], replyTo: "m1", only: nil)])
     }
 
-    @Test func recentNotificationsKeepTheLastTwenty() async {
+    @Test func recentNotificationsKeepTheLastFifty() async {
         let h = Harness()
         await h.start()
-        for i in 0..<25 { await h.model.dispatch(posted("k\(i)"), msgId: "m\(i)", sender: pixel) }
-        #expect(h.model.activity.notifications.count == 20)
-        #expect(h.model.activity.notifications.first?.key == "k24")
+        for i in 0..<55 { await h.model.dispatch(posted("k\(i)"), msgId: "m\(i)", sender: pixel) }
+        #expect(h.model.activity.notifications.count == 50)
+        #expect(h.model.activity.notifications.first?.key == "k54")
         // An update of the same key replaces the row.
-        await h.model.dispatch(posted("k24", title: "Updated"), msgId: "m99", sender: pixel)
-        #expect(h.model.activity.notifications.count == 20)
+        await h.model.dispatch(posted("k54", title: "Updated"), msgId: "m99", sender: pixel)
+        #expect(h.model.activity.notifications.count == 50)
         #expect(h.model.activity.notifications.first?.title == "Updated")
     }
 
@@ -551,6 +551,19 @@ struct LiveChipWiringTests {
         #expect(h.chipHost.calls.last == "hide")
     }
 
+    @Test func mutingTheAppEndsItsChip() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(rich("k1", promoted), msgId: "m1", sender: pixel)
+        h.model.setMuted("com.other", true)
+        #expect(h.chipHost.calls.last == "show text:5 min")
+        h.model.setMuted("com.ride", true)
+        #expect(h.chipHost.calls.last == "hide")
+        // Muted updates never bring it back.
+        await h.model.dispatch(rich("k1", promoted), msgId: "m2", sender: pixel)
+        #expect(h.chipHost.calls.last == "hide")
+    }
+
     @Test func removingThePhoneEndsItsChip() async {
         let h = Harness(directory: [entry(pixel), entry(galaxy)])
         await h.start()
@@ -614,6 +627,17 @@ struct NowPlayingModelTests {
         #expect(h.model.mediaSessions.isEmpty)
         await h.model.dispatch(media(), msgId: "m2", sender: pixel)
         #expect(h.model.mediaSessions.isEmpty)
+    }
+
+    @Test func aStateMissedWhilePausedDropsTheStaleSession() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(media(), msgId: "m1", sender: pixel)
+        h.model.setPaused(true)
+        await h.model.dispatch(media("paused"), msgId: "m2", sender: pixel)
+        h.model.setPaused(false)
+        #expect(h.model.mediaSessions.isEmpty)
+        #expect(h.model.nowPlaying.isEmpty)
     }
 
     @Test func removingThePhoneEndsItsSessions() async {

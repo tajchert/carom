@@ -507,6 +507,9 @@ final class AppModel {
             return
         }
         guard !preferences.paused, receives(.notifications, from: sender.id), !preferences.isMuted(m.app.id) else {
+            // A state we will not show still makes the one we hold stale: drop it rather than keep
+            // a card that says playing, extrapolates its position and replies to an old msg_id.
+            mediaSessions.removeAll { $0.id == session.id }
             return
         }
         if let i = mediaSessions.firstIndex(where: { $0.id == session.id }) {
@@ -734,7 +737,12 @@ final class AppModel {
     func setMuted(_ appId: String, _ muted: Bool) {
         preferences.setMuted(appId, muted)
         savePreferences()
-        if muted { mediaSessions.removeAll { $0.state.app.id == appId } }
+        if muted {
+            mediaSessions.removeAll { $0.state.app.id == appId }
+            // Muted posts never reach trackLive, so the chip would keep its last text.
+            liveUpdates.removeAll { $0.posted.app.id == appId }
+            updateLiveChip()
+        }
     }
 
     func setSendClipboard(to id: String, _ enabled: Bool) {

@@ -39,7 +39,7 @@ struct RecentClip: Identifiable, Equatable, Sendable {
 
 /// Newest-first lists with a fixed size.
 struct RecentActivity: Equatable, Sendable {
-    static let notificationLimit = 20
+    static let notificationLimit = 50
     static let clipLimit = 10
 
     private(set) var notifications: [RecentNotification] = []
