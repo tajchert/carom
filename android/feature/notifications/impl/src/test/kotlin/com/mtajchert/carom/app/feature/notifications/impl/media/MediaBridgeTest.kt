@@ -7,6 +7,8 @@ import com.mtajchert.carom.app.core.data.sync.SendResult
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.model.UserPreferences
 import com.mtajchert.carom.app.core.protocol.MessageTypes
+import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
+import com.mtajchert.carom.app.feature.notifications.impl.DefaultBlobUploader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -146,6 +148,55 @@ class MediaBridgeTest {
         settle()
         assertEquals(3, h.uploader.uploads.size)
         assertEquals(ART_REF, h.states()[3].art)
+    }
+
+    @Test
+    fun `art of the same track is reused for an hour and uploaded again after`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        assertEquals(1, h.uploader.uploads.size)
+
+        advanceTimeBy(30 * 60 * 1000L)
+        session.snapshot = session.snapshot.copy(state = MediaStates.PAUSED)
+        session.change()
+        settle()
+        assertEquals(1, h.uploader.uploads.size)
+        assertEquals(ART_REF, h.states().last().art)
+
+        // Past the reuse window the art is uploaded again, so a new message never points at an expiring blob.
+        advanceTimeBy(MediaBridge.ART_REUSE_MS)
+        val fresh = ART_REF.copy(id = "art-2")
+        h.uploader.result = fresh
+        session.snapshot = session.snapshot.copy(state = MediaStates.PLAYING)
+        session.change()
+        settle()
+        assertEquals(2, h.uploader.uploads.size)
+        assertEquals(fresh, h.states().last().art)
+    }
+
+    @Test
+    fun `a failed re-upload keeps the previous art`() = runTest {
+        val session = FakeMediaSession().also { h.source.sessions[1] = it }
+        val bridge = h.start(this)
+        bridge.onPosted(h.sbn(1))
+        settle()
+        advanceTimeBy(MediaBridge.ART_REUSE_MS + 1)
+        h.uploader.result = null
+        session.snapshot = session.snapshot.copy(state = MediaStates.PAUSED)
+        session.change()
+        settle()
+        assertEquals(2, h.uploader.uploads.size)
+        assertEquals(ART_REF, h.states().last().art)
+    }
+
+    @Test
+    fun `album art blobs outlive the message by the same margin as message images`() = runTest {
+        val sync = FakeCaromSync()
+        SyncMediaArtUploader(sync).upload(EncodedArt(byteArrayOf(1, 2, 3), 8, 8))
+        assertEquals(DefaultBlobUploader.MESSAGE_TTL_S, sync.uploads.single().ttlS)
+        assertEquals(false, sync.uploads.single().convergent)
     }
 
     @Test

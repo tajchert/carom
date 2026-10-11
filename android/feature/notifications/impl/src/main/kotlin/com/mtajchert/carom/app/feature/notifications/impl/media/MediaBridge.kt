@@ -9,6 +9,7 @@ import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.protocol.MessageBodies
 import com.mtajchert.carom.app.core.protocol.MessageTypes
+import com.mtajchert.carom.app.feature.notifications.impl.DefaultBlobUploader
 import com.mtajchert.carom.app.feature.notifications.impl.ForwardingEnvironment
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationAppsRepository
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationFilter
@@ -32,7 +33,8 @@ import javax.inject.Singleton
  *   read when the timer fires, so a burst sends the latest. Position alone never triggers a send:
  *   the Mac extrapolates from `position_ms` and `position_at`, so a flush whose body differs from
  *   the last one only in those two fields is dropped.
- * - album art goes out as a blob, once per track.
+ * - album art goes out as a blob once per track, and again when the track plays on past
+ *   [ART_REUSE_MS], so a new message never points at a blob close to expiry.
  * - when the media notification is removed, `state: stopped` is sent at once.
  *
  * Like [com.mtajchert.carom.app.feature.notifications.impl.NotificationForwarder], listener
@@ -67,6 +69,9 @@ class MediaBridge @Inject constructor(
         /** The track whose art [art] belongs to; null until its art was loaded (or found missing). */
         var artKey: String? = null
         var art: MessageBodies.BlobRef? = null
+
+        /** When [art] was uploaded. */
+        var artAt: Long = 0
 
         /** The last body sent, to drop flushes that only moved the position. */
         var lastSent: MessageBodies.MediaState? = null
@@ -207,7 +212,7 @@ class MediaBridge @Inject constructor(
             return
         }
         val snapshot = t.handle.snapshot()
-        refreshArt(t, snapshot.artKey)
+        refreshArt(t, snapshot.artKey, r.env.now())
         val body = MessageBodies.MediaState(
             session = t.session,
             app = t.app,
@@ -246,9 +251,21 @@ class MediaBridge @Inject constructor(
     /**
      * Loads and uploads the art when the track changed. A failed upload leaves [Tracked.artKey]
      * unchanged, so the next flush tries again; a track with no art is remembered as having none.
+     *
+     * Like message images ([DefaultBlobUploader.REUSE_MS]) a ref is reused for [ART_REUSE_MS]
+     * only; after that the same track's art is uploaded again. If that upload fails the old ref,
+     * which still has most of its lifetime left, is kept.
      */
-    private suspend fun refreshArt(t: Tracked, artKey: String) {
-        if (t.artKey == artKey) return
+    private suspend fun refreshArt(t: Tracked, artKey: String, now: Long) {
+        if (t.artKey == artKey) {
+            if (t.art == null || now - t.artAt in 0L until ART_REUSE_MS) return
+            val encoded = t.handle.loadArt() ?: return
+            uploader.upload(encoded)?.let {
+                t.art = it
+                t.artAt = now
+            }
+            return
+        }
         t.art = null
         val encoded = t.handle.loadArt()
         if (encoded == null) {
@@ -257,6 +274,7 @@ class MediaBridge @Inject constructor(
         }
         val ref = uploader.upload(encoded) ?: return
         t.art = ref
+        t.artAt = now
         t.artKey = artKey
     }
 
@@ -285,5 +303,8 @@ class MediaBridge @Inject constructor(
     companion object {
         const val DEBOUNCE_MS = 1_000L
         const val POSITION_TOLERANCE_MS = 2_000L
+
+        /** How long an uploaded art ref is reused; the blob lives [DefaultBlobUploader.MESSAGE_TTL_S]. */
+        const val ART_REUSE_MS = DefaultBlobUploader.REUSE_MS
     }
 }
