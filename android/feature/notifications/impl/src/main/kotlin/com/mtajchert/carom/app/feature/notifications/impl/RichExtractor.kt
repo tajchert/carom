@@ -324,6 +324,8 @@ class RichExtractor @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return emptyList()
         return BundleCompat.getParcelableArrayList(extras, EXTRA_PROGRESS_POINTS, Bundle::class.java).orEmpty()
             .map { b -> MessageBodies.Point(position = b.getInt(KEY_POSITION), color = b.getInt(KEY_COLOR).takeIf { it != 0 }) }
+            // `position` is a uint31 on the wire; one negative point would make the Mac reject the whole body.
+            .filter { it.position >= 0 }
             .take(RichContent.MAX_POINTS)
     }
 

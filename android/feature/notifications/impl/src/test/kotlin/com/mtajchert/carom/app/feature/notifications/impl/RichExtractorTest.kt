@@ -418,6 +418,22 @@ class RichExtractorTest {
     }
 
     @Test
+    fun `progress points with a negative position are dropped before the cap`() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
+        val positions = listOf(-5, 10, -1, 20, 30, 40, 50)
+        val extras = Bundle().apply {
+            putInt("android.progress", 40)
+            putInt("android.progressMax", 100)
+            putParcelableArrayList(
+                "android.progressPoints",
+                ArrayList(positions.mapIndexed { i, pos -> pointBundle(position = pos, id = i + 1) }),
+            )
+        }
+        val p = extract(builder().addExtras(extras).build()).rich.progress!!
+        assertEquals(listOf(10, 20, 30, 40), p.points.map { it.position })
+    }
+
+    @Test
     fun `a real ProgressStyle notification is read through the same keys`() {
         assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA)
         val style = Notification.ProgressStyle()

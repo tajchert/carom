@@ -271,7 +271,13 @@ class NotificationForwarder(
         maxBodyBytes: Int,
     ): SendResult {
         val body = NotificationMapper.posted(work.n, work.appName, work.hide, refs, maxBodyBytes = maxBodyBytes)
-        return sync.send(MessageTypes.NOTIFICATION_POSTED, NotificationMapper.postedJson(body))
+        var json = NotificationMapper.postedJson(body)
+        if (!MessageTypes.isValidBody(MessageTypes.NOTIFICATION_POSTED, json)) {
+            // The Mac would reject the whole message; send what V1 knows instead. A code only, never content.
+            env.log("notification_invalid_body")
+            json = NotificationMapper.postedJson(NotificationMapper.v1Only(body))
+        }
+        return sync.send(MessageTypes.NOTIFICATION_POSTED, json)
     }
 
     private suspend fun sendRemoved(key: String) {

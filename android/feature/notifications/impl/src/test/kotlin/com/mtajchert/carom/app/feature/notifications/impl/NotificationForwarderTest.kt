@@ -80,8 +80,16 @@ class NotificationForwarderTest {
 
     private val encodeAll = ImageLoader { sources -> sources.mapValues { EncodedImage(byteArrayOf(1, 2, 3), 8, 8) } }
 
-    private fun blobRef(id: String) =
-        MessageBodies.BlobRef(id = id, key = "k", mime = "image/webp", size = 3, hash = "h", w = 8, h = 8)
+    /** A schema-valid ref (32-byte id and key, 16-byte hash as base64url) whose id starts with [name]. */
+    private fun blobRef(name: String) = MessageBodies.BlobRef(
+        id = name.padEnd(43, 'A'),
+        key = "k".padEnd(43, 'A'),
+        mime = "image/webp",
+        size = 3,
+        hash = "h".padEnd(22, 'A'),
+        w = 8,
+        h = 8,
+    )
 
     private val sentTypes get() = fake.sent.map { it.type }
 
@@ -218,7 +226,7 @@ class NotificationForwarderTest {
         assertEquals(listOf(setOf<ImageSlot>(ImageSlot.AppIcon)), uploaded)
         val body = fake.sent.single().body
         assertEquals(setOf("key", "app", "posted_at", "redacted", "can_open"), body.keys)
-        assertEquals("id-AppIcon", body["app"]!!.jsonObject["icon"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals(blobRef("id-AppIcon").id, body["app"]!!.jsonObject["icon"]!!.jsonObject["id"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -229,7 +237,55 @@ class NotificationForwarderTest {
         )
         f.onPosted { withImage("hi") }
         runCurrent()
-        assertEquals("large-id", fake.sent.single().body["large_icon"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals(blobRef("large-id").id, fake.sent.single().body["large_icon"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `a body that fails validation falls back to the V1 fields and logs only a code`() = runTest {
+        val f = forwarder(
+            images = encodeAll,
+            uploader = BlobUploader { mapOf(ImageSlot.AppIcon to blobRef("app"), ImageSlot.LargeIcon to blobRef("large")) },
+        )
+        f.onPosted {
+            snapshot(text = "secret text").copy(
+                subText = "Work",
+                category = "msg",
+                rich = RichContent(
+                    template = RichContent.TEMPLATE_PROGRESS,
+                    progress = SnapProgress(value = 1, max = 10, indeterminate = false, points = listOf(MessageBodies.Point(position = -5))),
+                    actions = listOf(MessageBodies.Action(index = 0, title = "Reply")),
+                ),
+                imageSources = mapOf(
+                    ImageSlot.AppIcon to ImageSource.FromApp("com.chat", null),
+                    ImageSlot.LargeIcon to ImageSource.FromApp("com.chat", null),
+                ),
+            )
+        }
+        runCurrent()
+        val body = fake.sent.single().body
+        assertTrue(MessageTypes.isValidBody(MessageTypes.NOTIFICATION_POSTED, body))
+        assertEquals(setOf("key", "app", "title", "text", "sub_text", "category", "posted_at", "redacted"), body.keys)
+        assertEquals(setOf("id", "name"), body["app"]!!.jsonObject.keys)
+        assertEquals("secret text", body["text"]!!.jsonPrimitive.content)
+        assertEquals(listOf("notification_invalid_body"), logged)
+        assertTrue(logged.none { "secret" in it })
+    }
+
+    @Test
+    fun `a valid rich body passes the pre-send check unchanged`() = runTest {
+        val f = forwarder()
+        f.onPosted {
+            snapshot().copy(
+                rich = RichContent(
+                    template = RichContent.TEMPLATE_PROGRESS,
+                    progress = SnapProgress(value = 1, max = 10, indeterminate = false, points = listOf(MessageBodies.Point(position = 5))),
+                ),
+            )
+        }
+        runCurrent()
+        val body = fake.sent.single().body
+        assertTrue("progress" in body)
+        assertEquals(emptyList<String>(), logged)
     }
 
     @Test
