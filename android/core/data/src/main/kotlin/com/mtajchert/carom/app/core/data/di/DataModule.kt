@@ -10,12 +10,20 @@ import com.mtajchert.carom.app.core.data.repository.DeviceRepository
 import com.mtajchert.carom.app.core.data.repository.RecentItemsRepository
 import com.mtajchert.carom.app.core.data.repository.SessionRepository
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.data.runtime.ActionWindow
+import com.mtajchert.carom.app.core.data.runtime.ActionWindowHold
+import com.mtajchert.carom.app.core.data.runtime.ActionWindowSettings
+import com.mtajchert.carom.app.core.data.runtime.ActivitySignal
+import com.mtajchert.carom.app.core.data.runtime.AlwaysOnState
 import com.mtajchert.carom.app.core.data.runtime.AndroidNotificationAccess
 import com.mtajchert.carom.app.core.data.runtime.CancelWorkOnWipe
+import com.mtajchert.carom.app.core.data.runtime.ForegroundSocketSession
+import com.mtajchert.carom.app.core.data.runtime.HubSocketOpener
 import com.mtajchert.carom.app.core.data.runtime.LiveConnectionState
 import com.mtajchert.carom.app.core.data.runtime.LiveHubConnection
 import com.mtajchert.carom.app.core.data.runtime.NotificationAccess
 import com.mtajchert.carom.app.core.data.runtime.PiggybackFetch
+import com.mtajchert.carom.app.core.data.runtime.StartActionWindow
 import com.mtajchert.carom.app.core.data.runtime.SyncStartHook
 import com.mtajchert.carom.app.core.data.sync.AndroidDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.CaromSync
@@ -46,7 +54,10 @@ import com.mtajchert.carom.app.core.data.sync.SyncStatusRepository
 import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.data.work.WorkManagerSyncScheduler
+import com.mtajchert.carom.app.core.hub.Backoff
 import com.mtajchert.carom.app.core.hub.HubClientFactory
+import com.mtajchert.carom.app.core.model.SessionState
+import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.security.SecretVault
 import dagger.Binds
 import dagger.Module
@@ -56,6 +67,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.Multibinds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Singleton
 
 /**
@@ -110,6 +126,10 @@ abstract class DataModule {
 
     @Binds @IntoSet
     internal abstract fun bindsCancelWorkOnWipe(impl: CancelWorkOnWipe): WipeHook
+
+    /** Starts the action window with the app process; it also reads the setting at that point. */
+    @Binds @IntoSet
+    internal abstract fun bindsStartActionWindow(impl: StartActionWindow): SyncStartHook
 
     /** Contributed by feature modules (e.g. the ongoing notification); empty without them. */
     @Multibinds
@@ -183,5 +203,51 @@ abstract class DataModule {
         @Provides
         @Singleton
         fun providesWorkManager(@ApplicationContext context: Context): WorkManager = WorkManager.getInstance(context)
+
+        /**
+         * The one action window. Its session is a second `ForegroundSocketSession` with its own
+         * [LiveConnectionState], so it never flips the "app is visible" flag. While the app is
+         * visible both sockets are open; the Hub fans out to both and the seen-message store drops
+         * the duplicate.
+         */
+        @Provides
+        @Singleton
+        fun providesActionWindow(
+            preferences: UserPreferencesRepository,
+            session: SessionRepository,
+            directory: DirectoryStore,
+            sync: CaromSync,
+            opener: HubSocketOpener,
+            log: SyncLog,
+        ): ActionWindow {
+            val settings = combine(preferences.userPreferences, session.session) { prefs, s ->
+                ActionWindowSettings(prefs.actionsFromMac, prefs.actionWindowMinutes, paired = s is SessionState.Paired)
+            }.distinctUntilChanged()
+            return ActionWindow(
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+                settings = settings,
+                hasDesktopOnline = { online ->
+                    directory.all().any { it.id in online && it.record?.kind == DeviceKind.DESKTOP }
+                },
+                runSession = { maxBackoffMs ->
+                    ForegroundSocketSession(
+                        sync = sync,
+                        state = LiveConnectionState(),
+                        connect = opener::open,
+                        backoff = Backoff(maxMs = maxBackoffMs),
+                    ).run()
+                },
+                log = log,
+            )
+        }
+
+        @Provides
+        fun providesActivitySignal(window: ActionWindow): ActivitySignal = window
+
+        @Provides
+        fun providesActionWindowHold(window: ActionWindow): ActionWindowHold = window
+
+        @Provides
+        fun providesAlwaysOnState(window: ActionWindow): AlwaysOnState = window
     }
 }

@@ -12,6 +12,7 @@ import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.core.data.work.SyncWorkScheduler
 import com.mtajchert.carom.app.core.hub.HubClient
 import com.mtajchert.carom.app.core.hub.HubClientFactory
+import com.mtajchert.carom.app.core.hub.HubSocket
 import com.mtajchert.carom.app.core.security.SecretVault
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,20 @@ class AndroidNotificationAccess @Inject constructor(
         context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
 }
 
+/** Opens a socket for the enrolled Hub, or returns null when this device is not paired. */
+@Singleton
+class HubSocketOpener @Inject constructor(
+    private val vault: SecretVault,
+    private val hubProvider: HubProvider,
+    private val factory: HubClientFactory,
+) {
+    suspend fun open(): HubSocket? {
+        val token = vault.load().takeIf { it.isComplete }?.deviceToken ?: return null
+        val client: HubClient = hubProvider.client() ?: return null
+        return factory.socket(client.baseUrl, token)
+    }
+}
+
 /**
  * Opens the WebSocket while the app is visible and closes it in the background
  * (docs/CLIENTS.md "Connection policy (phone)"). On every foreground it also sends what is queued
@@ -48,9 +63,7 @@ class AndroidNotificationAccess @Inject constructor(
 class ForegroundSync @Inject constructor(
     private val sync: CaromSync,
     private val state: LiveConnectionState,
-    private val vault: SecretVault,
-    private val hubProvider: HubProvider,
-    private val factory: HubClientFactory,
+    private val opener: HubSocketOpener,
 ) : DefaultLifecycleObserver {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
@@ -60,19 +73,13 @@ class ForegroundSync @Inject constructor(
         job = scope.launch {
             sync.flushOutbox()
             sync.refreshDirectory()
-            ForegroundSocketSession(sync, state, connect = ::openSocket).run()
+            ForegroundSocketSession(sync, state, connect = opener::open).run()
         }
     }
 
     override fun onStop(owner: LifecycleOwner) {
         job?.cancel()
         job = null
-    }
-
-    private suspend fun openSocket() = run {
-        val token = vault.load().takeIf { it.isComplete }?.deviceToken ?: return@run null
-        val client: HubClient = hubProvider.client() ?: return@run null
-        factory.socket(client.baseUrl, token)
     }
 }
 

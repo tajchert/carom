@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
 
 /** What the rest of the app tells the action window (spec §5.3). */
 interface ActivitySignal {
@@ -204,4 +205,11 @@ class ActionWindow(
         /** Always mode, spec §5.3: reconnect backoff up to 15 min. */
         const val ALWAYS_BACKOFF_MAX_MS = 900_000L
     }
+}
+
+/** Starts the [ActionWindow] with the app process (`SyncRuntime.start`). */
+class StartActionWindow @Inject constructor(
+    private val window: ActionWindow,
+) : SyncStartHook {
+    override fun onAppStart() = window.start()
 }
