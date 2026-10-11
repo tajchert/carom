@@ -125,13 +125,18 @@ public struct SyncState: Sendable, Equatable, Codable {
     /// directory. SPEC §5.5 step 1: a device that missed keyring versions may use its cached
     /// directory to verify a version written by a device that has since been revoked.
     public var signPubCache: [String: CachedSigner] = [:]
+    /// Whether the V2 types were added to `receive` once (a device that wrote its rules before V2
+    /// has none of them). After that, removing one is the user's choice.
+    public var receiveV2Merged = false
+    /// The `caps` of the last record we published, so an upgrade republishes the record once.
+    public var publishedCaps: [String]?
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
         case hubURL, deviceId, deviceName, receive, recordUpdated, directory, listedIds, lastUpdated, rekeyMembers,
              rekeyBy, seen, sent, received, outbox, lastClipboardTs, lastMsgId, pendingRemovals, settings,
-             signPubCache
+             signPubCache, receiveV2Merged, publishedCaps
     }
 
     /// Every field is optional on disk, so state written by an older build still loads.
@@ -156,6 +161,8 @@ public struct SyncState: Sendable, Equatable, Codable {
         pendingRemovals = try c.decodeIfPresent([String: PendingRemoval].self, forKey: .pendingRemovals) ?? [:]
         settings = try c.decodeIfPresent([String: JSON].self, forKey: .settings) ?? [:]
         signPubCache = try c.decodeIfPresent([String: CachedSigner].self, forKey: .signPubCache) ?? [:]
+        receiveV2Merged = try c.decodeIfPresent(Bool.self, forKey: .receiveV2Merged) ?? false
+        publishedCaps = try c.decodeIfPresent([String].self, forKey: .publishedCaps)
     }
 
     /// Drops expired seen ids and message references.

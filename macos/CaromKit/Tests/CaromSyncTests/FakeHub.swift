@@ -49,6 +49,7 @@ actor FakeHub {
     private var injected: [HubError] = []
     private(set) var postCount = 0
     private var blobs: [String: Data] = [:]
+    private(set) var recordPuts = 0
     var now: Int { Int(Date().timeIntervalSince1970 * 1000) }
 
     init(setupToken: String = "correct-horse-battery-staple-0123456789") { self.setupToken = setupToken }
@@ -210,6 +211,7 @@ actor FakeHub {
         let c = try caller(token)
         guard record.id == c.id else { throw fail(400, "bad_request") }
         devices[c.id]?.record = record.json
+        recordPuts += 1
         broadcastDir(except: c.id)
     }
 

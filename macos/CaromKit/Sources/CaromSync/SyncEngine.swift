@@ -82,6 +82,7 @@ public actor SyncEngine {
             state = loadedState
             if let last = state.lastMsgId { generator.resume(after: last) }
             secrets?.pruneKeys(now: clock())
+            mergeV2ReceiveDefaults()
         } else {
             secrets = nil
             state = SyncState()
@@ -511,6 +512,27 @@ public actor SyncEngine {
 
     // MARK: - Own record
 
+    /// A device that wrote its `receive` rules before V2 has none for the V2 types, so no phone
+    /// would send it `media.state@1`. Adds those defaults once; later removals stay removed.
+    private func mergeV2ReceiveDefaults() {
+        guard !state.receiveV2Merged else { return }
+        if var rules = state.receive {
+            for (type, rule) in Routing.defaultReceive(config.kind) where Routing.v2Types.contains(type) && rules[type] == nil {
+                rules[type] = rule
+            }
+            state.receive = rules
+        }
+        state.receiveV2Merged = true
+        persist()
+    }
+
+    /// Republishes our record when the last one published advertised other `caps` (the first
+    /// launch after an upgrade). `startRealtime` calls it; it does nothing when the record is current.
+    public func publishRecordIfCapsChanged() async throws {
+        guard isConfigured, state.publishedCaps != config.caps else { return }
+        try await publishRecord()
+    }
+
     private func ownRecord(updated: Int) throws -> DeviceRecord {
         guard let s = secrets else { throw SyncError.notConfigured }
         return DeviceRecord(identity: s.identity, name: state.deviceName, kind: config.kind, platform: config.platform,
@@ -526,6 +548,7 @@ public actor SyncEngine {
         let sealed = RecordCodec.seal(record, groupKey: key.key, kv: key.kv, signSk: s.signSk, random: random)
         try await requireHub().putRecord(sealed)
         state.recordUpdated = max(state.recordUpdated, updated)
+        state.publishedCaps = config.caps
         persist()
     }
 
@@ -787,6 +810,8 @@ public actor SyncEngine {
             for await event in ws.events { await self?.handle(event) }
         }
         await ws.start()
+        // After an upgrade the Hub still lists the V1 caps; tell the phones about the new types.
+        Task { [weak self] in _ = try? await self?.publishRecordIfCapsChanged() }
         return ws
     }
 
