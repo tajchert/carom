@@ -16,9 +16,124 @@ private func posted(_ key: String = "k1", app: String = "com.chat", title: Strin
                                            postedAt: 1))
 }
 
+private func replyable(_ key: String = "k1") -> Message {
+    var n = NotificationPosted(key: key, app: .init(id: "com.chat", name: "Chat"), title: "Ana", text: "Dinner?",
+                               postedAt: 1)
+    n.actions = [.init(index: 0, title: "Mark as read", semantic: 2, reply: nil),
+                 .init(index: 1, title: "Reply", semantic: 1, reply: .init(label: nil, choices: ["Yes"]))]
+    return .notificationPosted(n)
+}
+
 @MainActor
 @Suite("AppModel")
 struct AppModelTests {
+    // MARK: Rich notifications
+
+    @Test func postedCardCarriesThePhonesActionCap() async {
+        let phone = actionPhone(phoneA, "Pixel")
+        let h = Harness(directory: [entry(phone)])
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: phone)
+        let card = h.model.notifications.cards[CardItem.id(phoneId: phoneA, key: "k1")]
+        #expect(card?.phoneAcceptsActions == true)
+        #expect(card?.msgId == "m1")
+        #expect(card?.phoneName == nil, "the phone name shows only with more than one phone")
+        #expect(h.panel.shows == 1)
+        #expect(h.presenter.presented.first?.0.passive == true, "the native copy is quiet while the panel shows")
+    }
+
+    @Test func replyFromACardSendsTheActionAndShowsTheResult() async {
+        let phone = actionPhone(phoneA, "Pixel")
+        let h = Harness(directory: [entry(phone)])
+        await h.start()
+        await h.model.dispatch(replyable(), msgId: "m1", sender: phone)
+        let id = CardItem.id(phoneId: phoneA, key: "k1")
+        #expect(h.model.notifications.perform(.reply(index: 1, title: "Reply", text: "On my way"), on: id))
+        await settle()
+        let expected = CaromProtocol.NotificationAction(
+            key: "k1", action: .button(index: 1, title: "Reply", replyText: "On my way"))
+        #expect(await h.sync.sent.last == FakeSync.Sent(type: .notificationAction, body: expected.json, replyTo: "m1",
+                                                       only: nil))
+        #expect(h.model.notifications.status(for: id) == .sending)
+        await h.model.dispatch(.notificationActionResult(NotificationActionResult(ok: true, error: nil)),
+                               msgId: "r1", sender: phone, replyTo: "act-1")
+        #expect(h.model.notifications.status(for: id) == .sent)
+    }
+
+    @Test func phoneWithoutTheActionCapGetsNoActions() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(replyable(), msgId: "m1", sender: pixel)
+        let id = CardItem.id(phoneId: phoneA, key: "k1")
+        h.model.notifications.perform(.button(index: 0, title: "Mark as read"), on: id)
+        await settle()
+        #expect(await h.sync.sent.isEmpty)
+        #expect(h.model.notifications.status(for: id) == .idle)
+        #expect(h.presenter.presented.first?.0.reply == nil)
+    }
+
+    @Test func droppedActionShowsFailed() async {
+        let phone = actionPhone(phoneA, "Pixel")
+        let h = Harness(directory: [entry(phone)])
+        await h.start()
+        await h.sync.set(outcome: .dropped(code: "bad_request"))
+        await h.model.dispatch(replyable(), msgId: "m1", sender: phone)
+        let id = CardItem.id(phoneId: phoneA, key: "k1")
+        h.model.notifications.perform(.button(index: 0, title: "Mark as read"), on: id)
+        await settle()
+        #expect(h.model.notifications.status(for: id) == .failed)
+    }
+
+    @Test func nativeReplyGoesThroughTheCard() async {
+        let phone = actionPhone(phoneA, "Pixel")
+        let h = Harness(directory: [entry(phone)])
+        await h.start()
+        await h.model.dispatch(replyable(), msgId: "m1", sender: phone)
+        await h.model.perform(.reply(phoneId: phoneA, key: "k1", msgId: "m1", index: 1, title: "Reply", text: "Yes"))
+        await settle()
+        #expect(await h.sync.sent.last?.type == .notificationAction)
+        #expect(h.model.notifications.status(for: CardItem.id(phoneId: phoneA, key: "k1")) == .sending)
+    }
+
+    @Test func cardDismissRepliesAndWithdraws() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.model.notifications.perform(.dismiss, on: CardItem.id(phoneId: phoneA, key: "k1"))
+        await settle()
+        #expect(await h.sync.sent == [FakeSync.Sent(type: .notificationDismiss, body: ["key": "k1"], replyTo: "m1",
+                                                   only: nil)])
+        #expect(h.presenter.withdrawn.first?.1 == "k1")
+        #expect(h.model.notifications.cards.isEmpty)
+    }
+
+    @Test func copiedCodeFromACardIsNotSentBack() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        h.model.notifications.perform(.copyCode("482913"), on: CardItem.id(phoneId: phoneA, key: "k1"))
+        #expect(h.clipboard.written == [ClipboardItem(text: "482913", sensitive: false)])
+        h.clipboard.onCopy?(ClipboardItem(text: "482913", sensitive: false))
+        await settle()
+        #expect(await h.sync.sent.isEmpty)
+    }
+
+    @Test func removedPhoneDropsItsCards() async {
+        let h = Harness(directory: [entry(pixel), entry(galaxy)])
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel)
+        await h.sync.set(directory: [entry(galaxy)])
+        await h.model.handle(event: .directoryChanged)
+        #expect(h.model.notifications.cards.isEmpty)
+    }
+
+    @Test func focusAccessIsRequestedWhenReady() async {
+        let h = Harness()
+        await h.start()
+        await settle()
+        #expect(h.focus.authorizationRequests == 1)
+    }
+
     // MARK: Lifecycle
 
     @Test func startsReadyWhenConfiguredAndOnboarded() async {
@@ -130,6 +245,7 @@ struct AppModelTests {
         #expect(h.model.activity.notifications.isEmpty, "a removed notification leaves the menu too")
         #expect(h.presenter.withdrawn.count == 1)
         #expect(h.presenter.withdrawn.first?.0 == phoneA && h.presenter.withdrawn.first?.1 == "k1")
+        #expect(h.model.notifications.cards.isEmpty)
     }
 
     @Test func dismissActionRepliesToTheOriginalMessage() async {

@@ -26,6 +26,13 @@ func record(_ id: String, _ name: String, kind: DeviceKind, receive: [String: Re
 
 func entry(_ record: DeviceRecord) -> DirectoryEntry { DirectoryEntry(record: record, kv: 1) }
 
+/// A phone whose record advertises `notification.action@1` (actions from this Mac).
+func actionPhone(_ id: String, _ name: String) -> DeviceRecord {
+    var r = record(id, name, kind: .phone)
+    r.caps.append(MessageType.notificationAction.rawValue)
+    return r
+}
+
 /// In-memory `SyncService` that records what the app asks for.
 actor FakeSync: SyncService {
     struct Sent: Equatable {
@@ -91,6 +98,15 @@ actor FakeSync: SyncService {
     func send<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws -> SendOutcome {
         sent.append(Sent(type: B.type, body: body.json, replyTo: replyTo, only: only))
         return sendOutcome
+    }
+
+    var actionIds = 0
+    func sendReturningMsgId<B: MessageBody>(_ body: B, replyTo: String?, only: Set<String>?) async throws
+        -> (msgId: String?, outcome: SendOutcome)
+    {
+        let outcome = try await send(body, replyTo: replyTo, only: only)
+        actionIds += 1
+        return ("act-\(actionIds)", outcome)
     }
 
     func flushOutbox() async -> [SendOutcome] { [] }
@@ -179,6 +195,26 @@ final class FakeLoginItem: LoginItemControlling {
     }
 }
 
+@MainActor
+final class FakePanel: CardPanelHosting {
+    var shows = 0
+    var hides = 0
+    var replyModes: [Bool] = []
+    var alerts = 0
+    func bind(_ coordinator: NotificationCoordinator) {}
+    func show() { shows += 1 }
+    func hide() { hides += 1 }
+    func setReplyMode(_ on: Bool) { replyModes.append(on) }
+    func alert(announcement: String, sound: Bool) { alerts += 1 }
+}
+
+@MainActor
+final class FakeFocus: FocusStatusProviding {
+    var isFocused = false
+    var authorizationRequests = 0
+    func requestAuthorization() async { authorizationRequests += 1 }
+}
+
 /// A model wired to fakes, plus handles to inspect them.
 @MainActor
 struct Harness {
@@ -188,6 +224,8 @@ struct Harness {
     let clipboard = FakeClipboard()
     let hotkey = FakeHotkey()
     let loginItem = FakeLoginItem()
+    let panel = FakePanel()
+    let focus = FakeFocus()
     let clock: TestClock
 
     init(directory: [DirectoryEntry] = [entry(record(phoneA, "Pixel", kind: .phone))],
@@ -208,7 +246,7 @@ struct Harness {
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
-                                                  loginItem: loginItem),
+                                                  loginItem: loginItem, panel: panel, focus: focus),
                          options: options)
     }
 

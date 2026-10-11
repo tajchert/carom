@@ -1,4 +1,5 @@
 import CaromProtocol
+import CaromDesktop
 import Foundation
 
 /// An app seen posting notifications on a phone (for the per-app mute list).
@@ -26,6 +27,11 @@ struct Preferences: Codable, Equatable, Sendable {
     var clipboardSendTo: [String]?
     /// The user finished onboarding (name and permissions steps).
     var onboardingComplete = false
+    /// "Show notifications as". Optional so preferences saved before this setting still decode
+    /// (a missing non-optional key would fail the whole decode and reset every preference).
+    var notificationStyle: NotificationStyle?
+
+    var showAs: NotificationStyle { notificationStyle ?? .rich }
 
     init() {}
 

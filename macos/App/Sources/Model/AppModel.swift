@@ -79,6 +79,8 @@ final class AppModel {
         var autoApprove = false
         /// Debug builds only (`-caromEventLog`): receives event names and message types.
         var trace: (@MainActor (String) -> Void)?
+        /// Card fade, "Phone is asleep" delay and visible stacks.
+        var notifications = NotificationCoordinator.Options()
     }
 
     // MARK: State read by the views
@@ -109,6 +111,9 @@ final class AppModel {
 
     @ObservationIgnored let sync: any SyncService
     @ObservationIgnored private let presenter: any NotificationPresenting
+    /// Cards on the rich panel and native notifications (spec §6.1).
+    @ObservationIgnored let notifications: NotificationCoordinator
+    @ObservationIgnored private let focus: any FocusStatusProviding
     @ObservationIgnored private let clipboard: any ClipboardWatching
     @ObservationIgnored private let hotkey: any HotkeyRegistering
     @ObservationIgnored private let loginItem: any LoginItemControlling
@@ -133,6 +138,9 @@ final class AppModel {
         clipboard = desktop.clipboard
         hotkey = desktop.hotkey
         loginItem = desktop.loginItem
+        focus = desktop.focus
+        notifications = NotificationCoordinator(native: desktop.presenter, panel: desktop.panel, focus: desktop.focus,
+                                                options: options.notifications)
         self.options = options
     }
 
@@ -207,6 +215,7 @@ final class AppModel {
             Task { await self.perform(action) }
         }
         clipboard.onCopy = { [weak self] item in self?.clipboardChanged(item) }
+        wireNotifications()
         observeRealtime()
         if options.systemHooks {
             terminationObserver = NotificationCenter.default.addObserver(
@@ -240,6 +249,10 @@ final class AppModel {
         registerHotkey()
         updateWatcher()
         startOutboxTimer()
+        if preferences.showAs == .rich {
+            let focus = self.focus
+            Task { await focus.requestAuthorization() }
+        }
     }
 
     /// Stops everything that talks to the Hub or the system (on revoke and reset).
@@ -267,6 +280,7 @@ final class AppModel {
         receiveRules = await sync.receiveRules
         if loadPreferences {
             preferences = Preferences(json: await sync.settings[Preferences.settingsKey])
+            notifications.setStyle(preferences.showAs)
         }
         applyDirectory(await sync.directory)
     }
@@ -279,7 +293,7 @@ final class AppModel {
     private func applyDirectory(_ newDirectory: [DirectoryEntry]) {
         let newIds = Set(newDirectory.map(\.record.id))
         for gone in phones where !newIds.contains(gone.record.id) {
-            presenter.withdrawAll(phoneId: gone.record.id)
+            notifications.removedAll(phoneId: gone.record.id)
             activity.removeNotifications(phoneId: gone.record.id)
         }
         directory = newDirectory
@@ -393,11 +407,12 @@ final class AppModel {
 
     func receive(_ message: IncomingMessage) async {
         trace("message \(message.message.type.rawValue)")
-        await dispatch(message.message, msgId: message.msgId, sender: message.sender)
+        await dispatch(message.message, msgId: message.msgId, sender: message.sender,
+                       replyTo: message.received.payload.replyTo)
     }
 
-    /// Applies one decoded message from a trusted sender.
-    func dispatch(_ message: Message, msgId: String, sender: DeviceRecord) async {
+    /// Applies one decoded message from a trusted sender. `replyTo` is the payload's `reply_to`.
+    func dispatch(_ message: Message, msgId: String, sender: DeviceRecord, replyTo: String? = nil) async {
         switch message {
         case .notificationPosted(let n):
             if preferences.noteApp(id: n.app.id, name: n.app.name) { savePreferences() }
@@ -412,13 +427,15 @@ final class AppModel {
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
                                             msgId: msgId, code: n.redacted ? nil : text.flatMap(CodeExtractor.code(in:)),
                                             date: options.now()))
-            let presented = PresentedNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
-                                                  appName: n.app.name, title: n.title, text: text, key: n.key,
-                                                  msgId: msgId)
-            await presenter.present(presented, showPhoneName: phones.count > 1)
+            var shown = n
+            shown.text = text
+            let card = CardItem(phoneId: sender.id, phoneName: phones.count > 1 ? sender.name : nil, msgId: msgId,
+                                posted: shown, receivedAt: options.now(),
+                                phoneAcceptsActions: sender.caps.contains(MessageType.notificationAction.rawValue))
+            await notifications.posted(card)
             trace("notification presented")
         case .notificationRemoved(let r):
-            presenter.withdraw(phoneId: sender.id, key: r.key)
+            notifications.removed(phoneId: sender.id, key: r.key)
             activity.removeNotification(phoneId: sender.id, key: r.key)
             trace("notification withdrawn")
         case .clipboardSet(let c):
@@ -431,8 +448,12 @@ final class AppModel {
             deviceStatus[sender.id] = s
         case .notificationDismiss:
             break  // a desktop does not post notifications
-        case .notificationAction, .notificationActionResult, .mediaState, .mediaCommand:
-            break  // V2: handled by the Mac rich-notification milestones (M4a, M4b)
+        case .notificationActionResult(let result):
+            guard let replyTo else { return }
+            notifications.actionResult(replyTo: replyTo, result)
+            trace("action result")
+        case .notificationAction, .mediaState, .mediaCommand:
+            break  // V2: handled by the Mac rich-notification milestones (M4b)
         }
     }
 
@@ -486,16 +507,53 @@ final class AppModel {
         case .copiedCode, .copiedText:
             // Our own copy: do not send it straight back to the phone.
             suppressCopiesUntil = options.now().addingTimeInterval(options.copySuppression)
-        case .reply(_, let key, let msgId, let index, let title, let text):
-            let body = CaromProtocol.NotificationAction(
-                key: key, action: .button(index: index, title: title, replyText: text))
-            _ = try? await sync.send(body, replyTo: msgId, only: nil)
+        case .reply(let phoneId, let key, let msgId, let index, let title, let text):
+            let action = CardAction.reply(index: index, title: title, text: text)
+            if !notifications.perform(action, on: CardItem.id(phoneId: phoneId, key: key)) {
+                // The card is gone from memory (Carom restarted): send without tracking a result.
+                let body = CaromProtocol.NotificationAction(
+                    key: key, action: .button(index: index, title: title, replyText: text))
+                _ = try? await sync.send(body, replyTo: msgId, only: nil)
+            }
         }
     }
 
     func dismissOnPhone(_ n: RecentNotification) async {
         await perform(.dismissOnPhone(phoneId: n.phoneId, key: n.key, msgId: n.msgId))
-        presenter.withdraw(phoneId: n.phoneId, key: n.key)
+        notifications.removed(phoneId: n.phoneId, key: n.key)
+    }
+
+    /// Sends a card's `notification.action@1` as a reply to the card's latest posted message.
+    func sendAction(_ ref: ActionRef, for item: CardItem) async -> ActionDelivery {
+        let body = CaromProtocol.NotificationAction(key: item.posted.key, action: ref)
+        let sent: (msgId: String?, outcome: SendOutcome)
+        do { sent = try await sync.sendReturningMsgId(body, replyTo: item.msgId, only: nil) } catch {
+            return .failed
+        }
+        trace("action send \(Self.traceName(sent.outcome))")
+        switch sent.outcome {
+        case .sent, .queued:
+            guard let msgId = sent.msgId else { return .failed }
+            return .accepted(msgId: msgId)
+        case .superseded, .noRecipients, .suppressedEcho, .dropped:
+            return .failed
+        }
+    }
+
+    private func wireNotifications() {
+        notifications.sendAction = { [weak self] item, ref in
+            guard let self else { return .failed }
+            return await self.sendAction(ref, for: item)
+        }
+        notifications.sendDismiss = { [weak self] item in
+            await self?.perform(.dismissOnPhone(phoneId: item.phoneId, key: item.posted.key, msgId: item.msgId))
+        }
+        notifications.copy = { [weak self] code in
+            guard let self else { return }
+            // Written with the watcher's marker, and not sent straight back to the phone.
+            self.clipboard.write(text: code, sensitive: false)
+            self.suppressCopiesUntil = self.options.now().addingTimeInterval(self.options.copySuppression)
+        }
     }
 
     /// Copies text from the menu. Written through the watcher, so it is not sent back.
@@ -676,6 +734,7 @@ final class AppModel {
         receiveRules = [:]
         preferences = Preferences()
         activity.clear()
+        notifications.reset()
         deviceStatus = [:]
         pairing = .idle
         connection = .offline
