@@ -3,6 +3,7 @@ package com.mtajchert.carom.app.core.protocol
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import org.junit.Assert.assertEquals
@@ -24,7 +25,7 @@ import org.junit.Test
 class ProtocolVectorsTest {
     private companion object {
         val HANDLED = setOf(
-            "b64.json", "box.json", "collapse.json", "device_id.json", "encoding.json",
+            "b64.json", "blob.json", "box.json", "collapse.json", "device_id.json", "encoding.json",
             "envelope_receive.json", "envelope_seal.json", "envelope_shape.json", "kdf.json",
             "padding.json", "pairing.json", "qr.json", "record.json", "rekey.json", "token.json",
             "uuidv7.json",
@@ -69,6 +70,45 @@ class ProtocolVectorsTest {
         }
         for (c in v.arr("rejected")) {
             assertThrows { Payload.paddedLength(c.num("input_length").toInt()) }
+        }
+    }
+
+    @Test
+    fun blob() {
+        val v = load("blob.json")
+        for (c in v.obj("padding").arr("cases")) {
+            assertEquals(c.num("padded_length").toInt(), Blobs.paddedLength(4 + c.num("plain_length").toInt()))
+        }
+        for (c in v.obj("padding").arr("rejected")) {
+            assertThrows { Blobs.pad(ByteArray(c.num("plain_length").toInt())) }
+        }
+        for (c in v.arr("pad_examples")) {
+            assertEquals(c.name, c.str("padded_hex"), Blobs.pad(c.hex("plain_hex")).toHex())
+            assertEquals(c.name, c.str("plain_hex"), Blobs.unpad(c.hex("padded_hex"))!!.toHex())
+        }
+        for (c in v.arr("unpad_invalid")) assertNull(c.name, Blobs.unpad(c.hex("padded_hex")))
+        for (c in v.arr("convergent_key")) {
+            assertEquals(c.name, c.str("salt_hex"), Crypto.sha256(c.hex("plain_hex")).toHex())
+            assertEquals(c.name, c.str("info"), Protocol.Info.BLOB_CONV)
+            assertEquals(c.name, c.str("key_hex"), Blobs.convergentKey(c.hex("group_key_hex"), c.hex("plain_hex")).toHex())
+        }
+        for (c in v.arr("seal")) {
+            val plain = c.hex("plain_hex")
+            val sealed = Blobs.seal(plain, c.str("mime"), c.hex("key_hex"), c.obj("ref").numOrNull("w")?.toInt(), c.obj("ref").numOrNull("h")?.toInt())
+            assertEquals(c.name, c.num("padded_length").toInt(), Blobs.pad(plain).size)
+            assertEquals(c.name, c.str("aad_hex"), Blobs.aad(c.str("mime")).toHex())
+            assertEquals(c.name, c.str("ct_hex"), sealed.ct.toHex())
+            assertEquals(c.name, c.obj("ref"), ProtocolJson.encodeToJsonElement(MessageBodies.BlobRef.serializer(), sealed.ref).jsonObject)
+            assertEquals(c.name, c.str("plain_hex"), Blobs.open(sealed.ref, c.hex("ct_hex"))!!.toHex())
+        }
+        for (c in v.arr("open_cases")) {
+            val ref = ProtocolJson.decodeFromJsonElement(MessageBodies.BlobRef.serializer(), c.obj("ref"))
+            val plain = Blobs.open(ref, c.hex("ct_hex"))
+            if (c.str("expected") == "ok") {
+                assertEquals(c.name, c.str("plain_hex"), plain!!.toHex())
+            } else {
+                assertNull(c.name, plain)
+            }
         }
     }
 

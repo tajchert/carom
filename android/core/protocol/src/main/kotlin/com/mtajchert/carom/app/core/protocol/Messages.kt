@@ -66,6 +66,20 @@ object MessageTypes {
 
 /** Typed v1 bodies (SPEC §4, protocol/schemas). Field order matches the reference encoder. */
 object MessageBodies {
+    /** An encrypted image on the Hub (SPEC V2 §3.1). */
+    @Serializable
+    data class BlobRef(
+        val id: String,
+        val key: String,
+        val mime: String,
+        val size: Long,
+        val hash: String,
+        val w: Int? = null,
+        val h: Int? = null,
+    ) {
+        override fun toString() = "BlobRef(id=$id)" // the key must never reach a log
+    }
+
     @Serializable
     data class App(val id: String, val name: String)
 
