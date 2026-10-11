@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.core.testing.repository
 
 import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
+import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.model.DarkThemeConfig
 import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
@@ -27,4 +28,8 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
     override suspend fun setForwardOnlyWhenLocked(enabled: Boolean) = state.update { it.copy(forwardOnlyWhenLocked = enabled) }
     override suspend fun setClipboardArrivalNotification(enabled: Boolean) = state.update { it.copy(clipboardArrivalNotification = enabled) }
     override suspend fun setOngoingNotification(enabled: Boolean) = state.update { it.copy(ongoingNotification = enabled) }
+    override suspend fun setActionsFromMac(mode: ActionsFromMac) = state.update { it.copy(actionsFromMac = mode) }
+    override suspend fun setActionWindowMinutes(minutes: Int) = state.update {
+        it.copy(actionWindowMinutes = minutes.takeIf { m -> m in ActionsFromMac.WINDOW_MINUTES } ?: ActionsFromMac.DEFAULT_WINDOW_MINUTES)
+    }
 }
