@@ -120,6 +120,35 @@ class OkHttpHubClient(
         decoder = PostMessageResult.serializer(),
     )
 
+    override suspend fun putBlob(id: String, ct: ByteArray, ttlS: Long, msgId: String?): BlobInfo {
+        require(ttlS > 0) { "ttl_s must be positive" }
+        val query = linkedMapOf("ttl_s" to ttlS.toString())
+        if (msgId != null) query["msg_id"] = msgId
+        val bytes = executeRaw("PUT", "v1/blobs/${segment(id)}", true, ct.toRequestBody(OCTET_STREAM), "application/json", query)
+        return decode(BlobInfo.serializer(), bytes.toString(Charsets.UTF_8), "PUT v1/blobs")
+    }
+
+    override suspend fun headBlob(id: String, touchTtlS: Long?): Boolean {
+        val query = if (touchTtlS != null) {
+            require(touchTtlS > 0) { "ttl_s must be positive" }
+            mapOf("touch" to "1", "ttl_s" to touchTtlS.toString())
+        } else {
+            emptyMap()
+        }
+        return try {
+            executeRaw("HEAD", "v1/blobs/${segment(id)}", true, null, "application/json", query)
+            true
+        } catch (e: HubException.Http) {
+            if (e.code == HubErrorCode.NOT_FOUND) false else throw e
+        }
+    }
+
+    override suspend fun getBlob(id: String): ByteArray? = try {
+        executeRaw("GET", "v1/blobs/${segment(id)}", true, null, "application/octet-stream", emptyMap())
+    } catch (e: HubException.Http) {
+        if (e.code == HubErrorCode.NOT_FOUND) null else throw e
+    }
+
     override suspend fun messages(limit: Int): MessagesPage {
         require(limit in 1..HubClient.MAX_FETCH_LIMIT) { "limit must be 1..200" }
         return call("GET", "v1/messages", query = mapOf("limit" to limit.toString()), decoder = MessagesPage.serializer())
@@ -148,50 +177,61 @@ class OkHttpHubClient(
         body: JsonElement? = null,
         query: Map<String, String> = emptyMap(),
         decoder: DeserializationStrategy<T>,
-    ): T {
-        val text = execute(method, path, auth, body, query)
-        return try {
-            ProtocolJson.decodeFromString(decoder, text)
-        } catch (e: SerializationException) {
-            throw HubException.MalformedResponse("$method $path", e)
-        } catch (e: IllegalArgumentException) {
-            throw HubException.MalformedResponse("$method $path", e)
-        }
+    ): T = decode(decoder, execute(method, path, auth, body, query), "$method $path")
+
+    private fun <T> decode(decoder: DeserializationStrategy<T>, text: String, what: String): T = try {
+        ProtocolJson.decodeFromString(decoder, text)
+    } catch (e: SerializationException) {
+        throw HubException.MalformedResponse(what, e)
+    } catch (e: IllegalArgumentException) {
+        throw HubException.MalformedResponse(what, e)
     }
 
-    /**
-     * Runs the request and returns the 2xx body text; throws [HubException] otherwise. Runs on
-     * [Dispatchers.IO]: the body is read after the call resumes, which must never be on the main thread.
-     */
+    /** A JSON request: returns the 2xx body text; throws [HubException] otherwise. */
     private suspend fun execute(
         method: String,
         path: String,
         auth: Boolean,
         body: JsonElement?,
         query: Map<String, String>,
-    ): String = withContext(Dispatchers.IO) {
-        val url = base.newBuilder().addPathSegments(path).apply {
-            query.forEach { (k, v) -> addQueryParameter(k, v) }
-        }.build()
+    ): String {
         val requestBody: RequestBody? = body?.let {
             ProtocolJson.encodeToString(JsonElement.serializer(), it).toRequestBody(JSON)
         }
+        return executeRaw(method, path, auth, requestBody, "application/json", query).toString(Charsets.UTF_8)
+    }
+
+    /**
+     * Runs the request and returns the 2xx body bytes; throws [HubException] otherwise. Runs on
+     * [Dispatchers.IO]: the body is read after the call resumes, which must never be on the main thread.
+     */
+    private suspend fun executeRaw(
+        method: String,
+        path: String,
+        auth: Boolean,
+        requestBody: RequestBody?,
+        accept: String,
+        query: Map<String, String>,
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val url = base.newBuilder().addPathSegments(path).apply {
+            query.forEach { (k, v) -> addQueryParameter(k, v) }
+        }.build()
         val request = Request.Builder()
             .url(url)
             .method(method, requestBody)
-            .header("Accept", "application/json")
+            .header("Accept", accept)
             .apply {
                 if (auth) tokenProvider.token()?.let { header("Authorization", "Bearer $it") }
             }
             .build()
         http.newCall(request).await().use { response ->
-            val text = try {
-                response.body.string()
+            val bytes = try {
+                response.body.bytes()
             } catch (e: IOException) {
                 throw HubException.Network(e)
             }
-            if (!response.isSuccessful) throw httpError(response, text)
-            text
+            if (!response.isSuccessful) throw httpError(response, bytes.toString(Charsets.UTF_8))
+            bytes
         }
     }
 
@@ -236,6 +276,7 @@ class OkHttpHubClient(
     companion object {
         const val RESET_CONFIRMATION = "erase everything"
         private val JSON = "application/json".toMediaType()
+        private val OCTET_STREAM = "application/octet-stream".toMediaType()
         private val EMPTY = JsonObject(emptyMap())
     }
 }
