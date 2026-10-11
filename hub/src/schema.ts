@@ -87,10 +87,18 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE devices DROP COLUMN push_sent_at;
   DELETE FROM meta WHERE key = 'vapid';
   `,
+  // v4: encrypted image blobs (SPEC §6, §11). Ciphertext only, keyed by b64(sha256(ct)).
+  // owner + msg_id lets a superseded message take its blobs with it; revocation uses owner.
+  `
+  CREATE TABLE blobs (id TEXT PRIMARY KEY, owner TEXT NOT NULL, msg_id TEXT,
+    size INTEGER NOT NULL, data BLOB NOT NULL, expires_at INTEGER NOT NULL) WITHOUT ROWID;
+  CREATE INDEX blobs_expires ON blobs (expires_at);
+  CREATE INDEX blobs_msg ON blobs (owner, msg_id);
+  `,
 ];
 
 /** Tables wiped by POST /v1/reset (everything except meta.schema_version). */
-export const DATA_TABLES = ["devices", "messages", "pairings", "keyring", "lockouts"] as const;
+export const DATA_TABLES = ["devices", "messages", "pairings", "keyring", "lockouts", "blobs"] as const;
 
 export function migrate(storage: DurableObjectStorage): void {
   const sql = storage.sql;
