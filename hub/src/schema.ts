@@ -91,7 +91,7 @@ const MIGRATIONS: readonly string[] = [
   // owner + msg_id lets a superseded message take its blobs with it; revocation uses owner.
   `
   CREATE TABLE blobs (id TEXT PRIMARY KEY, owner TEXT NOT NULL, msg_id TEXT,
-    size INTEGER NOT NULL, data BLOB NOT NULL, expires_at INTEGER NOT NULL) WITHOUT ROWID;
+    size INTEGER NOT NULL, data BLOB NOT NULL, expires_at INTEGER NOT NULL);
   CREATE INDEX blobs_expires ON blobs (expires_at);
   CREATE INDEX blobs_msg ON blobs (owner, msg_id);
   `,
