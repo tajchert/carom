@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.feature.notifications.impl.di
 
+import com.mtajchert.carom.app.core.data.runtime.SyncStartHook
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import com.mtajchert.carom.app.core.data.sync.WipeHook
 import com.mtajchert.carom.app.feature.notifications.impl.ClearForwardedKeysOnWipe
@@ -11,6 +12,9 @@ import com.mtajchert.carom.app.feature.notifications.impl.RoomForwardedKeys
 import com.mtajchert.carom.app.feature.notifications.impl.RoomNotificationAppsRepository
 import com.mtajchert.carom.app.feature.notifications.impl.apps.AndroidNotificationAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.apps.NotificationAccessChecker
+import com.mtajchert.carom.app.feature.notifications.impl.actions.ActionsServiceController
+import com.mtajchert.carom.app.feature.notifications.impl.actions.ActionsServiceLauncher
+import com.mtajchert.carom.app.feature.notifications.impl.actions.AndroidActionsServiceLauncher
 import com.mtajchert.carom.app.feature.notifications.impl.actions.AndroidPendingIntentSender
 import com.mtajchert.carom.app.feature.notifications.impl.actions.NotificationActionHandler
 import com.mtajchert.carom.app.feature.notifications.impl.actions.PendingIntentSender
@@ -51,6 +55,14 @@ internal abstract class NotificationsModule {
 
     @Binds
     abstract fun bindsPendingIntentSender(impl: AndroidPendingIntentSender): PendingIntentSender
+
+    @Binds
+    abstract fun bindsActionsServiceLauncher(impl: AndroidActionsServiceLauncher): ActionsServiceLauncher
+
+    /** Keeps the Always-mode foreground service in step with the setting. */
+    @Binds
+    @IntoSet
+    abstract fun bindsActionsServiceController(impl: ActionsServiceController): SyncStartHook
 
     companion object {
         @Provides

@@ -18,4 +18,9 @@
     <string name="feature_notifications_no_results">No apps match your search.</string>
     <string name="feature_notifications_access_missing">Carom can\'t read notifications yet. Allow notification access to forward them to your computer.</string>
     <string name="feature_notifications_access_action">Allow notification access</string>
+    <!-- The ongoing notification of "Actions from Mac: Always while a Mac is online". -->
+    <string name="feature_notifications_actions_channel_name">Actions from Mac</string>
+    <string name="feature_notifications_actions_channel_description">Shown while your phone stays ready for your Mac.</string>
+    <string name="feature_notifications_actions_service_title">Ready for your Mac</string>
+    <string name="feature_notifications_actions_service_text">Always-on mode uses more battery. Change it in Settings.</string>
 </resources>
