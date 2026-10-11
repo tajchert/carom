@@ -27,7 +27,7 @@ public struct PresentedNotification: Sendable, Equatable {
     }
 }
 
-public enum NotificationAction: Sendable, Equatable {
+public enum NativeNotificationEvent: Sendable, Equatable {
     case dismissOnPhone(phoneId: String, key: String, msgId: String)
     case copiedCode(String)
     case copiedText
@@ -81,7 +81,7 @@ public final class NotificationPresenter: NSObject, UNUserNotificationCenterDele
     nonisolated static let actionCopyCode = "carom.copyCode"
     nonisolated static let actionCopyText = "carom.copyText"
 
-    public var onAction: ((NotificationAction) -> Void)?
+    public var onAction: ((NativeNotificationEvent) -> Void)?
 
     /// Where "Copy code" / "Copy text" write to. The default writes to the general pasteboard
     /// with the watcher's own-write marker, so a deliberate copy is not synced back out.
@@ -180,7 +180,7 @@ public final class NotificationPresenter: NSObject, UNUserNotificationCenterDele
     }
 
     /// Maps a tapped action to the event and the text to copy (if any). Pure.
-    static func resolve(actionId: String, info: [String: String]) -> (action: NotificationAction, copy: String?)? {
+    static func resolve(actionId: String, info: [String: String]) -> (action: NativeNotificationEvent, copy: String?)? {
         switch actionId {
         case actionDismiss:
             guard let phoneId = info["phoneId"], let key = info["key"], let msgId = info["msgId"] else { return nil }

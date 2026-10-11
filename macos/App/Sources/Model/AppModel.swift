@@ -431,6 +431,8 @@ final class AppModel {
             deviceStatus[sender.id] = s
         case .notificationDismiss:
             break  // a desktop does not post notifications
+        case .notificationAction, .notificationActionResult, .mediaState, .mediaCommand:
+            break  // V2: handled by the Mac rich-notification milestones (M4a, M4b)
         }
     }
 
@@ -477,7 +479,7 @@ final class AppModel {
 
     // MARK: Notification actions
 
-    func perform(_ action: NotificationAction) async {
+    func perform(_ action: NativeNotificationEvent) async {
         switch action {
         case .dismissOnPhone(_, let key, let msgId):
             _ = try? await sync.send(NotificationDismiss(key: key), replyTo: msgId, only: nil)

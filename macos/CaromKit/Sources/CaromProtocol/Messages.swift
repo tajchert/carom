@@ -1,18 +1,31 @@
 import Foundation
 
-/// v1 message types (SPEC §4).
+/// Message types (SPEC §4, plus the V2 additions in §3.4).
 public enum MessageType: String, Sendable, CaseIterable, Codable {
     case notificationPosted = "notification.posted@1"
     case notificationRemoved = "notification.removed@1"
     case notificationDismiss = "notification.dismiss@1"
     case clipboardSet = "clipboard.set@1"
     case deviceStatus = "device.status@1"
+    case notificationAction = "notification.action@1"
+    case notificationActionResult = "notification.action_result@1"
+    case mediaState = "media.state@1"
+    case mediaCommand = "media.command@1"
 
     /// Default TTL in seconds.
     public var defaultTtlS: Int {
         switch self {
         case .notificationPosted, .notificationRemoved: 2 * 86_400
-        case .notificationDismiss, .clipboardSet, .deviceStatus: 86_400
+        case .notificationDismiss, .clipboardSet, .deviceStatus, .mediaState: 86_400
+        case .notificationAction, .notificationActionResult, .mediaCommand: 600
+        }
+    }
+
+    /// Types that are only valid as a reply (SPEC §3.5): payload-level `reply_to` is required.
+    public var requiresReplyTo: Bool {
+        switch self {
+        case .notificationDismiss, .notificationAction, .notificationActionResult, .mediaCommand: true
+        case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState: false
         }
     }
 }
@@ -301,6 +314,10 @@ public enum Message: Sendable, Equatable {
     case notificationDismiss(NotificationDismiss)
     case clipboardSet(ClipboardSet)
     case deviceStatus(DeviceStatus)
+    case notificationAction(NotificationAction)
+    case notificationActionResult(NotificationActionResult)
+    case mediaState(MediaState)
+    case mediaCommand(MediaCommand)
 
     /// Decodes a known type's body; nil when the body fails its schema (`bad_payload`).
     public init?(type: MessageType, body: JSONObject) {
@@ -310,6 +327,12 @@ public enum Message: Sendable, Equatable {
         case .notificationDismiss: guard let b = NotificationDismiss(json: body) else { return nil }; self = .notificationDismiss(b)
         case .clipboardSet: guard let b = ClipboardSet(json: body) else { return nil }; self = .clipboardSet(b)
         case .deviceStatus: guard let b = DeviceStatus(json: body) else { return nil }; self = .deviceStatus(b)
+        case .notificationAction:
+            guard let b = NotificationAction(json: body) else { return nil }; self = .notificationAction(b)
+        case .notificationActionResult:
+            guard let b = NotificationActionResult(json: body) else { return nil }; self = .notificationActionResult(b)
+        case .mediaState: guard let b = MediaState(json: body) else { return nil }; self = .mediaState(b)
+        case .mediaCommand: guard let b = MediaCommand(json: body) else { return nil }; self = .mediaCommand(b)
         }
     }
 
@@ -320,6 +343,10 @@ public enum Message: Sendable, Equatable {
         case .notificationDismiss: .notificationDismiss
         case .clipboardSet: .clipboardSet
         case .deviceStatus: .deviceStatus
+        case .notificationAction: .notificationAction
+        case .notificationActionResult: .notificationActionResult
+        case .mediaState: .mediaState
+        case .mediaCommand: .mediaCommand
         }
     }
 
@@ -330,6 +357,10 @@ public enum Message: Sendable, Equatable {
         case .notificationDismiss(let b): b
         case .clipboardSet(let b): b
         case .deviceStatus(let b): b
+        case .notificationAction(let b): b
+        case .notificationActionResult(let b): b
+        case .mediaState(let b): b
+        case .mediaCommand(let b): b
         }
     }
 }
