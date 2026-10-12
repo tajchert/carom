@@ -5,11 +5,14 @@
 
     <string name="feature_notifications_apps_title">Apps</string>
     <string name="feature_notifications_pause">Pause forwarding</string>
-    <string name="feature_notifications_only_locked">Forward only when the screen is locked</string>
+    <string name="feature_notifications_only_locked">Only when screen is locked or off</string>
     <string name="feature_notifications_search">Search apps</string>
     <string name="feature_notifications_clear_search">Clear search</string>
     <string name="feature_notifications_mode_forward">Forward</string>
     <string name="feature_notifications_mode_hide">Hide content</string>
+    <string name="feature_notifications_filter_all">All</string>
+    <string name="feature_notifications_filter_hidden">Hidden</string>
+    <string name="feature_notifications_chip_hide">Hide</string>
     <string name="feature_notifications_mode_off">Off</string>
     <string name="feature_notifications_ongoing_forward">Ongoing: Forward</string>
     <string name="feature_notifications_ongoing_off">Ongoing: Off</string>

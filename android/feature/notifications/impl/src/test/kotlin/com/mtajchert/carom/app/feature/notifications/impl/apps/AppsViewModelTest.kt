@@ -56,6 +56,20 @@ class AppsViewModelTest {
     }
 
     @Test
+    fun `filter narrows the list while the counts stay global`() = runTest {
+        viewModel.uiState.test {
+            skipItems(2)
+            viewModel.setFilter(AppsFilter.HIDDEN)
+            val state = awaitItem()
+            assertEquals(listOf("My Bank"), state.apps.map { it.label })
+            assertEquals(1, state.forwardCount)
+            assertEquals(1, state.hiddenCount)
+            assertEquals(0, state.offCount)
+            assertEquals(2, state.totalApps)
+        }
+    }
+
+    @Test
     fun `mode and global switches are written through`() = runTest {
         viewModel.uiState.test {
             skipItems(2)

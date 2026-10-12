@@ -11,6 +11,36 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.font.FontFamily
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,7 +59,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -73,6 +102,7 @@ fun AppsScreen(onBack: () -> Unit, viewModel: AppsViewModel = hiltViewModel()) {
         state = state,
         onBack = onBack,
         onQueryChange = viewModel::setQuery,
+        onFilterChange = viewModel::setFilter,
         onModeChange = viewModel::setMode,
         onForwardOngoingChange = viewModel::setForwardOngoing,
         onPausedChange = viewModel::setPaused,
@@ -81,12 +111,13 @@ fun AppsScreen(onBack: () -> Unit, viewModel: AppsViewModel = hiltViewModel()) {
     )
 }
 
-/** Stateless "Apps" screen: global switches, search, and one Forward / Hide content / Off choice per app. */
+/** Stateless "Apps" screen: global switches, search, filters, and one Forward / Hide content / Off choice per app. */
 @Composable
 fun AppsContent(
     state: AppsUiState,
     onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
+    onFilterChange: (AppsFilter) -> Unit,
     onModeChange: (String, AppForwardingMode) -> Unit,
     onForwardOngoingChange: (String, Boolean) -> Unit,
     onPausedChange: (Boolean) -> Unit,
@@ -94,6 +125,7 @@ fun AppsContent(
     onOpenAccessSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(
         modifier = modifier,
         topBar = { CaromTopAppBar(title = stringResource(R.string.feature_notifications_apps_title), onNavigationClick = onBack) },
@@ -112,23 +144,19 @@ fun AppsContent(
                 modifier = Modifier
                     .widthIn(max = 600.dp)
                     .fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (!state.accessGranted) {
                     item(key = "access") { AccessCard(onOpenAccessSettings) }
                 }
-                item(key = "pause") {
-                    ToggleRow(stringResource(R.string.feature_notifications_pause), state.paused, onPausedChange)
-                }
-                item(key = "locked") {
-                    ToggleRow(stringResource(R.string.feature_notifications_only_locked), state.onlyWhenLocked, onOnlyWhenLockedChange)
-                }
-                item(key = "divider") { HorizontalDivider() }
                 if (state.totalApps == 0) {
+                    item(key = "switches") { SwitchesCard(state, onPausedChange, onOnlyWhenLockedChange) }
                     item(key = "empty") { EmptyApps() }
                 } else {
                     item(key = "search") { SearchField(state.query, onQueryChange) }
+                    item(key = "filters") { FilterRow(state, onFilterChange) }
+                    item(key = "switches") { SwitchesCard(state, onPausedChange, onOnlyWhenLockedChange) }
                     if (state.apps.isEmpty()) {
                         item(key = "no_results") {
                             Text(
@@ -142,6 +170,8 @@ fun AppsContent(
                     items(state.apps, key = { it.packageName }) { app ->
                         AppRow(
                             app,
+                            expanded = expanded == app.packageName,
+                            onToggleExpanded = { expanded = if (expanded == app.packageName) null else app.packageName },
                             onModeChange = { onModeChange(app.packageName, it) },
                             onForwardOngoingChange = { onForwardOngoingChange(app.packageName, it) },
                         )
@@ -154,13 +184,34 @@ fun AppsContent(
 
 @Composable
 private fun AccessCard(onOpenAccessSettings: () -> Unit) {
-    CaromCard {
-        Text(stringResource(R.string.feature_notifications_access_missing), style = MaterialTheme.typography.bodyMedium)
-        CaromButton(
-            onClick = onOpenAccessSettings,
-            text = stringResource(R.string.feature_notifications_access_action),
-            modifier = Modifier.padding(top = 12.dp),
-        )
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.errorContainer) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                stringResource(R.string.feature_notifications_access_missing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            CaromButton(
+                onClick = onOpenAccessSettings,
+                text = stringResource(R.string.feature_notifications_access_action),
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SwitchesCard(
+    state: AppsUiState,
+    onPausedChange: (Boolean) -> Unit,
+    onOnlyWhenLockedChange: (Boolean) -> Unit,
+) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            ToggleRow(stringResource(R.string.feature_notifications_pause), state.paused, onPausedChange)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ToggleRow(stringResource(R.string.feature_notifications_only_locked), state.onlyWhenLocked, onOnlyWhenLockedChange)
+        }
     }
 }
 
@@ -170,7 +221,7 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         modifier = Modifier
             .fillMaxWidth()
             .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(end = 16.dp))
@@ -180,11 +231,20 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
-    OutlinedTextField(
+    TextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
         singleLine = true,
+        shape = CircleShape,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent,
+        ),
         placeholder = { Text(stringResource(R.string.feature_notifications_search)) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = if (query.isEmpty()) {
@@ -198,6 +258,40 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
     )
+}
+
+@Composable
+private fun FilterRow(state: AppsUiState, onFilterChange: (AppsFilter) -> Unit) {
+    val filters = listOf(
+        Triple(AppsFilter.ALL, R.string.feature_notifications_filter_all, state.totalApps),
+        Triple(AppsFilter.FORWARD, R.string.feature_notifications_mode_forward, state.forwardCount),
+        Triple(AppsFilter.HIDDEN, R.string.feature_notifications_filter_hidden, state.hiddenCount),
+        Triple(AppsFilter.OFF, R.string.feature_notifications_mode_off, state.offCount),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        filters.forEach { (filter, label, count) ->
+            val selected = state.filter == filter
+            FilterChip(
+                selected = selected,
+                onClick = { onFilterChange(filter) },
+                label = { Text("${stringResource(label)} $count") },
+                leadingIcon = if (selected) {
+                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                } else {
+                    null
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            )
+        }
+    }
 }
 
 @Composable
@@ -231,43 +325,139 @@ private val modes = listOf(
 @Composable
 private fun AppRow(
     app: NotificationAppSetting,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
     onModeChange: (AppForwardingMode) -> Unit,
     onForwardOngoingChange: (Boolean) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-        Column {
-            Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (app.label != app.packageName) {
-                Text(
-                    app.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            modes.forEachIndexed { index, (mode, label) ->
-                SegmentedButton(
-                    selected = app.mode == mode,
-                    modifier = Modifier.fillMaxHeight(),
-                    onClick = { onModeChange(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                    // No check mark: the fill already marks the choice, and the room keeps
-                    // "Hide content" readable at large font sizes.
-                    icon = {},
-                    label = { Text(stringResource(label), maxLines = 2, textAlign = TextAlign.Center) },
-                )
-            }
-        }
-        ToggleRow(
-            label = stringResource(
-                if (app.forwardOngoing) R.string.feature_notifications_ongoing_forward else R.string.feature_notifications_ongoing_off,
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .then(
+                if (expanded) {
+                    Modifier
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                } else {
+                    Modifier
+                },
             ),
-            checked = app.forwardOngoing,
-            onChange = onForwardOngoingChange,
-        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = null, role = Role.Button, onClick = onToggleExpanded)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AppAvatar(app)
+            Column(Modifier.weight(1f)) {
+                Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (app.label != app.packageName) {
+                    Text(
+                        app.packageName,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (expanded) {
+                Icon(Icons.Filled.ExpandLess, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                StateChip(app.mode)
+            }
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    modes.forEachIndexed { index, (mode, label) ->
+                        SegmentedButton(
+                            selected = app.mode == mode,
+                            modifier = Modifier.fillMaxHeight(),
+                            onClick = { onModeChange(mode) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                            label = { Text(stringResource(label), maxLines = 2, textAlign = TextAlign.Center) },
+                        )
+                    }
+                }
+                ToggleRow(
+                    label = stringResource(
+                        if (app.forwardOngoing) R.string.feature_notifications_ongoing_forward else R.string.feature_notifications_ongoing_off,
+                    ),
+                    checked = app.forwardOngoing,
+                    onChange = onForwardOngoingChange,
+                )
+            }
+        }
+    }
+}
+
+/** The app's launcher icon when the package is installed, else its first letter. */
+@Composable
+private fun AppAvatar(app: NotificationAppSetting) {
+    val context = LocalContext.current
+    val icon = remember(app.packageName) {
+        runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap().asImageBitmap() }.getOrNull()
+    }
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (icon != null) {
+            Image(icon, contentDescription = null, modifier = Modifier.fillMaxSize())
+        } else {
+            Text(
+                app.label.firstOrNull { it.isLetterOrDigit() }?.uppercase().orEmpty(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** One-word state: icon plus label, never colour alone. */
+@Composable
+private fun StateChip(mode: AppForwardingMode) {
+    val (icon, label) = when (mode) {
+        AppForwardingMode.FORWARD -> Icons.AutoMirrored.Filled.ArrowForward to R.string.feature_notifications_mode_forward
+        AppForwardingMode.HIDE_CONTENT -> Icons.Filled.VisibilityOff to R.string.feature_notifications_chip_hide
+        AppForwardingMode.OFF -> Icons.Filled.Block to R.string.feature_notifications_mode_off
+    }
+    val shape = RoundedCornerShape(12.dp)
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .then(
+                when (mode) {
+                    AppForwardingMode.FORWARD -> Modifier.background(colors.primaryContainer)
+                    AppForwardingMode.HIDE_CONTENT -> Modifier.background(colors.surfaceContainerHighest)
+                    AppForwardingMode.OFF -> Modifier.border(1.dp, colors.outline, shape)
+                },
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        val tint = if (mode == AppForwardingMode.FORWARD) colors.onPrimaryContainer else colors.onSurfaceVariant
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = tint)
     }
 }
 
