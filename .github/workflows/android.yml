@@ -74,7 +74,7 @@ jobs:
         run: |
           sudo chmod a+rw /dev/kvm
           echo no | avdmanager create avd --force --name ci-phone --package 'system-images;android-35;google_apis;x86_64' --device pixel_6
-          emulator -avd ci-phone -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > /tmp/emulator.log 2>&1 &
+          "$ANDROID_HOME/emulator/emulator" -avd ci-phone -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > /tmp/emulator.log 2>&1 &
           EMULATOR_PID=$!
           trap 'kill "$EMULATOR_PID" || true' EXIT
           timeout 180 bash -c 'until adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r" | grep -q "^1$"; do sleep 2; done'
