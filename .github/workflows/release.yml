@@ -1,16 +1,17 @@
-# Builds, signs, and publishes a Carom release: the Android APK, with release
-# notes taken from the version's section in CHANGELOG.md. The Hub and the Mac
-# app ship as source at the same tag.
+# Builds, signs, and publishes a Carom release: the Android APK and the Mac app,
+# with release notes taken from the version's section in CHANGELOG.md. The Hub
+# ships as source at the same tag.
 #
 # Triggers:
 #   - push of a v* tag: full release (build -> verify -> attach to release)
-#   - workflow_dispatch: dry run. The APK is only uploaded as a workflow
-#     artifact, no release is created.
+#   - workflow_dispatch: dry run. The APK and the Mac zip are only uploaded as
+#     workflow artifacts, no release is created.
 #
 # Signing: the private keystore is decoded from the RELEASE_KEYSTORE_BASE64
 # repo secret into the runner's temp dir and passed to Gradle via CAROM_* env
 # vars. Secrets are never available to fork-triggered workflows; this workflow
-# only runs on tag pushes and manual dispatches by repo writers.
+# only runs on tag pushes and manual dispatches by repo writers. The Mac app is
+# ad-hoc signed (no Developer ID yet) and not notarized.
 name: Release
 
 on:
@@ -27,7 +28,49 @@ defaults:
     working-directory: android
 
 jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: macos/App
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build universal ad-hoc signed app
+        run: >-
+          xcodebuild -project Carom.xcodeproj -scheme Carom -configuration Release
+          -derivedDataPath "$RUNNER_TEMP/dd" -destination 'generic/platform=macOS'
+          ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO
+          DEVELOPMENT_TEAM= CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=-
+          build | tail -n 20
+
+      - name: Verify and zip
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="ci-${GITHUB_SHA::7}"
+          fi
+          APP="$RUNNER_TEMP/dd/Build/Products/Release/Carom.app"
+          codesign --verify --deep --strict "$APP"
+          lipo -archs "$APP/Contents/MacOS/Carom" | grep -q 'x86_64 arm64' \
+            || { echo "Carom.app is not universal." >&2; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/mac-dist"
+          cd "$GITHUB_WORKSPACE/mac-dist"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "Carom-$VERSION-macos.zip"
+          shasum -a 256 "Carom-$VERSION-macos.zip" > "Carom-$VERSION-macos.zip.sha256"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: carom-macos
+          path: mac-dist/*
+          retention-days: 90
+
   release:
+    needs: macos
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -100,6 +143,11 @@ jobs:
           cd dist
           shasum -a 256 "carom-android-$VERSION.apk" > "carom-android-$VERSION.apk.sha256"
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: carom-macos
+          path: android/dist
+
       - name: Write release notes
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -120,7 +168,7 @@ jobs:
 
           - **📱 Android:** download \`carom-android-$VERSION.apk\` below and open it on your phone (allow "install unknown apps" for your browser or file manager). The \`.sha256\` file lets you check the download.
           - **☁️ Hub:** \`git clone --branch v$VERSION https://github.com/tajchert/carom.git && cd carom && npm install && node hub/bin/carom-hub.mjs deploy\`
-          - **💻 Mac:** build from source, see the [setup guide](https://github.com/tajchert/carom/blob/v$VERSION/docs/SETUP.md).
+          - **💻 Mac:** \`brew install --cask tajchert/tap/carom\`, or download \`Carom-$VERSION-macos.zip\` below (Apple Silicon and Intel, macOS 14+). The app is ad-hoc signed and not notarized: on first launch, open **System Settings → Privacy & Security** and choose **Open Anyway**. After an update, macOS may ask once to let Carom use its keychain items.
 
           The APK is signed with the Carom release certificate, SHA-256 \`da:44:b2:ef:ba:8c:c3:5e:e2:f6:e1:65:ca:36:19:d6:b6:fb:a1:b3:cd:20:a6:6d:a0:9f:d5:80:99:ca:e2:79\`.
           EOF
@@ -133,14 +181,14 @@ jobs:
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists; replacing assets and notes."
-            gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.apk.sha256 --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.zip dist/*.sha256 --clobber
             gh release edit "$GITHUB_REF_NAME" --notes-file dist/notes.md
           else
             gh release create "$GITHUB_REF_NAME" \
               --verify-tag \
               --title "Carom ${GITHUB_REF_NAME#v}" \
               --notes-file dist/notes.md \
-              dist/*.apk dist/*.apk.sha256
+              dist/*.apk dist/*.zip dist/*.sha256
           fi
 
       - name: Upload mapping and dry-run artifacts
