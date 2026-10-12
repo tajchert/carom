@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.navigation
 
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -75,17 +76,14 @@ class AppNavigationTest {
     fun `settings open the Apps and Clipboard screens with the settings moved there`() {
         startOnHome()
         composeRule.onNodeWithContentDescription("Settings").performClick()
-        composeRule.onNodeWithText("Apps").performScrollTo().performClick()
-        // The Apps screen shows a loading indicator until its first state arrives.
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithText("Only when screen is locked or off", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("Only when screen is locked or off", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        // Each screen loads its state and animates in, so wait for it before acting on it.
+        awaitText("Apps").performScrollTo().performClick()
+        awaitText("Only when screen is locked or off").performScrollTo().assertIsDisplayed()
         back()
-        composeRule.onNodeWithText("Clipboard").performScrollTo().performClick()
-        composeRule.onNodeWithText("Show a notification when a clipboard arrives", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        awaitText("Clipboard").performScrollTo().performClick()
+        awaitText("Show a notification when a clipboard arrives").performScrollTo().assertIsDisplayed()
         back()
-        composeRule.onNodeWithText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
+        awaitText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -102,6 +100,14 @@ class AppNavigationTest {
         }
         // Home loads the (empty) session first.
         composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Connect this phone").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** Waits until exactly one node shows [text] (the outgoing screen may still be on screen). */
+    private fun awaitText(text: String): SemanticsNodeInteraction {
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().size == 1
+        }
+        return composeRule.onNodeWithText(text, useUnmergedTree = true)
     }
 
     private fun back() {

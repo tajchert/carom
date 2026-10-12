@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.feature.notifications.impl.apps
 
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.model.NotificationAppSetting
@@ -25,14 +26,14 @@ class AppsViewModelTest {
     )
     private val prefs = FakeUserPreferencesRepository()
     private var granted = false
-    private val viewModel = AppsViewModel(apps, prefs) { granted }
+    // Created on first use, after MainDispatcherRule swaps in the test dispatcher.
+    private val viewModel by lazy { AppsViewModel(apps, prefs) { granted } }
 
     @Test
     fun `starts loading, then lists apps by label with the global switches`() = runTest {
+        assertTrue(viewModel.uiState.value.loading)
         viewModel.uiState.test {
-            assertTrue(awaitItem().loading)
-            val state = awaitItem()
-            assertFalse(state.loading)
+            val state = awaitLoaded()
             assertEquals(listOf("My Bank", "Signal"), state.apps.map { it.label })
             assertEquals(2, state.totalApps)
             assertFalse(state.paused)
@@ -43,7 +44,7 @@ class AppsViewModelTest {
     @Test
     fun `search matches label or package, case-insensitively`() = runTest {
         viewModel.uiState.test {
-            skipItems(2)
+            awaitLoaded()
             viewModel.setQuery("SIG")
             assertEquals(listOf("Signal"), awaitItem().apps.map { it.label })
             viewModel.setQuery("com.ba")
@@ -58,7 +59,7 @@ class AppsViewModelTest {
     @Test
     fun `filter narrows the list while the counts stay global`() = runTest {
         viewModel.uiState.test {
-            skipItems(2)
+            awaitLoaded()
             viewModel.setFilter(AppsFilter.HIDDEN)
             val state = awaitItem()
             assertEquals(listOf("My Bank"), state.apps.map { it.label })
@@ -72,7 +73,7 @@ class AppsViewModelTest {
     @Test
     fun `mode and global switches are written through`() = runTest {
         viewModel.uiState.test {
-            skipItems(2)
+            awaitLoaded()
             viewModel.setMode("org.signal", AppForwardingMode.OFF)
             assertEquals(AppForwardingMode.OFF, awaitItem().apps.first { it.packageName == "org.signal" }.mode)
             viewModel.setPaused(true)
@@ -87,7 +88,7 @@ class AppsViewModelTest {
     @Test
     fun `the ongoing switch is written through`() = runTest {
         viewModel.uiState.test {
-            skipItems(2)
+            awaitLoaded()
             viewModel.setForwardOngoing("org.signal", true)
             assertTrue(awaitItem().apps.first { it.packageName == "org.signal" }.forwardOngoing)
             viewModel.setForwardOngoing("org.signal", false)
@@ -98,8 +99,7 @@ class AppsViewModelTest {
     @Test
     fun `access is re-checked on demand`() = runTest {
         viewModel.uiState.test {
-            skipItems(1)
-            assertFalse(awaitItem().accessGranted)
+            assertFalse(awaitLoaded().accessGranted)
             granted = true
             viewModel.refreshAccess()
             assertTrue(awaitItem().accessGranted)
@@ -109,7 +109,7 @@ class AppsViewModelTest {
     @Test
     fun `an expanded row stays listed when editing moves it out of the filter`() = runTest {
         viewModel.uiState.test {
-            skipItems(2)
+            awaitLoaded()
             viewModel.setFilter(AppsFilter.FORWARD)
             assertEquals(listOf("Signal"), awaitItem().apps.map { it.label })
             viewModel.setExpanded("org.signal")
@@ -120,5 +120,12 @@ class AppsViewModelTest {
             viewModel.setExpanded(null)
             assertTrue(awaitItem().apps.isEmpty())
         }
+    }
+
+    /** The first loaded state. The loading state may be conflated away when collection starts late. */
+    private suspend fun ReceiveTurbine<AppsUiState>.awaitLoaded(): AppsUiState {
+        var state = awaitItem()
+        while (state.loading) state = awaitItem()
+        return state
     }
 }
