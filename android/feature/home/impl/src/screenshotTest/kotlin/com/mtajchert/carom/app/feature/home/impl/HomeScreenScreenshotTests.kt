@@ -27,7 +27,7 @@ private val paired = HomeUiState.Paired(
 
 @Composable
 private fun Home(state: HomeUiState) {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         HomeContent(state = state, actions = HomeActions(), now = NOW)
     }
 }
