@@ -44,39 +44,38 @@ class AppNavigationTest {
 
     @Test
     fun `a fresh install starts in onboarding and Back walks its steps`() {
-        composeRule.onNodeWithText("Welcome to Carom").assertIsDisplayed()
-        composeRule.onNodeWithText("Get started").performClick()
-        composeRule.onNodeWithText("Connect to your Hub").assertIsDisplayed()
+        awaitText("Welcome to Carom").assertIsDisplayed()
+        awaitText("Get started").performClick()
+        awaitText("Connect to your Hub").assertIsDisplayed()
         back()
-        composeRule.onNodeWithText("Welcome to Carom").assertIsDisplayed()
+        awaitText("Welcome to Carom").assertIsDisplayed()
         back()
-        composeRule.onNodeWithText("Welcome to Carom").assertIsDisplayed()
+        awaitText("Welcome to Carom").assertIsDisplayed()
     }
 
     @Test
     fun `Home offers setup and opens onboarding`() {
         startOnHome()
-        composeRule.onNodeWithText("Connect this phone").assertIsDisplayed()
-        composeRule.onNodeWithText("Set up Carom").performClick()
-        composeRule.onNodeWithText("Welcome to Carom").assertIsDisplayed()
+        awaitText("Connect this phone").assertIsDisplayed()
+        awaitText("Set up Carom").performClick()
+        awaitText("Welcome to Carom").assertIsDisplayed()
         back()
-        composeRule.onNodeWithText("Connect this phone").assertIsDisplayed()
+        awaitText("Connect this phone").assertIsDisplayed()
     }
 
     @Test
     fun `settings open from Home and show the toggles`() {
         startOnHome()
         composeRule.onNodeWithContentDescription("Settings").performClick()
-        composeRule.onNodeWithText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
+        awaitText("Pause notification forwarding").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeRule.onNodeWithText("Connect this phone").assertIsDisplayed()
+        awaitText("Connect this phone").assertIsDisplayed()
     }
 
     @Test
     fun `settings open the Apps and Clipboard screens with the settings moved there`() {
         startOnHome()
         composeRule.onNodeWithContentDescription("Settings").performClick()
-        // Each screen loads its state and animates in, so wait for it before acting on it.
         awaitText("Apps").performScrollTo().performClick()
         awaitText("Only when screen is locked or off").performScrollTo().assertIsDisplayed()
         back()
@@ -90,7 +89,7 @@ class AppNavigationTest {
     fun `back on Home keeps Home on screen`() {
         startOnHome()
         back()
-        composeRule.onNodeWithText("Connect this phone").assertIsDisplayed()
+        awaitText("Connect this phone").assertIsDisplayed()
     }
 
     /** Replaces the activity's content with a nav host that starts on Home, as for a paired device. */
@@ -102,7 +101,10 @@ class AppNavigationTest {
         composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Connect this phone").fetchSemanticsNodes().isNotEmpty() }
     }
 
-    /** Waits until exactly one node shows [text] (the outgoing screen may still be on screen). */
+    /**
+     * Waits until exactly one node shows [text]. Screens load their state and animate in, and the
+     * outgoing screen may still be on screen.
+     */
     private fun awaitText(text: String): SemanticsNodeInteraction {
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().size == 1
