@@ -16,8 +16,12 @@ addresses can still use up the Free plan's 100k daily requests. The Hub then pau
 next day, and nothing is lost or exposed (see [hub/README.md](../hub/README.md#limits-and-cost)). All message content (notifications, clipboard) is end-to-end encrypted. Cloudflare
 and the Hub see only ciphertext, plus routing metadata such as which device sent to which, and when.
 
-> **No prebuilt downloads yet.** Until the first release, build the apps from source
-> ([Building from source](#building-from-source)) and run the Hub CLI from a checkout. Once
+> **Getting the apps.** Install the Mac app with `brew install --cask tajchert/tap/carom`, or
+> download the zip from the [latest release](https://github.com/tajchert/carom/releases/latest).
+> It is ad-hoc signed and not notarized, so on first launch open **System Settings → Privacy &
+> Security** and choose **Open Anyway**; after an update macOS may ask once to let Carom use its
+> keychain items. The Android APK is on the same release page. You can also
+> [build both from source](#building-from-source). The Hub CLI runs from a checkout; once
 > `carom-hub` is on npm, `npx carom-hub …` replaces `node hub/bin/carom-hub.mjs …` below.
 
 ## 1. Deploy your Hub

@@ -108,10 +108,10 @@ Your Hub's URL is public. The Hub rate-limits strangers before they can cost any
 from many addresses can still use up the Free plan's 100k daily requests. The Hub then pauses
 until the next day, and your data stays safe ([details](hub/README.md#limits-and-cost)).
 
-> **Downloads.** The Android app is on the [Releases page](https://github.com/tajchert/carom/releases/latest)
-> as a signed APK. The Mac app has no prebuilt download yet, so build it from source (see the
-> [setup guide](docs/SETUP.md#building-from-source)). What's new in each version is in the
-> [changelog](CHANGELOG.md).
+> **Downloads.** Get the Mac app with `brew install --cask tajchert/tap/carom`, and the Android
+> app from the [Releases page](https://github.com/tajchert/carom/releases/latest) as a signed APK.
+> The Mac app is not notarized yet, so on first launch choose **Open Anyway** in System Settings →
+> Privacy & Security. What's new in each version is in the [changelog](CHANGELOG.md).
 
 ## The Android app
 

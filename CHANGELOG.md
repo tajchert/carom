@@ -3,6 +3,19 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [1.0.2] - 2026-10-12
+
+The Mac app now has a download and a Homebrew cask.
+
+### 💻 Mac app
+
+- **Install with Homebrew:** `brew install --cask tajchert/tap/carom`.
+- **Download:** `Carom-1.0.2-macos.zip` on the release page runs on Apple Silicon and Intel Macs
+  with macOS 14 or newer.
+- **Not notarized yet.** The app is ad-hoc signed, so on first launch open **System Settings →
+  Privacy & Security** and choose **Open Anyway**. After an update, macOS may ask once to let Carom
+  use its keychain items.
+
 ## [1.0.1] - 2026-10-12
 
 A small update that makes the Android app start faster.
@@ -88,11 +101,12 @@ encrypted, through a small Hub that runs on your own Cloudflare account on the f
 ### Known limitations
 
 - **No prebuilt Mac download yet.** Build the Mac app from source (see the
-  [setup guide](https://github.com/tajchert/carom/blob/main/docs/SETUP.md#building-from-source)).
+  [setup guide](https://github.com/tajchert/carom/blob/v1.0.0/docs/SETUP.md#building-from-source)).
 - **Messages to the phone can wait.** Replies and commands arrive at once during the few minutes
   after the phone sends a notification. Outside that window they wait until you open Carom.
 - **Free plan quota.** A flood of requests from many addresses can use up the Free plan's 100k daily
   requests, and the Hub then pauses until the next day. Your data stays safe.
 
+[1.0.2]: https://github.com/tajchert/carom/releases/tag/v1.0.2
 [1.0.1]: https://github.com/tajchert/carom/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tajchert/carom/releases/tag/v1.0.0
