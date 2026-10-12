@@ -23,6 +23,8 @@
 // Features are composed here via their navigation contributions.
 // =============================================================================
 
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -31,6 +33,25 @@ plugins {
     alias(libs.plugins.kover)
     alias(libs.plugins.baselineprofile)
 }
+
+// Release signing. Values come from keystore.properties (local, gitignored) or
+// CAROM_* environment variables (CI). The keystore itself is private and never
+// committed; see docs/RELEASING.md.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
+
+fun releaseSigningValue(property: String, envVar: String): String? =
+    keystoreProperties.getProperty(property) ?: System.getenv(envVar)
+
+fun requiredReleaseSigningValue(property: String, envVar: String): String =
+    releaseSigningValue(property, envVar)
+        ?: error("Release signing is configured, but $property/$envVar is missing.")
+
+val releaseStorePath = releaseSigningValue("storeFile", "CAROM_KEYSTORE_PATH")
 
 android {
     namespace = "com.mtajchert.carom.app"
@@ -49,6 +70,23 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseStorePath != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseStorePath)
+                storePassword = requiredReleaseSigningValue(
+                    "storePassword",
+                    "CAROM_KEYSTORE_PASSWORD",
+                )
+                keyAlias = requiredReleaseSigningValue("keyAlias", "CAROM_KEY_ALIAS")
+                keyPassword = requiredReleaseSigningValue(
+                    "keyPassword",
+                    "CAROM_KEY_PASSWORD",
+                )
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -57,6 +95,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Falls back to the debug key when no release keystore is configured,
+            // so contributor and CI release builds stay installable. Published
+            // APKs are verified against the release certificate.
+            signingConfig = if (releaseStorePath != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         // Preserve release optimizations when customizing the measured variant.
         // The profile plugin configures debuggability and profileability.

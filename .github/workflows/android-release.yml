@@ -1,0 +1,124 @@
+# Builds, signs, and publishes the Android release APK to a GitHub Release.
+#
+# Triggers:
+#   - push of an android-v* tag: full release (build -> verify -> attach to release)
+#   - workflow_dispatch: dry run. The APK is only uploaded as a workflow
+#     artifact, no release is created.
+#
+# Signing: the private keystore is decoded from the RELEASE_KEYSTORE_BASE64
+# repo secret into the runner's temp dir and passed to Gradle via CAROM_* env
+# vars. Secrets are never available to fork-triggered workflows; this workflow
+# only runs on tag pushes and manual dispatches by repo writers.
+name: Android release
+
+on:
+  push:
+    tags:
+      - 'android-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: android
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Run unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Check tag matches versionName
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#android-v}"
+          GRADLE_VERSION=$(grep -m1 'versionName = ' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          if [ "$TAG_VERSION" != "$GRADLE_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match versionName $GRADLE_VERSION in app/build.gradle.kts" >&2
+            exit 1
+          fi
+
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "RELEASE_KEYSTORE_BASE64 is not configured." >&2
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build signed release APK
+        env:
+          CAROM_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          CAROM_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          CAROM_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          CAROM_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n1)
+          "$APKSIGNER" verify --print-certs "$APK"
+          "$APKSIGNER" verify --print-certs "$APK" \
+            | grep -q "CN=Carom Release" \
+            || { echo "APK is not release-signed with the Carom certificate." >&2; exit 1; }
+
+      - name: Stage release artifacts
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#android-v}"
+          else
+            VERSION="ci-${GITHUB_SHA::7}"
+          fi
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/carom-$VERSION.apk"
+          cp app/build/outputs/mapping/release/mapping.txt "dist/carom-$VERSION-mapping.txt"
+          cd dist
+          shasum -a 256 "carom-$VERSION.apk" > "carom-$VERSION.apk.sha256"
+
+      - name: Create or update GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_NOTES="$(cat <<'EOF'
+          **Install:** download `carom-<version>.apk` and sideload it by enabling "install unknown apps" for your browser or file manager. Verify the download against the matching `.sha256` file. Carom needs your own Hub; see the README for setup.
+          EOF
+          )"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; replacing APK assets."
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.apk.sha256 --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "Carom for Android ${GITHUB_REF_NAME#android-v}" \
+              --generate-notes \
+              --notes "$RELEASE_NOTES" \
+              dist/*.apk dist/*.apk.sha256
+          fi
+
+      - name: Upload mapping and dry-run artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: carom-android-release
+          path: android/dist/*
+          retention-days: 90

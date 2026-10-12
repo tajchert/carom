@@ -1,28 +1,55 @@
 # Release workflow
 
-The starter verifies a minified release build but has no production signing configuration or publishing automation. `benchmarkRelease` and `nonMinifiedRelease` use the debug key for local tests; they are not distribution variants.
+Release builds are minified and signed with the Carom release key. `benchmarkRelease` and `nonMinifiedRelease` use the debug key for local tests; they are not distribution variants.
 
-## Prepare a product release
+## Signing setup
 
-1. Review [security and backup defaults](SECURITY_DEFAULTS.md). CI is `.github/workflows/android.yml` at the repository root (GitHub Actions).
-2. Set `versionCode` and `versionName` in `app/build.gradle.kts`. Use an increasing code for successive product releases and define a user-visible naming policy.
-3. Choose the upload/signing arrangement for your distribution channel. For Google Play, distinguish the upload key from the app signing key. Configure release signing in Gradle using protected local/CI inputs, or use Android Studio's **Generate Signed Bundle / APK** workflow. The repository defines no signing-secret variable names to populate.
-4. Keep keystores and passwords outside tracked files. The existing ignore rules cover `.jks` and `.keystore`; they are not a substitute for controlling access and backups. CI signing material belongs in protected secrets and restricted release jobs.
-5. Run [verification](TESTING.md#commands), relevant device tests, and screenshot checks. Regenerate reviewed Baseline Profiles when startup/common paths change.
+Release signing is wired in `app/build.gradle.kts`. Local builds read the gitignored file `android/keystore.properties`:
 
-See the official [app-signing guide](https://developer.android.com/studio/publish/app-signing) for key management and signed builds.
-
-## Produce and retain artifacts
-
-After configuring Gradle release signing:
-
-```bash
-./gradlew :app:bundleRelease
+```properties
+storeFile=/Users/<user>/keystores/carom-release.jks
+storePassword=<password>
+keyAlias=carom
+keyPassword=<password>
 ```
 
-The bundle is under `app/build/outputs/bundle/release/`. Without release signing configuration, this task does not establish that the resulting bundle is ready for distribution. An AAB is not directly installable with `adb install`; use your channel's test delivery or generate device APKs with the official [bundletool](https://developer.android.com/tools/bundletool).
+CI reads the same values from `CAROM_KEYSTORE_PATH`, `CAROM_KEYSTORE_PASSWORD`, `CAROM_KEY_ALIAS` and `CAROM_KEY_PASSWORD`, populated by `.github/workflows/android-release.yml` from these repository secrets:
 
-Retain the exact distributed artifact, version, source commit, and signing-certificate identity. Archive the release R8 mapping from `app/build/outputs/mapping/release/mapping.txt` with that version for crash retracing. The included CI verifies assembly; it does not publish or archive release mappings.
+- `RELEASE_KEYSTORE_BASE64` (`base64 -i carom-release.jks`)
+- `RELEASE_KEYSTORE_PASSWORD`
+- `RELEASE_KEY_ALIAS`
+- `RELEASE_KEY_PASSWORD`
+
+`keystore.properties`, `*.jks` and `*.keystore` must stay uncommitted. Keep a backup of the keystore and its password outside this machine: a lost key means users cannot upgrade in place. Without a release keystore, Gradle falls back to the debug key so contributor and CI release builds stay installable; a public release must always be verified as release-signed.
+
+Expected release certificate:
+
+```text
+CN=Carom Release, O=Tajchert, C=PL
+SHA-256: da44b2efba8cc35ee2f6e165ca3619d6b6fba1b3cd20a66da09fd58099cae279
+```
+
+## Prepare a release
+
+1. Review [security and backup defaults](SECURITY_DEFAULTS.md).
+2. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
+3. Run [verification](TESTING.md#commands), relevant device tests, and screenshot checks. Regenerate reviewed Baseline Profiles when startup/common paths change.
+4. Build and verify the signed APK locally:
+
+   ```bash
+   ./gradlew :app:assembleRelease
+   APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n1)
+   "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
+   ```
+
+   The certificate DN and SHA-256 must match the values above.
+5. Commit, then tag and push: `git tag android-v<versionName> && git push origin android-v<versionName>`.
+
+The tag runs `.github/workflows/android-release.yml`: unit tests, a tag/`versionName` check, the signed build, certificate verification, a checksum, and a GitHub Release with `carom-<version>.apk` and its `.sha256`. Pushing the same tag again replaces the assets. **Run workflow** on the Actions tab performs a dry run that only uploads a workflow artifact.
+
+## Retain artifacts
+
+Retain the exact distributed artifact, version, source commit, and signing-certificate identity. The release workflow uploads the R8 mapping (`carom-<version>-mapping.txt`) as a workflow artifact for 90 days; archive it with the version for crash retracing.
 
 ## Check the distributed build
 
