@@ -30,10 +30,17 @@ class AndroidNotificationAccessChecker @Inject constructor(
         context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
 }
 
+/** Which apps the list shows; counts in the chips cover every app regardless of the search. */
+enum class AppsFilter { ALL, FORWARD, HIDDEN, OFF }
+
 data class AppsUiState(
     val loading: Boolean = true,
     val query: String = "",
-    /** Apps matching [query], by label. */
+    val filter: AppsFilter = AppsFilter.ALL,
+    val forwardCount: Int = 0,
+    val hiddenCount: Int = 0,
+    val offCount: Int = 0,
+    /** Apps matching [query] and [filter], by label. */
     val apps: List<NotificationAppSetting> = emptyList(),
     /** Every app seen so far, to tell "no apps yet" from "no search results". */
     val totalApps: Int = 0,
@@ -49,18 +56,27 @@ class AppsViewModel @Inject constructor(
     private val access: NotificationAccessChecker,
 ) : ViewModel() {
     private val query = MutableStateFlow("")
+    private val filter = MutableStateFlow(AppsFilter.ALL)
     private val accessGranted = MutableStateFlow(access.isGranted())
+
+    /** The expanded row stays listed even if editing it moves it out of the current filter. */
+    private val pinned = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<AppsUiState> = combine(
         apps.apps,
         preferences.userPreferences,
         query,
         accessGranted,
-    ) { all, prefs, q, granted ->
+        combine(filter, pinned, ::Pair),
+    ) { all, prefs, q, granted, (f, pin) ->
         AppsUiState(
             loading = false,
             query = q,
-            apps = all.filter { it.matches(q) },
+            filter = f,
+            forwardCount = all.count { it.mode == AppForwardingMode.FORWARD },
+            hiddenCount = all.count { it.mode == AppForwardingMode.HIDE_CONTENT },
+            offCount = all.count { it.mode == AppForwardingMode.OFF },
+            apps = all.filter { it.matches(q) && (f.accepts(it.mode) || it.packageName == pin) },
             totalApps = all.size,
             paused = prefs.forwardingPaused,
             onlyWhenLocked = prefs.forwardOnlyWhenLocked,
@@ -70,6 +86,16 @@ class AppsViewModel @Inject constructor(
 
     fun setQuery(value: String) {
         query.value = value
+    }
+
+    /** The screen expanded [packageName] (or collapsed everything, null). */
+    fun setExpanded(packageName: String?) {
+        pinned.value = packageName
+    }
+
+    fun setFilter(value: AppsFilter) {
+        pinned.value = null
+        filter.value = value
     }
 
     fun setMode(packageName: String, mode: AppForwardingMode) {
@@ -91,6 +117,13 @@ class AppsViewModel @Inject constructor(
     /** Re-checks notification access, e.g. when the user comes back from system settings. */
     fun refreshAccess() {
         accessGranted.value = access.isGranted()
+    }
+
+    private fun AppsFilter.accepts(mode: AppForwardingMode): Boolean = when (this) {
+        AppsFilter.ALL -> true
+        AppsFilter.FORWARD -> mode == AppForwardingMode.FORWARD
+        AppsFilter.HIDDEN -> mode == AppForwardingMode.HIDE_CONTENT
+        AppsFilter.OFF -> mode == AppForwardingMode.OFF
     }
 
     private fun NotificationAppSetting.matches(q: String): Boolean {

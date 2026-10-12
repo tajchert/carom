@@ -14,9 +14,22 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.ContentPasteGo
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.PauseCircle
+import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.mtajchert.carom.app.core.designsystem.component.CaromGroup
+import com.mtajchert.carom.app.core.designsystem.component.CaromIconTile
+import com.mtajchert.carom.app.core.designsystem.component.CaromSectionLabel
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -103,6 +116,7 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
 
         Section(stringResource(R.string.feature_settings_section_device)) {
             NavigationRow(
+                icon = Icons.Outlined.Smartphone,
                 title = stringResource(R.string.feature_settings_device_name),
                 value = state.deviceName,
                 onClick = if (state.paired && !state.busy) ({ renaming = true }) else null,
@@ -111,14 +125,12 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
 
         Section(stringResource(R.string.feature_settings_section_forwarding)) {
             actions.onOpenNotificationApps?.let {
-                NavigationRow(stringResource(R.string.feature_settings_apps), stringResource(R.string.feature_settings_apps_summary), it)
-                HorizontalDivider()
+                NavigationRow(stringResource(R.string.feature_settings_apps), stringResource(R.string.feature_settings_apps_summary), it, icon = Icons.Outlined.Apps)
             }
             actions.onOpenClipboardSettings?.let {
-                NavigationRow(stringResource(R.string.feature_settings_clipboard), stringResource(R.string.feature_settings_clipboard_summary), it)
-                HorizontalDivider()
+                NavigationRow(stringResource(R.string.feature_settings_clipboard), stringResource(R.string.feature_settings_clipboard_summary), it, icon = Icons.Outlined.ContentPasteGo)
             }
-            ToggleRow(stringResource(R.string.feature_settings_pause), stringResource(R.string.feature_settings_pause_summary), state.forwardingPaused, actions.onPauseChanged)
+            ToggleRow(stringResource(R.string.feature_settings_pause), stringResource(R.string.feature_settings_pause_summary), state.forwardingPaused, actions.onPauseChanged, icon = Icons.Outlined.PauseCircle)
         }
 
         Section(stringResource(R.string.feature_settings_section_actions)) {
@@ -131,7 +143,6 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
                     selected = state.actionsFromMac,
                     onSelect = actions.onActionsFromMacChanged,
                 )
-                HorizontalDivider()
                 ActionsMode(
                     mode = ActionsFromMac.AFTER_NOTIFICATION,
                     title = R.string.feature_settings_actions_after,
@@ -142,7 +153,6 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
                 if (state.actionsFromMac == ActionsFromMac.AFTER_NOTIFICATION) {
                     WindowChoices(selected = state.actionWindowMinutes, onSelect = actions.onActionWindowChanged)
                 }
-                HorizontalDivider()
                 ActionsMode(
                     mode = ActionsFromMac.ALWAYS,
                     title = R.string.feature_settings_actions_always,
@@ -157,16 +167,20 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             state.hubUrl?.let { InfoRow(stringResource(R.string.feature_settings_hub), it) }
             state.deviceId?.let { InfoRow(stringResource(R.string.feature_settings_device_id), it, monospace = true) }
             InfoRow(stringResource(R.string.feature_settings_version), state.appVersion)
-            NavigationRow(stringResource(R.string.feature_settings_licenses), null, onClick = { showLicenses = true })
+            NavigationRow(stringResource(R.string.feature_settings_licenses), null, onClick = { showLicenses = true }, icon = Icons.Outlined.Description)
         }
 
         if (state.paired) {
-            OutlinedButton(
+            Button(
                 onClick = { confirmLeave = true },
                 enabled = !state.busy,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
             ) {
-                Text(stringResource(R.string.feature_settings_leave), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.feature_settings_leave))
             }
         }
     }
@@ -221,30 +235,36 @@ private fun SettingsMessage.text(): Int = when (this) {
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.semantics { heading() },
-        )
-        CaromCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(vertical = 4.dp)) { content() }
-        }
+        CaromSectionLabel(title)
+        CaromGroup { Column(Modifier.padding(vertical = 4.dp)) { content() } }
     }
 }
 
+/** Leading icon in a tinted circle; the row text keeps its place when there is no icon. */
 @Composable
-private fun NavigationRow(title: String, value: String?, onClick: (() -> Unit)?) {
-    Column(
+private fun RowIcon(icon: ImageVector?) {
+    if (icon != null) CaromIconTile(icon, size = 40.dp)
+}
+
+@Composable
+private fun NavigationRow(title: String, value: String?, onClick: (() -> Unit)?, icon: ImageVector? = null) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .let { if (onClick != null) it.clickable(role = Role.Button, onClick = onClick) else it }
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
-        if (value != null) {
-            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RowIcon(icon)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (value != null) {
+                Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (onClick != null) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -264,7 +284,7 @@ private fun InfoRow(title: String, value: String, monospace: Boolean = false) {
 }
 
 @Composable
-private fun ToggleRow(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun ToggleRow(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit, icon: ImageVector? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -273,6 +293,7 @@ private fun ToggleRow(title: String, summary: String, checked: Boolean, onChange
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        RowIcon(icon)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

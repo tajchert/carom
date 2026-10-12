@@ -22,7 +22,7 @@ private val withEntries = SettingsActions(onOpenNotificationApps = {}, onOpenCli
 
 @Composable
 private fun Settings(state: SettingsUiState, actions: SettingsActions = withEntries) {
-    CaromTheme { SettingsContent(state = state, actions = actions) }
+    CaromTheme(dynamicColor = false) { SettingsContent(state = state, actions = actions) }
 }
 
 @PreviewTest

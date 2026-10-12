@@ -26,7 +26,7 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -145,6 +145,7 @@ private fun ShowingCode(state: PairingUiState.ShowingCode, onCopy: (String) -> U
     var copied by rememberSaveable(state.uri) { mutableStateOf(false) }
     PairingStepLayout(
         title = stringResource(R.string.feature_pairing_code_title),
+        brandMark = true,
         body = stringResource(R.string.feature_pairing_code_body),
     ) {
         QrCodeImage(
@@ -168,7 +169,7 @@ private fun ShowingCode(state: PairingUiState.ShowingCode, onCopy: (String) -> U
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        OutlinedButton(
+        FilledTonalButton(
             onClick = {
                 onCopy(state.uri)
                 copied = true

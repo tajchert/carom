@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mtajchert.carom.app.core.data.repository.RecentItemsRepository
+import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
 import com.mtajchert.carom.app.core.data.runtime.NotificationAccess
 import com.mtajchert.carom.app.core.data.sync.CaromSync
 import com.mtajchert.carom.app.core.data.sync.SyncStatusRepository
@@ -53,6 +54,8 @@ sealed interface HomeUiState {
         val connection: ConnectionStatus,
         val pendingMessages: Int,
         val lastSyncAt: Long? = null,
+        /** The user paused forwarding: notifications stay on this phone. */
+        val paused: Boolean = false,
         val banners: List<HomeBanner> = emptyList(),
         val recent: List<RecentItem> = emptyList(),
     ) : HomeUiState
@@ -62,6 +65,7 @@ sealed interface HomeUiState {
 class HomeViewModel @Inject constructor(
     observeHomeStatus: ObserveHomeStatusUseCase,
     recentItems: RecentItemsRepository,
+    private val preferences: UserPreferencesRepository,
     private val syncStatus: SyncStatusRepository,
     private val notificationAccess: NotificationAccess,
     private val sync: CaromSync,
@@ -74,9 +78,8 @@ class HomeViewModel @Inject constructor(
         observeHomeStatus(),
         recentItems.latest(RECENT_LIMIT),
         syncStatus.dismissedNoticeId,
-        accessGranted,
-        clockSkew.drift,
-    ) { status, recent, dismissedUpTo, granted, drift ->
+        combine(accessGranted, clockSkew.drift, preferences.userPreferences, ::Triple),
+    ) { status, recent, dismissedUpTo, (granted, drift, prefs) ->
         when (val session = status.session) {
             SessionState.Loading -> HomeUiState.Loading
             SessionState.NotPaired -> HomeUiState.NotPaired
@@ -86,6 +89,7 @@ class HomeViewModel @Inject constructor(
                 connection = status.connection,
                 pendingMessages = status.pendingMessages,
                 lastSyncAt = status.lastSyncAt,
+                paused = prefs.forwardingPaused,
                 banners = banners(status.mustPairAgain, granted, drift, recent, dismissedUpTo),
                 recent = recent,
             )
@@ -95,6 +99,11 @@ class HomeViewModel @Inject constructor(
     /** Re-checks what can change outside the app (notification access), on every resume. */
     fun refresh() {
         accessGranted.value = notificationAccess.isGranted()
+    }
+
+    /** Turns forwarding back on (the same preference Settings and Apps use). */
+    fun resumeForwarding() {
+        viewModelScope.launch { preferences.setForwardingPaused(false) }
     }
 
     /** Hides the removal notices shown now; they stay in the recent list. */

@@ -63,15 +63,21 @@ struct OnboardingView: View {
 
 private struct StepHeader: View {
     let symbol: String
+    var brand = false
+    var statusSymbol = false
     let title: String
     let subtitle: String
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
+            if brand {
+                CaromTile(size: 72)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(statusSymbol ? AnyShapeStyle(Color.statusGreen) : AnyShapeStyle(.tint))
+                    .symbolRenderingMode(.hierarchical)
+            }
             Text(title)
                 .font(.title2.weight(.semibold))
             Text(subtitle)
@@ -90,7 +96,7 @@ private struct WelcomeStep: View {
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-            StepHeader(symbol: "arrow.left.arrow.right.circle",
+            StepHeader(symbol: "", brand: true,
                        title: "Welcome to Carom",
                        subtitle: "See your phone's notifications on this Mac and share the clipboard between your devices. Everything is end-to-end encrypted and goes through your own Hub on Cloudflare.")
             Link("How to deploy your own Hub", destination: Links.hubDocs)
@@ -360,7 +366,7 @@ private struct PermissionsStep: View {
                     switch model.notificationsAllowed {
                     case true?:
                         Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.statusGreen)
                     case false?:
                         Link("Open Settings", destination: Links.notificationSettings)
                     case nil:
@@ -379,10 +385,10 @@ private struct PermissionsStep: View {
                     switch model.pasteboardAccess {
                     case .alwaysAllow:
                         Label("Always Allowed", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.statusGreen)
                     case .unknown:
                         Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.statusGreen)
                     case .standard, .ask, .alwaysDeny:
                         if checkedClipboard {
                             Link("Open Settings", destination: Links.privacySettings)
@@ -443,7 +449,7 @@ private struct DoneStep: View {
     var body: some View {
         VStack(spacing: 22) {
             Spacer()
-            StepHeader(symbol: "checkmark.circle",
+            StepHeader(symbol: "checkmark.circle.fill", statusSymbol: true,
                        title: "You're All Set",
                        subtitle: model.phones.isEmpty
                            ? "Carom lives in the menu bar. Add your phone to start syncing."

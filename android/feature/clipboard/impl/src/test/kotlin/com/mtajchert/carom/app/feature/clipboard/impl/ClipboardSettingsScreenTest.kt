@@ -64,8 +64,8 @@ class ClipboardSettingsScreenTest {
         show()
 
         // Both lists contain both devices; "Send clipboard to" comes first.
-        composeRule.onAllNodesWithText("Home PC")[0].performClick()
-        composeRule.onAllNodesWithText("Work Mac")[1].performClick()
+        composeRule.onAllNodesWithText("Home PC")[0].performScrollTo().performClick()
+        composeRule.onAllNodesWithText("Work Mac")[1].performScrollTo().performClick()
 
         assertEquals(listOf("sendTo dev_pc true", "from dev_mac false"), events)
     }

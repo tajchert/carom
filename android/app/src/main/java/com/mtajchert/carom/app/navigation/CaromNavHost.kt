@@ -60,6 +60,7 @@ fun CaromNavHost(
                 onAddDevice = { backStack.add(PairingRoute) },
                 onOpenDevices = { backStack.add(DevicesRoute) },
                 onOpenSettings = { backStack.add(SettingsRoute) },
+                onOpenApps = { backStack.add(NotificationAppsRoute) },
             )
             onboardingEntries(
                 onBack = back,

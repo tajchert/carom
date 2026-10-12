@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.mtajchert.carom.app.core.designsystem.component.CaromMark
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +45,7 @@ internal fun PairingStepLayout(
     title: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    brandMark: Boolean = false,
     tone: StepTone = StepTone.NEUTRAL,
     body: String? = null,
     primary: StepAction? = null,
@@ -65,7 +68,17 @@ internal fun PairingStepLayout(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                if (icon != null) {
+                if (brandMark) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CaromMark(size = 44.dp, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                } else if (icon != null) {
                     IconBadge(icon, tone)
                     Spacer(Modifier.height(4.dp))
                 }

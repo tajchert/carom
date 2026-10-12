@@ -10,7 +10,7 @@
 
     <!-- Splash screen theme -->
     <style name="Theme.Carom.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@android:color/white</item>
+        <item name="windowSplashScreenBackground">#1C7F5E</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.Carom</item>
     </style>

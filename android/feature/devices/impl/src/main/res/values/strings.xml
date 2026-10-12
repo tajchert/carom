@@ -4,6 +4,8 @@
     <string name="feature_devices_empty">No devices yet. Add one from Home.</string>
     <string name="feature_devices_unknown">Unverified device %1$s</string>
     <string name="feature_devices_this_device">%1$s (this device)</string>
+    <string name="feature_devices_chip_verified">Verified</string>
+    <string name="feature_devices_chip_unverified">Unverified</string>
     <string name="feature_devices_kind_phone">Phone</string>
     <string name="feature_devices_kind_desktop">Computer</string>
     <string name="feature_devices_kind_cli">Command line</string>

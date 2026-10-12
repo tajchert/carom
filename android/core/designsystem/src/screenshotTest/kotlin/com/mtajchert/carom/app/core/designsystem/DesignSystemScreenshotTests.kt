@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.ui.Alignment
+import com.mtajchert.carom.app.core.designsystem.component.CaromGroup
+import com.mtajchert.carom.app.core.designsystem.component.CaromIconTile
+import com.mtajchert.carom.app.core.designsystem.component.CaromSectionLabel
+import com.mtajchert.carom.app.core.designsystem.component.CaromStateChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +27,8 @@ import com.mtajchert.carom.app.core.designsystem.component.CaromElevatedCard
 import com.mtajchert.carom.app.core.designsystem.component.CaromEmptyState
 import com.mtajchert.carom.app.core.designsystem.component.CaromErrorState
 import com.mtajchert.carom.app.core.designsystem.component.CaromLoadingIndicator
+import com.mtajchert.carom.app.core.designsystem.component.CaromMark
+import com.mtajchert.carom.app.core.designsystem.component.CaromMarkState
 import com.mtajchert.carom.app.core.designsystem.component.CaromOutlinedButton
 import com.mtajchert.carom.app.core.designsystem.component.CaromSmallLoadingIndicator
 import com.mtajchert.carom.app.core.designsystem.component.CaromTextButton
@@ -40,7 +48,7 @@ private annotation class ComponentThemes
 @ComponentThemes
 @Composable
 fun ButtonsScreenshotTest() {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -58,7 +66,7 @@ fun ButtonsScreenshotTest() {
 @ComponentThemes
 @Composable
 fun CardsScreenshotTest() {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -79,7 +87,7 @@ fun CardsScreenshotTest() {
 @ComponentThemes
 @Composable
 fun LoadingIndicatorsScreenshotTest() {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         Row(
             modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
@@ -94,7 +102,7 @@ fun LoadingIndicatorsScreenshotTest() {
 @Preview(name = "Empty and error", showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 fun EmptyAndErrorStatesScreenshotTest() {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         Column {
             CaromEmptyState(
                 icon = Icons.Outlined.Inbox,
@@ -117,10 +125,49 @@ fun EmptyAndErrorStatesScreenshotTest() {
 @ComponentThemes
 @Composable
 fun TopAppBarsScreenshotTest() {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         Column {
             CaromTopAppBar(title = "Overview")
             CaromTopAppBar(title = "Details", onNavigationClick = {})
+        }
+    }
+}
+
+@PreviewTest
+@ComponentThemes
+@Composable
+fun CaromMarkScreenshotTest() {
+    CaromTheme(dynamicColor = false) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            CaromMarkState.entries.forEach { CaromMark(state = it, size = 64.dp) }
+        }
+    }
+}
+
+@PreviewTest
+@ComponentThemes
+@Composable
+fun SurfacesScreenshotTest() {
+    CaromTheme(dynamicColor = false) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CaromSectionLabel("Section")
+            CaromGroup {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CaromIconTile(Icons.Outlined.Inbox)
+                    Text("Work Mac", Modifier.weight(1f))
+                    CaromStateChip(Icons.Filled.CheckCircle, "Live")
+                }
+            }
         }
     }
 }

@@ -30,7 +30,19 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.DevicesOther
+import androidx.compose.material.icons.outlined.GppMaybe
+import androidx.compose.material.icons.outlined.LaptopMac
+import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material.icons.outlined.Terminal
 import com.mtajchert.carom.app.core.designsystem.component.CaromCard
+import com.mtajchert.carom.app.core.designsystem.component.CaromGroup
+import com.mtajchert.carom.app.core.designsystem.component.CaromIconTile
+import com.mtajchert.carom.app.core.designsystem.component.CaromStateChip
 import com.mtajchert.carom.app.core.domain.ReceiveMatrix
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
 import com.mtajchert.carom.app.core.model.DeviceKind
@@ -140,24 +152,47 @@ private fun MessageCard(text: String, onDismiss: () -> Unit) {
 
 @Composable
 private fun DeviceRow(device: DeviceSummary, now: Long, enabled: Boolean, onRename: () -> Unit, onRemove: () -> Unit) {
-    CaromCard(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    CaromGroup {
+        Column(Modifier.padding(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val name = device.name ?: stringResource(R.string.feature_devices_unknown, device.fingerprint)
-            Text(
-                text = if (device.isSelf) stringResource(R.string.feature_devices_this_device, name) else name,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            val kind = when (device.kind) {
-                DeviceKind.PHONE -> stringResource(R.string.feature_devices_kind_phone)
-                DeviceKind.DESKTOP -> stringResource(R.string.feature_devices_kind_desktop)
-                DeviceKind.CLI -> stringResource(R.string.feature_devices_kind_cli)
-                null -> stringResource(R.string.feature_devices_kind_unverified)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                CaromIconTile(
+                    icon = when (device.kind) {
+                        DeviceKind.PHONE -> Icons.Outlined.Smartphone
+                        DeviceKind.DESKTOP -> Icons.Outlined.LaptopMac
+                        DeviceKind.CLI -> Icons.Outlined.Terminal
+                        null -> Icons.Outlined.DevicesOther
+                    },
+                    size = 48.dp,
+                )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = if (device.isSelf) stringResource(R.string.feature_devices_this_device, name) else name,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    val kind = when (device.kind) {
+                        DeviceKind.PHONE -> stringResource(R.string.feature_devices_kind_phone)
+                        DeviceKind.DESKTOP -> stringResource(R.string.feature_devices_kind_desktop)
+                        DeviceKind.CLI -> stringResource(R.string.feature_devices_kind_cli)
+                        null -> stringResource(R.string.feature_devices_kind_unverified)
+                    }
+                    Secondary(stringResource(R.string.feature_devices_details, kind, device.fingerprint), monospace = false)
+                    Secondary(
+                        device.lastSeen?.let { stringResource(R.string.feature_devices_last_seen, relativeTime(it, now)) }
+                            ?: stringResource(R.string.feature_devices_last_seen_never),
+                    )
+                }
+                if (device.kind != null) {
+                    CaromStateChip(Icons.Filled.CheckCircle, stringResource(R.string.feature_devices_chip_verified))
+                } else {
+                    CaromStateChip(
+                        icon = Icons.Outlined.GppMaybe,
+                        label = stringResource(R.string.feature_devices_chip_unverified),
+                        container = MaterialTheme.colorScheme.errorContainer,
+                        content = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
             }
-            Secondary(stringResource(R.string.feature_devices_details, kind, device.fingerprint), monospace = false)
-            Secondary(
-                device.lastSeen?.let { stringResource(R.string.feature_devices_last_seen, relativeTime(it, now)) }
-                    ?: stringResource(R.string.feature_devices_last_seen_never),
-            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (device.isSelf) {
                     TextButton(onClick = onRename, enabled = enabled) { Text(stringResource(R.string.feature_devices_rename)) }
@@ -185,22 +220,23 @@ private fun ReceiveMatrixSection(matrix: ReceiveMatrix, enabled: Boolean, onSetR
         text = stringResource(R.string.feature_devices_receive_title),
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier
-            .padding(top = 8.dp)
+            .padding(start = 8.dp, top = 8.dp)
             .semantics { heading() },
     )
     Text(
         text = stringResource(R.string.feature_devices_receive_body),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 8.dp),
     )
     if (matrix.senders.isEmpty() || matrix.types.isEmpty()) {
         Text(stringResource(R.string.feature_devices_receive_empty), style = MaterialTheme.typography.bodyMedium)
         return
     }
-    CaromCard(modifier = Modifier.fillMaxWidth()) {
+    CaromGroup {
         Column(Modifier.padding(vertical = 8.dp)) {
             matrix.types.forEachIndexed { index, type ->
-                if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                if (index > 0) Spacer(Modifier.height(12.dp))
                 Text(
                     text = stringResource(typeLabel(type)),
                     style = MaterialTheme.typography.titleSmall,

@@ -11,9 +11,6 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 10)
 
             if !model.banners.isEmpty {
                 VStack(spacing: 6) {
@@ -50,33 +47,77 @@ struct MenuBarView: View {
             actions
                 .padding(6)
         }
-        .frame(width: 340)
+        .frame(width: 348)
         .animation(.default, value: model.statusMessage)
         .onAppear { model.refreshPasteboardAccess() }
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 10) {
+            CaromTile(size: 30)
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Carom")
-                    .font(.headline)
-                HStack(spacing: 6) {
-                    ConnectionDot(state: model.connection, paused: model.preferences.paused)
-                    Text(statusLine)
-                        .font(.caption)
+                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 5) {
+                    Image(systemName: status.symbol)
+                        .font(.system(size: 11))
+                        .foregroundStyle(status.tint)
+                    Text(status.text)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
             }
-            Spacer()
+            Spacer(minLength: 0)
+            if model.phase == .ready, model.preferences.paused {
+                Button("Resume") { model.setPaused(false) }
+                    .controlSize(.small)
+            } else if status.live {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.statusGreen)
+                    .help("End-to-end encrypted")
+                    .accessibilityLabel("End-to-end encrypted")
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+        .background(LinearGradient(colors: [Color("BrandGreen").opacity(0.11), Color("BrandGreen").opacity(0)],
+                                   startPoint: .top, endPoint: .bottom))
     }
 
-    private var statusLine: String {
-        guard model.phase == .ready else { return model.phase == .loading ? "Starting…" : "Not set up" }
-        let state = model.preferences.paused ? "Paused" : model.connection.label
-        return model.hubHost.isEmpty ? state : "\(model.hubHost) · \(state)"
+    private struct Status {
+        var symbol: String
+        var tint: Color
+        var text: String
+        var live = false
+    }
+
+    private var status: Status {
+        guard model.phase == .ready else {
+            return Status(symbol: "circle.dashed", tint: .secondary,
+                          text: model.phase == .loading ? "Starting…" : "Not set up")
+        }
+        if model.preferences.paused {
+            return Status(symbol: "pause.circle.fill", tint: Color(red: 0.91, green: 0.69, blue: 0.29),
+                          text: "Paused · notifications stay on phone")
+        }
+        let host = model.hubHost.isEmpty ? "" : " · \(model.hubHost)"
+        switch model.connection {
+        case .connected:
+            return Status(symbol: "checkmark.circle.fill", tint: .statusGreen, text: "Live" + host, live: true)
+        case .connecting, .asleep:
+            return Status(symbol: "arrow.triangle.2.circlepath.circle.fill", tint: .secondary,
+                          text: model.connection.label + host)
+        case .noNetwork:
+            return Status(symbol: "wifi.slash", tint: .secondary, text: "Offline · No network")
+        case .stopped:
+            return Status(symbol: "exclamationmark.triangle.fill", tint: .red, text: "Offline · Stopped, pair again")
+        case .offline:
+            return Status(symbol: "icloud.slash.fill", tint: .secondary, text: "Offline" + host)
+        }
     }
 
     private var notSetUp: some View {
@@ -100,7 +141,7 @@ struct MenuBarView: View {
                     Task { await model.sendClipboardNow() }
                 }
                 .disabled(model.connection == .stopped)
-                MenuRow(title: model.preferences.paused ? "Resume" : "Pause",
+                MenuRow(title: model.preferences.paused ? "Resume Forwarding" : "Pause Forwarding",
                         symbol: model.preferences.paused ? "play.circle" : "pause.circle") {
                     model.setPaused(!model.preferences.paused)
                 }
@@ -146,8 +187,8 @@ struct MenuRow: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
             .contentShape(Rectangle())
             .background(hovering && isEnabled ? Color.primary.opacity(0.08) : .clear,
                         in: RoundedRectangle(cornerRadius: 5, style: .continuous))
@@ -205,7 +246,7 @@ struct ActivityList: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if !notifications.isEmpty {
                         SectionTitle("Notifications")
-                        ForEach(notifications) { NotificationRow(item: $0) }
+                        ForEach(notifications) { NotificationRow(item: $0, newest: $0.id == notifications.first?.id) }
                     }
                     if !clips.isEmpty {
                         SectionTitle("Clipboard")
@@ -225,66 +266,64 @@ private struct SectionTitle: View {
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.top, 6)
-            .padding(.bottom, 2)
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
     }
 }
 
 private struct NotificationRow: View {
     @Environment(AppModel.self) private var model
     let item: RecentNotification
+    var newest = false
     @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
             AppIconImage(ref: item.icon, appName: item.appName, images: model.blobs)
-                .frame(width: 18, height: 18)
-                .padding(.top, 1)
+                .frame(width: 26, height: 26)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(item.appName)
-                        .font(.caption.weight(.semibold))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     if model.phones.count > 1 {
                         Text("· \(item.phoneName)")
-                            .font(.caption)
+                            .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
                     }
                     Spacer()
                     Text(item.date.formatted(date: .omitted, time: .shortened))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                 }
                 if let title = item.title, !title.isEmpty {
                     Text(title)
-                        .font(.callout.weight(.medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .lineLimit(1)
                 }
                 if let text = item.text, !text.isEmpty {
                     Text(text)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13))
                         .lineLimit(2)
                 }
-            }
-            if let code = item.code, hovering {
-                Button {
-                    model.copy(code, sensitive: true)
-                } label: {
-                    Label(code, systemImage: "doc.on.doc")
-                        .font(.caption.monospacedDigit())
+                if let code = item.code, hovering {
+                    HStack(spacing: 8) {
+                        Text(code)
+                            .font(.system(size: 13, design: .monospaced).weight(.medium))
+                        Button("Copy code") { model.copy(code, sensitive: true) }
+                            .controlSize(.small)
+                    }
+                    .padding(.top, 3)
                 }
-                .controlSize(.small)
-                .help("Copy code")
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(hovering ? Color.primary.opacity(0.06) : .clear,
-                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(rowTint, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         .onHover { hovering = $0 }
         .contextMenu {
             if let code = item.code {
@@ -300,6 +339,11 @@ private struct NotificationRow: View {
             }
         }
     }
+
+    private var rowTint: Color {
+        if hovering { return Color.primary.opacity(0.06) }
+        return newest ? Color.statusGreen.opacity(0.09) : .clear
+    }
 }
 
 private struct ClipRow: View {
@@ -311,10 +355,11 @@ private struct ClipRow: View {
         Button {
             model.copy(item.text, sensitive: item.sensitive)
         } label: {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: incoming ? "arrow.down.circle" : "arrow.up.circle")
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 1)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(incoming ? Color.statusGreen : Color.secondary)
+                    .frame(width: 26, height: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.preview)
                         .font(.callout)
@@ -326,11 +371,11 @@ private struct ClipRow: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .contentShape(Rectangle())
             .background(hovering ? Color.primary.opacity(0.06) : .clear,
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }

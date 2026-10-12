@@ -19,15 +19,19 @@ private val populated = AppsUiState(
         NotificationAppSetting("com.android.systemui", "System UI", AppForwardingMode.OFF, 0),
     ),
     totalApps = 5,
+    forwardCount = 3,
+    hiddenCount = 1,
+    offCount = 1,
 )
 
 @Composable
 private fun Apps(state: AppsUiState) {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         AppsContent(
             state = state,
             onBack = {},
             onQueryChange = {},
+            onFilterChange = {},
             onModeChange = { _, _ -> },
             onForwardOngoingChange = { _, _ -> },
             onPausedChange = {},

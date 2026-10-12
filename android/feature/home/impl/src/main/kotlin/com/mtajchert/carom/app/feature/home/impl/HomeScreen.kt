@@ -4,10 +4,44 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ContentPasteGo
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.LaptopMac
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.NorthEast
+import androidx.compose.material.icons.outlined.QrCode2
+import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material.icons.outlined.SouthWest
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import com.mtajchert.carom.app.core.designsystem.component.CaromMark
+import com.mtajchert.carom.app.core.model.ConnectionStatus
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +51,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
@@ -50,13 +83,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtajchert.carom.app.core.designsystem.component.CaromButton
-import com.mtajchert.carom.app.core.designsystem.component.CaromCard
 import com.mtajchert.carom.app.core.designsystem.component.CaromLoadingIndicator
-import com.mtajchert.carom.app.core.designsystem.component.CaromOutlinedButton
-import com.mtajchert.carom.app.core.designsystem.component.CaromTopAppBar
 import com.mtajchert.carom.app.core.model.RecentItem
 import com.mtajchert.carom.app.core.model.RecentItemKind
-import com.mtajchert.carom.app.core.ui.ConnectionStatusIndicator
 import com.mtajchert.carom.app.feature.clipboard.api.ClipboardSend
 
 /** Everything Home can ask the app to do. Navigation lambdas come from the nav host. */
@@ -65,11 +94,13 @@ class HomeActions(
     val onAddDevice: () -> Unit = {},
     val onOpenDevices: () -> Unit = {},
     val onOpenSettings: () -> Unit = {},
+    val onOpenApps: () -> Unit = {},
     val onSendClipboard: () -> Unit = {},
     val onOpenNotificationAccess: () -> Unit = {},
     val onOpenDateSettings: () -> Unit = {},
     val onPairAgain: () -> Unit = {},
     val onDismissNotices: () -> Unit = {},
+    val onResume: () -> Unit = {},
 )
 
 @Composable
@@ -78,6 +109,7 @@ fun HomeScreen(
     onAddDevice: () -> Unit,
     onOpenDevices: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenApps: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -93,11 +125,13 @@ fun HomeScreen(
             onAddDevice = onAddDevice,
             onOpenDevices = onOpenDevices,
             onOpenSettings = onOpenSettings,
+            onOpenApps = onOpenApps,
             onSendClipboard = { context.openClipboardSender() },
             onOpenNotificationAccess = { context.openNotificationAccessSettings() },
             onOpenDateSettings = { context.openDateSettings() },
             onPairAgain = viewModel::pairAgain,
             onDismissNotices = viewModel::dismissNotices,
+            onResume = viewModel::resumeForwarding,
         ),
     )
 }
@@ -133,8 +167,7 @@ fun HomeContent(
     Scaffold(
         modifier = modifier,
         topBar = {
-            CaromTopAppBar(
-                title = stringResource(R.string.feature_home_title),
+            HomeTopBar(
                 actions = {
                     if (state is HomeUiState.Paired) {
                         IconButton(onClick = actions.onOpenDevices) {
@@ -226,22 +259,30 @@ private fun Paired(state: HomeUiState.Paired, actions: HomeActions, now: Long) {
                 onAction = actions.onDismissNotices,
             )
         }
-        StatusCard(state, now)
+        StatusCard(state, now, actions.onResume)
         if (!mustPairAgain) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                CaromButton(onClick = actions.onSendClipboard, text = stringResource(R.string.feature_home_send_clipboard))
-                CaromOutlinedButton(onClick = actions.onAddDevice, text = stringResource(R.string.feature_home_add_device))
+            SendClipboardButton(actions.onSendClipboard)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                ActionTile(
+                    icon = Icons.Outlined.Apps,
+                    title = stringResource(R.string.feature_home_apps),
+                    onClick = actions.onOpenApps,
+                    modifier = Modifier.weight(1f),
+                )
+                ActionTile(
+                    icon = Icons.Outlined.QrCode2,
+                    title = stringResource(R.string.feature_home_add_device),
+                    onClick = actions.onAddDevice,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
         if (state.recent.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.feature_home_recent),
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.semantics { heading() },
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 4.dp).semantics { heading() },
             )
             state.recent.forEach { RecentRow(it, now) }
         }
@@ -264,33 +305,222 @@ private fun Paired(state: HomeUiState.Paired, actions: HomeActions, now: Long) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StatusCard(state: HomeUiState.Paired, now: Long) {
-    CaromCard(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = state.deviceName ?: stringResource(R.string.feature_home_this_device),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            ConnectionStatusIndicator(state.connection)
-            Detail(stringResource(R.string.feature_home_hub, state.hubHost))
-            Detail(
-                state.lastSyncAt?.let { stringResource(R.string.feature_home_last_sync, relativeTime(it, now)) }
-                    ?: stringResource(R.string.feature_home_last_sync_never),
-            )
-            if (state.pendingMessages > 0) {
+private fun HomeTopBar(actions: @Composable () -> Unit) {
+    TopAppBar(
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CaromMark(size = 22.dp)
                 Text(
-                    text = pluralStringResource(R.plurals.feature_home_pending, state.pendingMessages, state.pendingMessages),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.feature_home_title),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
                 )
+            }
+        },
+        actions = { actions() },
+    )
+}
+
+private enum class PathMode { Live, Offline, Rejected, Paused }
+
+private fun ConnectionStatus.pathMode() = when (this) {
+    ConnectionStatus.OFFLINE -> PathMode.Offline
+    ConnectionStatus.REJECTED -> PathMode.Rejected
+    else -> PathMode.Live
+}
+
+@Composable
+private fun StatusCard(state: HomeUiState.Paired, now: Long, onResume: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val mode = if (state.paused && state.connection != ConnectionStatus.REJECTED) PathMode.Paused else state.connection.pathMode()
+    val container = when (mode) {
+        PathMode.Live -> colors.primaryContainer
+        PathMode.Offline, PathMode.Paused -> colors.surfaceContainer
+        PathMode.Rejected -> colors.errorContainer
+    }
+    val content = when (mode) {
+        PathMode.Live -> colors.onPrimaryContainer
+        PathMode.Offline, PathMode.Paused -> colors.onSurface
+        PathMode.Rejected -> colors.onErrorContainer
+    }
+    val phone = state.deviceName ?: stringResource(R.string.feature_home_this_device)
+    val (title, subtitle) = when {
+        mode == PathMode.Paused -> stringResource(R.string.feature_home_status_paused) to stringResource(R.string.feature_home_status_paused_detail)
+        state.connection == ConnectionStatus.SYNCING -> stringResource(R.string.feature_home_status_syncing) to phone
+        mode == PathMode.Live -> stringResource(R.string.feature_home_status_forwarding) to phone
+        mode == PathMode.Offline ->
+            stringResource(R.string.feature_home_status_waiting) to stringResource(R.string.feature_home_status_retrying)
+        else -> stringResource(R.string.feature_home_status_refused) to stringResource(R.string.feature_home_status_refused_detail)
+    }
+    val (pillIcon, pillLabel) = if (mode == PathMode.Paused) Icons.Filled.Pause to R.string.feature_home_pill_paused else when (state.connection) {
+        ConnectionStatus.OFFLINE -> Icons.Outlined.CloudOff to R.string.feature_home_pill_offline
+        ConnectionStatus.REJECTED -> Icons.Outlined.ErrorOutline to R.string.feature_home_pill_refused
+        ConnectionStatus.SYNCING -> Icons.Filled.Sync to R.string.feature_home_pill_syncing
+        else -> Icons.Filled.CheckCircle to R.string.feature_home_pill_live
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
+        border = if (mode == PathMode.Offline || mode == PathMode.Paused) BorderStroke(1.dp, colors.outlineVariant) else null,
+    ) {
+        Column(
+            Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(text = title, style = MaterialTheme.typography.headlineMedium)
+                    Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = content.copy(alpha = 0.8f))
+                }
+                Spacer(Modifier.width(12.dp))
+                StatusPill(pillIcon, stringResource(pillLabel), content, mode)
+            }
+            PathRow(state.hubHost, mode, content)
+            HorizontalDivider(color = content.copy(alpha = 0.15f))
+            StatusFooter(state, mode, now)
+            if (mode == PathMode.Paused) {
+                TextButton(onClick = onResume) { Text(stringResource(R.string.feature_home_resume)) }
             }
         }
     }
 }
 
 @Composable
-private fun Detail(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun StatusPill(icon: ImageVector, label: String, content: Color, mode: PathMode) {
+    val bg = if (mode == PathMode.Live) content.copy(alpha = 0.12f) else content.copy(alpha = 0.08f)
+    Row(
+        modifier = Modifier.background(bg, CircleShape).padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/** phone - hub - other devices, drawn as one line; dashed and greyed while the Hub is out of reach. */
+@Composable
+private fun PathRow(hubHost: String, mode: PathMode, content: Color) {
+    val colors = MaterialTheme.colorScheme
+    val live = mode == PathMode.Live
+    val lineColor = if (live) colors.primary else colors.outline
+    val label = content.copy(alpha = 0.8f)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PathNode(Icons.Outlined.Smartphone, if (live) colors.primary else colors.outline, colors.surface)
+            PathLine(lineColor, dashed = !live, modifier = Modifier.weight(1f))
+            Box(Modifier.size(30.dp).border(2.dp, lineColor, CircleShape))
+            PathLine(lineColor, dashed = !live, modifier = Modifier.weight(1f))
+            PathNode(
+                Icons.Outlined.LaptopMac,
+                if (live) colors.primary else colors.surfaceVariant,
+                if (live) colors.onPrimary else colors.outline,
+            )
+        }
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                stringResource(R.string.feature_home_this_device),
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f),
+                color = label,
+            )
+            Text(
+                hubHost,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(2f),
+                color = label,
+            )
+            Text(
+                stringResource(R.string.feature_home_other_devices),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f),
+                color = label,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PathNode(icon: ImageVector, background: Color, tint: Color) {
+    Box(Modifier.size(40.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
+private fun PathLine(color: Color, dashed: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier.height(2.dp)) {
+        drawLine(
+            color = color,
+            start = Offset(0f, size.height / 2),
+            end = Offset(size.width, size.height / 2),
+            strokeWidth = 2.dp.toPx(),
+            pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())) else null,
+        )
+    }
+}
+
+@Composable
+private fun StatusFooter(state: HomeUiState.Paired, mode: PathMode, now: Long) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (state.pendingMessages > 0) {
+            Box(Modifier.size(24.dp).background(colors.primary, CircleShape), contentAlignment = Alignment.Center) {
+                Text(state.pendingMessages.toString(), style = MaterialTheme.typography.labelMedium, color = colors.onPrimary)
+            }
+            Text(
+                pluralStringResource(R.plurals.feature_home_pending_short, state.pendingMessages),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            Icon(Icons.Outlined.DoneAll, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(
+                text = state.lastSyncAt?.let { stringResource(R.string.feature_home_last_sync, relativeTime(it, now)) }
+                    ?: stringResource(R.string.feature_home_last_sync_never),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (mode == PathMode.Live) {
+            Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(stringResource(R.string.feature_home_encrypted), style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@Composable
+private fun SendClipboardButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+        shape = CircleShape,
+    ) {
+        Icon(Icons.Outlined.ContentPasteGo, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(R.string.feature_home_send_clipboard), style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+private fun ActionTile(icon: ImageVector, title: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(92.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium)
+        }
+    }
 }
 
 @Composable
@@ -338,10 +568,14 @@ private fun RecentRow(item: RecentItem, now: Long) {
     }
     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(
-            imageVector = if (item.kind.isClipboard()) Icons.Outlined.ContentPaste else Icons.Outlined.Devices,
+            imageVector = when (item.kind) {
+                RecentItemKind.CLIPBOARD_RECEIVED -> Icons.Outlined.SouthWest
+                RecentItemKind.CLIPBOARD_SENT -> Icons.Outlined.NorthEast
+                else -> Icons.Outlined.Devices
+            },
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.primary,
         )
         Column(Modifier.weight(1f)) {
             Text(text = text, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
@@ -353,8 +587,6 @@ private fun RecentRow(item: RecentItem, now: Long) {
         }
     }
 }
-
-private fun RecentItemKind.isClipboard() = this == RecentItemKind.CLIPBOARD_SENT || this == RecentItemKind.CLIPBOARD_RECEIVED
 
 /** "just now", "5 minutes ago", "3 hours ago", "2 days ago". */
 @Composable

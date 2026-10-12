@@ -73,7 +73,7 @@ struct ClipboardSettings: View {
         switch model.pasteboardAccess {
         case .alwaysAllow:
             Label("Clipboard access: Always Allow", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.statusGreen)
         case .alwaysDeny:
             VStack(alignment: .leading, spacing: 6) {
                 Label("Clipboard access is denied for Carom.", systemImage: "xmark.octagon.fill")

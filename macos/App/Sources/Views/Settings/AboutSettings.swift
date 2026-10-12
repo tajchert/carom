@@ -8,9 +8,7 @@ struct AboutSettings: View {
         Form {
             Section {
                 HStack(spacing: 14) {
-                    Image(systemName: "arrow.left.arrow.right.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(.tint)
+                    CaromTile(size: 56)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Carom").font(.title2.weight(.semibold))
                         Text("Version \(model.appVersion)")

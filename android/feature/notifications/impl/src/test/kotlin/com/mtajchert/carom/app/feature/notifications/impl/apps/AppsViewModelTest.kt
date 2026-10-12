@@ -56,6 +56,20 @@ class AppsViewModelTest {
     }
 
     @Test
+    fun `filter narrows the list while the counts stay global`() = runTest {
+        viewModel.uiState.test {
+            skipItems(2)
+            viewModel.setFilter(AppsFilter.HIDDEN)
+            val state = awaitItem()
+            assertEquals(listOf("My Bank"), state.apps.map { it.label })
+            assertEquals(1, state.forwardCount)
+            assertEquals(1, state.hiddenCount)
+            assertEquals(0, state.offCount)
+            assertEquals(2, state.totalApps)
+        }
+    }
+
+    @Test
     fun `mode and global switches are written through`() = runTest {
         viewModel.uiState.test {
             skipItems(2)
@@ -89,6 +103,22 @@ class AppsViewModelTest {
             granted = true
             viewModel.refreshAccess()
             assertTrue(awaitItem().accessGranted)
+        }
+    }
+
+    @Test
+    fun `an expanded row stays listed when editing moves it out of the filter`() = runTest {
+        viewModel.uiState.test {
+            skipItems(2)
+            viewModel.setFilter(AppsFilter.FORWARD)
+            assertEquals(listOf("Signal"), awaitItem().apps.map { it.label })
+            viewModel.setExpanded("org.signal")
+            viewModel.setMode("org.signal", AppForwardingMode.OFF)
+            var state = awaitItem()
+            while (state.offCount == 0) state = awaitItem()
+            assertEquals(listOf("Signal"), state.apps.map { it.label })
+            viewModel.setExpanded(null)
+            assertTrue(awaitItem().apps.isEmpty())
         }
     }
 }

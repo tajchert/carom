@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.mtajchert.carom.app.core.designsystem.component.CaromMark
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +45,7 @@ internal fun OnboardingStepLayout(
     title: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    brandMark: Boolean = false,
     tone: StepTone = StepTone.NEUTRAL,
     body: String? = null,
     primary: StepAction? = null,
@@ -65,13 +68,24 @@ internal fun OnboardingStepLayout(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                if (icon != null) {
+                if (brandMark) {
+                    Spacer(Modifier.height(24.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(112.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(36.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CaromMark(size = 72.dp, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                } else if (icon != null) {
                     IconBadge(icon, tone)
                     Spacer(Modifier.height(4.dp))
                 }
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = if (brandMark) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineSmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.semantics { heading() },
                 )

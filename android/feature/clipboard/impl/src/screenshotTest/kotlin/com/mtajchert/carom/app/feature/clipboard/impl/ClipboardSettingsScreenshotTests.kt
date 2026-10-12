@@ -16,7 +16,7 @@ private val populated = ClipboardSettingsState(sendTo = devices, receiveFromAll 
 
 @Composable
 private fun Settings(state: ClipboardSettingsState) {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         ClipboardSettingsContent(
             state = state,
             onBack = {},

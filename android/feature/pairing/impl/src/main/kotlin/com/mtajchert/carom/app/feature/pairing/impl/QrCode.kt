@@ -69,7 +69,7 @@ internal fun QrCodeImage(
         contentDescription = contentDescription,
         modifier = modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(28.dp))
             .background(androidx.compose.ui.graphics.Color.White)
             .padding(20.dp),
         contentScale = ContentScale.Fit,

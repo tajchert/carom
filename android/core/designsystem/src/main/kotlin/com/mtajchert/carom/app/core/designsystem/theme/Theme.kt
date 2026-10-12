@@ -8,70 +8,73 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-/**
- * Light color scheme for the app.
- *
- * Uses the Blue palette as primary color family.
- */
+/** Light fallback scheme (green, seed #3F7A63). */
 private val LightColorScheme = lightColorScheme(
-    primary = Blue40,
-    onPrimary = Gray99,
-    primaryContainer = Blue90,
-    onPrimaryContainer = Blue10,
-    secondary = Teal40,
-    onSecondary = Gray99,
-    secondaryContainer = Teal90,
-    onSecondaryContainer = Teal10,
-    tertiary = Orange40,
-    onTertiary = Gray99,
-    tertiaryContainer = Orange90,
-    onTertiaryContainer = Orange10,
+    primary = Green40,
+    onPrimary = Color.White,
+    primaryContainer = Green90,
+    onPrimaryContainer = Green10,
+    secondary = Sage40,
+    onSecondary = Color.White,
+    secondaryContainer = Sage90,
+    onSecondaryContainer = Sage10,
+    tertiary = Slate40,
+    onTertiary = Color.White,
+    tertiaryContainer = Slate90,
+    onTertiaryContainer = Slate10,
     error = Red40,
-    onError = Gray99,
+    onError = Color.White,
     errorContainer = Red90,
     onErrorContainer = Red10,
-    background = Gray99,
-    onBackground = Gray10,
-    surface = Gray99,
-    onSurface = Gray10,
-    surfaceVariant = GrayVariant90,
-    onSurfaceVariant = GrayVariant30,
-    outline = GrayVariant50,
-    outlineVariant = GrayVariant80,
+    background = NeutralLightSurface,
+    onBackground = NeutralLightOn,
+    surface = NeutralLightSurface,
+    onSurface = NeutralLightOn,
+    surfaceVariant = NeutralLightContainerHigh,
+    onSurfaceVariant = NeutralLightOnVariant,
+    outline = NeutralLightOutline,
+    outlineVariant = NeutralLightOutlineVariant,
+    surfaceContainerLowest = NeutralLightContainerLowest,
+    surfaceContainerLow = NeutralLightContainerLow,
+    surfaceContainer = NeutralLightContainer,
+    surfaceContainerHigh = NeutralLightContainerHigh,
+    surfaceContainerHighest = NeutralLightContainerHighest,
 )
 
-/**
- * Dark color scheme for the app.
- *
- * Uses lighter tones of the color palette for better contrast.
- */
+/** Dark fallback scheme (green, seed #3F7A63). */
 private val DarkColorScheme = darkColorScheme(
-    primary = Blue80,
-    onPrimary = Blue20,
-    primaryContainer = Blue30,
-    onPrimaryContainer = Blue90,
-    secondary = Teal80,
-    onSecondary = Teal20,
-    secondaryContainer = Teal30,
-    onSecondaryContainer = Teal90,
-    tertiary = Orange80,
-    onTertiary = Orange20,
-    tertiaryContainer = Orange30,
-    onTertiaryContainer = Orange90,
+    primary = Green80,
+    onPrimary = Green20,
+    primaryContainer = Green30,
+    onPrimaryContainer = Green90,
+    secondary = Sage80,
+    onSecondary = Sage20,
+    secondaryContainer = Sage30,
+    onSecondaryContainer = Sage90,
+    tertiary = Slate80,
+    onTertiary = Slate20,
+    tertiaryContainer = Slate30,
+    onTertiaryContainer = Slate90,
     error = Red80,
     onError = Red20,
     errorContainer = Red30,
     onErrorContainer = Red90,
-    background = Gray10,
-    onBackground = Gray90,
-    surface = Gray10,
-    onSurface = Gray90,
-    surfaceVariant = GrayVariant30,
-    onSurfaceVariant = GrayVariant80,
-    outline = GrayVariant60,
-    outlineVariant = GrayVariant30,
+    background = NeutralDarkSurface,
+    onBackground = NeutralDarkOn,
+    surface = NeutralDarkSurface,
+    onSurface = NeutralDarkOn,
+    surfaceVariant = NeutralDarkContainerHigh,
+    onSurfaceVariant = NeutralDarkOnVariant,
+    outline = NeutralDarkOutline,
+    outlineVariant = NeutralDarkOutlineVariant,
+    surfaceContainerLowest = NeutralDarkContainerLowest,
+    surfaceContainerLow = NeutralDarkContainerLow,
+    surfaceContainer = NeutralDarkContainer,
+    surfaceContainerHigh = NeutralDarkContainerHigh,
+    surfaceContainerHighest = NeutralDarkContainerHighest,
 )
 
 /**

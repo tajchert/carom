@@ -2,7 +2,7 @@ package com.mtajchert.carom.app.feature.notifications.impl.apps
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -29,6 +29,7 @@ class AppsScreenTest {
     private val modes = mutableListOf<Pair<String, AppForwardingMode>>()
     private val ongoing = mutableListOf<Pair<String, Boolean>>()
     private val queries = mutableListOf<String>()
+    private val filters = mutableListOf<AppsFilter>()
     private var paused: Boolean? = null
     private var accessClicks = 0
     private var backs = 0
@@ -39,6 +40,7 @@ class AppsScreenTest {
                 state = state,
                 onBack = { backs++ },
                 onQueryChange = { queries += it },
+                onFilterChange = { filters += it },
                 onModeChange = { pkg, mode -> modes += pkg to mode },
                 onForwardOngoingChange = { pkg, on -> ongoing += pkg to on },
                 onPausedChange = { paused = it },
@@ -59,6 +61,8 @@ class AppsScreenTest {
         )
         composeRule.onNodeWithText("Signal").assertIsDisplayed()
         composeRule.onNodeWithText("org.signal").assertIsDisplayed()
+        composeRule.onNodeWithText("Hide").assertIsDisplayed()
+        composeRule.onNodeWithText("Signal").performClick()
         composeRule.onNodeWithText("Hide content").assertIsSelected()
         composeRule.onNodeWithText("Off").performClick()
         assertEquals(listOf("org.signal" to AppForwardingMode.OFF), modes)
@@ -85,12 +89,33 @@ class AppsScreenTest {
                 totalApps = 2,
             ),
         )
+        composeRule.onNodeWithText("Signal").performClick()
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Ongoing: Off"))
         composeRule.onNodeWithText("Ongoing: Off").assertIsDisplayed().performClick()
         assertEquals(listOf("org.signal" to true), ongoing)
-        // The second row sits below the fold of the test window.
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Ongoing: Forward"))
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Maps"))
+        composeRule.onNodeWithText("Maps").performClick()
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Ongoing: Forward"))
         composeRule.onNodeWithText("Ongoing: Forward").assertIsDisplayed().performClick()
         assertEquals(listOf("org.signal" to true, "com.nav" to false), ongoing)
+    }
+
+    @Test
+    fun filterChipsShowCountsAndSelect() {
+        show(
+            AppsUiState(
+                loading = false,
+                apps = listOf(NotificationAppSetting("org.signal", "Signal", AppForwardingMode.FORWARD, 0)),
+                totalApps = 3,
+                forwardCount = 1,
+                hiddenCount = 1,
+                offCount = 1,
+            ),
+        )
+        composeRule.onNodeWithText("All 3").assertIsDisplayed()
+        composeRule.onNodeWithText("Forward 1").assertIsDisplayed()
+        composeRule.onNodeWithText("Hidden 1").performClick()
+        assertEquals(listOf(AppsFilter.HIDDEN), filters)
     }
 
     @Test
