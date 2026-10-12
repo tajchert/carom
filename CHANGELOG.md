@@ -3,6 +3,15 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [1.0.1] - 2026-10-12
+
+A small update that makes the Android app start faster.
+
+### 📱 Android app
+
+- **Faster startup.** The app now ships Baseline and Startup Profiles, so Android compiles the code
+  Carom needs at launch when it installs the app, instead of over the first few runs.
+
 ## [1.0.0] - 2026-10-12
 
 The first release of Carom. Your Android phone's notifications show up on your Mac, end-to-end
@@ -85,4 +94,5 @@ encrypted, through a small Hub that runs on your own Cloudflare account on the f
 - **Free plan quota.** A flood of requests from many addresses can use up the Free plan's 100k daily
   requests, and the Hub then pauses until the next day. Your data stays safe.
 
+[1.0.1]: https://github.com/tajchert/carom/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tajchert/carom/releases/tag/v1.0.0
