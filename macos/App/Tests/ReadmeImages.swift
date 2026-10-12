@@ -47,7 +47,7 @@ struct ReadmeImages {
 
     // MARK: The real menu
 
-    /// `MenuBarView` with one paired phone, three notifications and two clipboard items.
+    /// `MenuBarView` with one paired phone, two notifications and two clipboard items (the menu caps its list height, so more would scroll).
     static func menuImage() async throws -> NSImage {
         let pixel = record(phoneA, "Michał's Pixel", kind: .phone)
         let h = Harness(directory: [entry(pixel)])
@@ -71,7 +71,6 @@ struct ReadmeImages {
         await h.model.dispatch(.clipboardSet(ClipboardSet(text: "https://maps.app.goo.gl/x7Lk2Qe9")),
                                msgId: "m-clip", sender: pixel)
         try at(30)
-        await post("cal", "com.google.android.calendar", "Calendar", "Design review", "10:00 – 10:30 · Room 4")
         try at(38)
         await post("sig", "org.thoughtcrime.securesms", "Signal", "Anna", "Are we still on for 7?")
         try at(41)
@@ -142,30 +141,28 @@ struct ReadmeImages {
 // MARK: - Style
 
 enum Palette {
-    /// The app accent (Resources/Assets.xcassets/AccentColor).
-    static let accent = Color(red: 0.204, green: 0.478, blue: 0.780)
+    /// The brand green (Resources/Assets.xcassets/BrandGreen). Used only for the icon and status cues.
+    static let accent = Color(red: 0.110, green: 0.498, blue: 0.369)
     static let popover = Color(red: 0.965, green: 0.965, blue: 0.97)
     static let popoverRadius: CGFloat = 14
     static let card = Color(red: 0.957, green: 0.961, blue: 0.973)
     static let ink = Color(red: 0.12, green: 0.13, blue: 0.16)
 
-    /// A soft blue-violet-pink wallpaper. Drawn by upscaling a 2x2 bitmap: a smooth gradient
-    /// without dithering noise keeps the PNGs small.
+    /// The spec's green-grey wallpaper: #C6D6CF, #A3BCB1, #86A296 at 160 degrees.
     @MainActor static var wallpaper: some View {
-        Image(nsImage: wallpaperPixels).resizable().interpolation(.high)
+        LinearGradient(colors: [Color(red: 0.776, green: 0.839, blue: 0.812),
+                                Color(red: 0.639, green: 0.737, blue: 0.694),
+                                Color(red: 0.525, green: 0.635, blue: 0.588)],
+                       startPoint: UnitPoint(x: 0.33, y: 0), endPoint: UnitPoint(x: 0.67, y: 1))
     }
 
-    @MainActor static let wallpaperPixels: NSImage = {
-        let pixels: [UInt8] = [158, 191, 237, 255, 196, 186, 235, 255,
-                               190, 184, 234, 255, 242, 204, 214, 255]
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2, bitsPerSample: 8,
-                                   samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                   colorSpaceName: .deviceRGB, bytesPerRow: 8, bitsPerPixel: 32)!
-        rep.bitmapData!.update(from: pixels, count: pixels.count)
-        let image = NSImage(size: NSSize(width: 2, height: 2))
-        image.addRepresentation(rep)
-        return image
-    }()
+    /// A menu-bar template asset (e.g. "MenuBarLive"), looked up in every loaded bundle.
+    @MainActor static func menuBarGlyph(_ name: String) -> NSImage {
+        for bundle in [Bundle.main] + Bundle.allBundles + Bundle.allFrameworks {
+            if let image = bundle.image(forResource: name) { return image }
+        }
+        return NSImage(named: name) ?? NSImage()
+    }
 }
 
 extension NSImage {
@@ -188,17 +185,15 @@ extension NSImage {
     }
 }
 
-/// A stand-in app icon for the banners: the menu-bar symbol on the accent colour.
+/// The real app icon (AppIcon.appiconset, 256 px artwork).
 struct CaromIcon: View {
     var size: CGFloat = 36
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.235, style: .continuous)
-            .fill(LinearGradient(colors: [Palette.accent.mix(.white, 0.25), Palette.accent],
-                                 startPoint: .top, endPoint: .bottom))
-            .overlay(Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: size * 0.42, weight: .bold))
-                .foregroundStyle(.white))
+        let url = ReadmeImages.repo.appending(path: "macos/App/Resources/Assets.xcassets/AppIcon.appiconset/icon_256.png")
+        Image(nsImage: NSImage(contentsOf: url) ?? NSImage())
+            .resizable()
+            .interpolation(.high)
             .frame(width: size, height: size)
             .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
     }
@@ -436,8 +431,11 @@ struct MacDesktop: View {
             Spacer()
             HStack(spacing: 13) {
                 // The Carom status item, highlighted while its menu is open.
-                Image(systemName: "arrow.left.arrow.right.circle")
-                    .font(.system(size: 13, weight: .medium))
+                Image(nsImage: Palette.menuBarGlyph("MenuBarLive"))
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 15, height: 15)
                     .frame(width: 26, height: 20)
                     .background(Color.black.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                     .overlay(alignment: .top) {

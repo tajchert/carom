@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/icon.png" alt="Carom app icon" width="112" height="112">
+</p>
+
 <h1 align="center">Carom</h1>
 
 <p align="center">
