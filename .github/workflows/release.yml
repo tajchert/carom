@@ -1,7 +1,9 @@
-# Builds, signs, and publishes the Android release APK to a GitHub Release.
+# Builds, signs, and publishes a Carom release: the Android APK, with release
+# notes taken from the version's section in CHANGELOG.md. The Hub and the Mac
+# app ship as source at the same tag.
 #
 # Triggers:
-#   - push of an android-v* tag: full release (build -> verify -> attach to release)
+#   - push of a v* tag: full release (build -> verify -> attach to release)
 #   - workflow_dispatch: dry run. The APK is only uploaded as a workflow
 #     artifact, no release is created.
 #
@@ -9,12 +11,12 @@
 # repo secret into the runner's temp dir and passed to Gradle via CAROM_* env
 # vars. Secrets are never available to fork-triggered workflows; this workflow
 # only runs on tag pushes and manual dispatches by repo writers.
-name: Android release
+name: Release
 
 on:
   push:
     tags:
-      - 'android-v*'
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -47,12 +49,16 @@ jobs:
       - name: Check tag matches versionName
         if: github.ref_type == 'tag'
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#android-v}"
-          GRADLE_VERSION=$(grep -m1 'versionName = ' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-          if [ "$TAG_VERSION" != "$GRADLE_VERSION" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match versionName $GRADLE_VERSION in app/build.gradle.kts" >&2
-            exit 1
-          fi
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          ANDROID_VERSION=$(grep -m1 'versionName = ' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          HUB_VERSION=$(node -p "require('../hub/package.json').version")
+          MAC_VERSION=$(grep -m1 'MARKETING_VERSION:' ../macos/App/project.yml | awk '{print $2}')
+          for pair in "android/app/build.gradle.kts:$ANDROID_VERSION" "hub/package.json:$HUB_VERSION" "macos/App/project.yml:$MAC_VERSION"; do
+            if [ "${pair#*:}" != "$TAG_VERSION" ]; then
+              echo "Tag $GITHUB_REF_NAME does not match version ${pair#*:} in ${pair%%:*}" >&2
+              exit 1
+            fi
+          done
 
       - name: Decode release keystore
         env:
@@ -84,41 +90,62 @@ jobs:
       - name: Stage release artifacts
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
-            VERSION="${GITHUB_REF_NAME#android-v}"
+            VERSION="${GITHUB_REF_NAME#v}"
           else
             VERSION="ci-${GITHUB_SHA::7}"
           fi
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/carom-$VERSION.apk"
-          cp app/build/outputs/mapping/release/mapping.txt "dist/carom-$VERSION-mapping.txt"
+          cp app/build/outputs/apk/release/app-release.apk "dist/carom-android-$VERSION.apk"
+          cp app/build/outputs/mapping/release/mapping.txt "dist/carom-android-$VERSION-mapping.txt"
           cd dist
-          shasum -a 256 "carom-$VERSION.apk" > "carom-$VERSION.apk.sha256"
+          shasum -a 256 "carom-android-$VERSION.apk" > "carom-android-$VERSION.apk.sha256"
+
+      - name: Write release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ "${{ github.ref_type }}" = "tag" ] || VERSION=$(grep -m1 -o '^## \[[^]]*\]' ../CHANGELOG.md | tr -d '#[] ')
+          # The version's CHANGELOG.md section, without its heading and link references.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on && !/^\[[^]]+\]: / { print }
+          ' ../CHANGELOG.md > dist/notes.md
+          if ! grep -q '[^[:space:]]' dist/notes.md; then
+            echo "CHANGELOG.md has no section for $VERSION." >&2
+            exit 1
+          fi
+          cat >> dist/notes.md <<EOF
+
+          ### Install
+
+          - **📱 Android:** download \`carom-android-$VERSION.apk\` below and open it on your phone (allow "install unknown apps" for your browser or file manager). The \`.sha256\` file lets you check the download.
+          - **☁️ Hub:** \`git clone --branch v$VERSION https://github.com/tajchert/carom.git && cd carom && npm install && node hub/bin/carom-hub.mjs deploy\`
+          - **💻 Mac:** build from source, see the [setup guide](https://github.com/tajchert/carom/blob/v$VERSION/docs/SETUP.md).
+
+          The APK is signed with the Carom release certificate, SHA-256 \`da:44:b2:ef:ba:8c:c3:5e:e2:f6:e1:65:ca:36:19:d6:b6:fb:a1:b3:cd:20:a6:6d:a0:9f:d5:80:99:ca:e2:79\`.
+          EOF
+          cat dist/notes.md
 
       - name: Create or update GitHub Release
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          RELEASE_NOTES="$(cat <<'EOF'
-          **Install:** download `carom-<version>.apk` and sideload it by enabling "install unknown apps" for your browser or file manager. Verify the download against the matching `.sha256` file. Carom needs your own Hub; see the README for setup.
-          EOF
-          )"
-
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists; replacing APK assets."
+            echo "Release $GITHUB_REF_NAME already exists; replacing assets and notes."
             gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.apk.sha256 --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file dist/notes.md
           else
             gh release create "$GITHUB_REF_NAME" \
               --verify-tag \
-              --title "Carom for Android ${GITHUB_REF_NAME#android-v}" \
-              --generate-notes \
-              --notes "$RELEASE_NOTES" \
+              --title "Carom ${GITHUB_REF_NAME#v}" \
+              --notes-file dist/notes.md \
               dist/*.apk dist/*.apk.sha256
           fi
 
       - name: Upload mapping and dry-run artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: carom-android-release
+          name: carom-release
           path: android/dist/*
           retention-days: 90

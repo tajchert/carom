@@ -3,7 +3,7 @@
 Phone-to-Mac notification and clipboard sync through a self-hosted Cloudflare Hub, end-to-end encrypted.
 
 ## Layout
-- `hub/` — Cloudflare Worker + Durable Object (TypeScript). `npm test` from the repo root.
+- `hub/` — Cloudflare Worker + Durable Object (TypeScript). `npm test` from `hub/`.
 - `protocol/` — spec and shared test vectors.
 - `android/` — Android app (Kotlin, Compose, Hilt). Modules: `app`, `core/*` (`designsystem` holds the theme and shared components), `feature/<name>/{api,impl}`.
 - `macos/CaromKit/` — Swift package (protocol, hub client, sync, desktop UI pieces).
