@@ -14,6 +14,23 @@
         <item quantity="one">%1$d message waiting to be sent</item>
         <item quantity="other">%1$d messages waiting to be sent</item>
     </plurals>
+    <string name="feature_home_apps">Apps</string>
+    <string name="feature_home_other_devices">Your devices</string>
+    <string name="feature_home_encrypted">Encrypted</string>
+    <string name="feature_home_status_forwarding">Forwarding</string>
+    <string name="feature_home_status_syncing">Syncing</string>
+    <string name="feature_home_status_waiting">Waiting for Hub</string>
+    <string name="feature_home_status_retrying">Retrying when you\'re back online</string>
+    <string name="feature_home_status_refused">Hub refused this phone</string>
+    <string name="feature_home_status_refused_detail">Pair again to continue</string>
+    <string name="feature_home_pill_live">Live</string>
+    <string name="feature_home_pill_syncing">Syncing</string>
+    <string name="feature_home_pill_offline">Offline</string>
+    <string name="feature_home_pill_refused">Refused</string>
+    <plurals name="feature_home_pending_short">
+        <item quantity="one">waiting to send</item>
+        <item quantity="other">waiting to send</item>
+    </plurals>
     <string name="feature_home_send_clipboard">Send clipboard</string>
     <string name="feature_home_add_device">Add a device</string>
     <string name="feature_home_recent">Recent</string>

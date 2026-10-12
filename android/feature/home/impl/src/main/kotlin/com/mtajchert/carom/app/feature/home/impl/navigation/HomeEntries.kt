@@ -15,6 +15,7 @@ fun EntryProviderScope<NavKey>.homeEntries(
     onAddDevice: () -> Unit,
     onOpenDevices: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenApps: () -> Unit,
 ) {
     entry<HomeRoute> {
         HomeScreen(
@@ -23,6 +24,7 @@ fun EntryProviderScope<NavKey>.homeEntries(
             onAddDevice = dropUnlessResumed(block = onAddDevice),
             onOpenDevices = dropUnlessResumed(block = onOpenDevices),
             onOpenSettings = dropUnlessResumed(block = onOpenSettings),
+            onOpenApps = dropUnlessResumed(block = onOpenApps),
         )
     }
 }
