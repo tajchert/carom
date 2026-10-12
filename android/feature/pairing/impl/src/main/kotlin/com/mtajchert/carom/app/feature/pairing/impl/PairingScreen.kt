@@ -1,5 +1,9 @@
 package com.mtajchert.carom.app.feature.pairing.impl
 
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.mtajchert.carom.app.core.designsystem.component.CaromStateChip
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -32,11 +36,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +46,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -192,20 +193,12 @@ private fun ShowingCode(state: PairingUiState.ShowingCode, onCopy: (String) -> U
 @Composable
 private fun Countdown(secondsLeft: Int) {
     val text = remember(secondsLeft) { "%d:%02d".format(secondsLeft / 60, secondsLeft % 60) }
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(Icons.Outlined.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(stringResource(R.string.feature_pairing_expires_in, text), style = MaterialTheme.typography.labelLarge)
-        }
-    }
+    CaromStateChip(
+        icon = Icons.Outlined.Timer,
+        label = stringResource(R.string.feature_pairing_expires_in, text),
+        container = MaterialTheme.colorScheme.secondaryContainer,
+        content = MaterialTheme.colorScheme.onSecondaryContainer,
+    )
 }
 
 @Composable

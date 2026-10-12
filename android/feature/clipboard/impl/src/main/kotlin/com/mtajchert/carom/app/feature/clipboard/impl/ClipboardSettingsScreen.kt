@@ -1,5 +1,6 @@
 package com.mtajchert.carom.app.feature.clipboard.impl
 
+import androidx.compose.runtime.getValue
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,11 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentPasteGo
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
+import com.mtajchert.carom.app.core.designsystem.component.CaromButton
 import com.mtajchert.carom.app.core.designsystem.component.CaromGroup
 import com.mtajchert.carom.app.core.designsystem.component.CaromSectionLabel
 import com.mtajchert.carom.app.core.ui.CaromSimpleScreen
@@ -62,13 +60,12 @@ fun ClipboardSettingsContent(
 ) {
     CaromSimpleScreen(title = stringResource(R.string.feature_clipboard_title), onBack = onBack, modifier = modifier) {
         if (!state.loaded) return@CaromSimpleScreen
-        Button(
+        CaromButton(
             onClick = onSendNow,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-        ) {
-            Icon(Icons.Outlined.ContentPasteGo, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(stringResource(R.string.feature_clipboard_send_now), modifier = Modifier.padding(start = 8.dp))
-        }
+            icon = Icons.Outlined.ContentPasteGo,
+            text = stringResource(R.string.feature_clipboard_send_now),
+        )
 
         Section(R.string.feature_clipboard_send_to) {
             if (state.sendTo.isEmpty()) {

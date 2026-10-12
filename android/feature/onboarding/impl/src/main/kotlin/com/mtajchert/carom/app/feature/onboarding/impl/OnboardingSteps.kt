@@ -1,6 +1,10 @@
 package com.mtajchert.carom.app.feature.onboarding.impl
 
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.material.icons.outlined.SyncAlt
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.foundation.BorderStroke
+import com.mtajchert.carom.app.core.designsystem.component.CaromIconTile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.CheckCircle
 import com.mtajchert.carom.app.core.designsystem.component.CaromStateChip
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AddLink
 import androidx.compose.material.icons.outlined.Badge
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudQueue
 import androidx.compose.material.icons.outlined.ContentPaste
@@ -30,7 +32,6 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.GppMaybe
 import androidx.compose.material.icons.outlined.NoPhotography
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,7 +56,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -117,14 +117,7 @@ private fun ChoiceCard(icon: ImageVector, title: String, body: String, onClick: 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
+            CaromIconTile(icon)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

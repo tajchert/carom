@@ -1,5 +1,7 @@
 package com.mtajchert.carom.app.feature.home.impl
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -10,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +29,6 @@ import androidx.compose.material.icons.outlined.NorthEast
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.SouthWest
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
@@ -65,10 +67,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -411,7 +411,7 @@ private fun PathRow(hubHost: String, mode: PathMode, content: Color) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PathNode(Icons.Outlined.Smartphone, if (live) colors.primary else colors.outline, colors.surface)
             PathLine(lineColor, dashed = !live, modifier = Modifier.weight(1f))
-            Box(Modifier.size(30.dp).border(2.dp, lineColor, CircleShape))
+            Box(Modifier.size(18.dp).border(2.dp, lineColor, CircleShape))
             PathLine(lineColor, dashed = !live, modifier = Modifier.weight(1f))
             PathNode(
                 Icons.Outlined.LaptopMac,
@@ -497,15 +497,12 @@ private fun StatusFooter(state: HomeUiState.Paired, mode: PathMode, now: Long) {
 
 @Composable
 private fun SendClipboardButton(onClick: () -> Unit) {
-    Button(
+    CaromButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        shape = CircleShape,
-    ) {
-        Icon(Icons.Outlined.ContentPasteGo, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.feature_home_send_clipboard), style = MaterialTheme.typography.labelLarge)
-    }
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        icon = Icons.Outlined.ContentPasteGo,
+        text = stringResource(R.string.feature_home_send_clipboard),
+    )
 }
 
 @Composable
@@ -514,7 +511,7 @@ private fun ActionTile(icon: ImageVector, title: String, onClick: () -> Unit, mo
         onClick = onClick,
         modifier = modifier.height(92.dp),
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
@@ -536,6 +533,7 @@ private fun Banner(
     val content: Color = if (error) colors.onErrorContainer else colors.onSecondaryContainer
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

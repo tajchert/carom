@@ -1,5 +1,9 @@
 package com.mtajchert.carom.app.feature.notifications.impl.apps
 
+import com.mtajchert.carom.app.core.designsystem.component.CaromCard
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.mtajchert.carom.app.core.designsystem.component.CaromGroup
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -35,7 +39,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -55,7 +58,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,7 +68,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -83,7 +84,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtajchert.carom.app.core.designsystem.component.CaromButton
-import com.mtajchert.carom.app.core.designsystem.component.CaromCard
 import com.mtajchert.carom.app.core.designsystem.component.CaromLoadingIndicator
 import com.mtajchert.carom.app.core.designsystem.component.CaromTopAppBar
 import com.mtajchert.carom.app.core.model.AppForwardingMode
@@ -201,7 +201,7 @@ fun AppsContent(
 
 @Composable
 private fun AccessCard(onOpenAccessSettings: () -> Unit) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.errorContainer) {
+    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.errorContainer) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text(
                 stringResource(R.string.feature_notifications_access_missing),
@@ -223,10 +223,9 @@ private fun SwitchesCard(
     onPausedChange: (Boolean) -> Unit,
     onOnlyWhenLockedChange: (Boolean) -> Unit,
 ) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+    CaromGroup {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
             ToggleRow(stringResource(R.string.feature_notifications_pause), state.paused, onPausedChange)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             ToggleRow(stringResource(R.string.feature_notifications_only_locked), state.onlyWhenLocked, onOnlyWhenLockedChange)
         }
     }
@@ -347,7 +346,7 @@ private fun AppRow(
     onModeChange: (AppForwardingMode) -> Unit,
     onForwardOngoingChange: (Boolean) -> Unit,
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     val expandedState = stringResource(
         if (expanded) R.string.feature_notifications_state_expanded else R.string.feature_notifications_state_collapsed,
     )
@@ -459,7 +458,7 @@ private fun StateChip(mode: AppForwardingMode) {
         AppForwardingMode.HIDE_CONTENT -> Icons.Filled.VisibilityOff to R.string.feature_notifications_chip_hide
         AppForwardingMode.OFF -> Icons.Filled.Block to R.string.feature_notifications_mode_off
     }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = CircleShape
     val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
@@ -471,7 +470,7 @@ private fun StateChip(mode: AppForwardingMode) {
                     AppForwardingMode.OFF -> Modifier.border(1.dp, colors.outline, shape)
                 },
             )
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
             .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
