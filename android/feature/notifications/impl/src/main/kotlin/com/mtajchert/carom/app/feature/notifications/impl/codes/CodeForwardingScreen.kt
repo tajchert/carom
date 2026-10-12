@@ -10,7 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -53,7 +60,7 @@ fun CodeForwardingContent(
         ) {
             when (ui) {
                 CodeForwardingUi.Intro -> {
-                    Body(R.string.feature_notifications_codes_intro)
+                    InfoCard(Icons.Filled.Password, R.string.feature_notifications_codes_intro)
                     CaromButton(onClick = onEnable, text = stringResource(R.string.feature_notifications_codes_enable), modifier = Modifier.fillMaxWidth())
                 }
                 CodeForwardingUi.Working, is CodeForwardingUi.Consent -> Row(
@@ -64,7 +71,7 @@ fun CodeForwardingContent(
                     Text(stringResource(R.string.feature_notifications_codes_working), style = MaterialTheme.typography.bodyLarge)
                 }
                 CodeForwardingUi.Enabled -> {
-                    Body(R.string.feature_notifications_codes_enabled)
+                    InfoCard(Icons.Filled.CheckCircle, R.string.feature_notifications_codes_enabled, highlighted = true)
                     DoneButton(onClose)
                 }
                 is CodeForwardingUi.UseAdb -> {
@@ -75,7 +82,7 @@ fun CodeForwardingContent(
                     )
                     Body(R.string.feature_notifications_codes_adb_body)
                     Surface(
-                        shape = MaterialTheme.shapes.medium,
+                        shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -83,7 +90,7 @@ fun CodeForwardingContent(
                             ui.command,
                             style = MaterialTheme.typography.bodyMedium,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(16.dp),
                         )
                     }
                     CaromButton(
@@ -95,10 +102,31 @@ fun CodeForwardingContent(
                     DoneButton(onClose)
                 }
                 CodeForwardingUi.Unsupported -> {
-                    Body(R.string.feature_notifications_codes_unsupported)
+                    InfoCard(Icons.Filled.Info, R.string.feature_notifications_codes_unsupported)
                     DoneButton(onClose)
                 }
             }
+        }
+    }
+}
+
+/** Rounded card with a leading icon; the icon is decorative, the text carries the meaning. */
+@Composable
+private fun InfoCard(icon: ImageVector, @StringRes id: Int, highlighted: Boolean = false) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = if (highlighted) colors.primaryContainer else colors.surfaceContainer,
+        contentColor = if (highlighted) colors.onPrimaryContainer else colors.onSurface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(icon, contentDescription = null, tint = if (highlighted) colors.onPrimaryContainer else colors.primary)
+            Text(stringResource(id), style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
