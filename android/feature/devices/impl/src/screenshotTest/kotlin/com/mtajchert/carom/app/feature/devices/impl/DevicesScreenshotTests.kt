@@ -37,7 +37,7 @@ private val populated = DevicesUiState(
 
 @Composable
 private fun Devices(state: DevicesUiState) {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         DevicesContent(state = state, actions = DevicesActions(), now = NOW)
     }
 }

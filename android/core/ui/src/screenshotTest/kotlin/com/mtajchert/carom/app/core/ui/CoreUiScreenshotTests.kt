@@ -16,7 +16,7 @@ import com.mtajchert.carom.app.core.model.ConnectionStatus
 @ComponentThemePreviews
 @Composable
 fun ConnectionStatusesScreenshotTest() {
-    CaromTheme {
+    CaromTheme(dynamicColor = false) {
         Surface {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ConnectionStatus.entries.forEach { ConnectionStatusIndicator(it) }

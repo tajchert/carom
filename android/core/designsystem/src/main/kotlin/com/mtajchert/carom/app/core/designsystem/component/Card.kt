@@ -48,12 +48,12 @@ fun CaromCard(
         Card(
             onClick = onClick,
             modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 1.dp,
+                defaultElevation = 0.dp,
             ),
         ) {
             Column(
@@ -64,12 +64,12 @@ fun CaromCard(
     } else {
         Card(
             modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 1.dp,
+                defaultElevation = 0.dp,
             ),
         ) {
             Column(
@@ -93,7 +93,7 @@ fun CaromElevatedCard(
         Card(
             onClick = onClick,
             modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
@@ -109,7 +109,7 @@ fun CaromElevatedCard(
     } else {
         Card(
             modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),

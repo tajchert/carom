@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.CheckCircle
+import com.mtajchert.carom.app.core.designsystem.component.CaromStateChip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,7 +70,7 @@ import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 internal fun WelcomeStep(actions: OnboardingActions) {
     OnboardingStepLayout(
         title = stringResource(R.string.feature_onboarding_title),
-        icon = Icons.Outlined.SyncAlt,
+        brandMark = true,
         body = stringResource(R.string.feature_onboarding_body),
         primary = StepAction(stringResource(R.string.feature_onboarding_get_started), actions.onStart),
     ) {
@@ -106,9 +108,8 @@ internal fun ConnectStep(actions: OnboardingActions) {
 private fun ChoiceCard(icon: ImageVector, title: String, body: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -455,9 +456,8 @@ private fun PermissionCard(
     extra: @Composable () -> Unit = {},
 ) {
     Surface(
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -473,18 +473,11 @@ private fun PermissionCard(
             }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (granted) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                CaromStateChip(
+                    icon = Icons.Filled.CheckCircle,
+                    label = stringResource(R.string.feature_onboarding_allowed),
                     modifier = Modifier.semantics(mergeDescendants = true) {},
-                ) {
-                    Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                    Text(
-                        stringResource(R.string.feature_onboarding_allowed),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                )
             } else {
                 FilledTonalButton(onClick = onAction) { Text(action) }
                 extra()
