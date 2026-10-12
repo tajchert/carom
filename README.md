@@ -66,14 +66,12 @@ other. Think Pushbullet, but you own the server and nobody (including that serve
 
 ```mermaid
 flowchart LR
-    P["📱 Android app<br/>notification listener"]
-    H[("☁️ Your Hub<br/>Cloudflare Worker +<br/>Durable Object")]
-    M["💻 Mac menu-bar app"]
+    P["📱 <b>Phone</b><br/>Android app"]
+    H["☁️ <b>Your Hub</b><br/>Cloudflare Worker"]
+    M["💻 <b>Mac</b><br/>menu-bar app"]
 
-    P -- "encrypted notifications & clipboard (HTTPS)" --> H
-    H -- "live (WebSocket)" --> M
-    M -- "clipboard, dismiss, actions (HTTPS)" --> H
-    H -. "picked up when Carom opens,<br/>or during the action window (WebSocket)" .-> P
+    P <-- "→ notifications, clipboard<br/>← replies, media, clipboard" --> H
+    H <-- "→ live, over WebSocket<br/>← actions, clipboard" --> M
 ```
 
 1. **The phone** sees a notification, filters it by your rules, and encrypts and signs it for your other
