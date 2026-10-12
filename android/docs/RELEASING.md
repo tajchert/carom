@@ -46,7 +46,9 @@ SHA-256: da44b2efba8cc35ee2f6e165ca3619d6b6fba1b3cd20a66da09fd58099cae279
    The certificate DN and SHA-256 must match the values above.
 6. Commit, then tag and push: `git tag v<version> && git push origin v<version>`.
 
-The tag runs `.github/workflows/release.yml`: unit tests, a check that the tag matches all three versions, the signed build, certificate verification, a checksum, and a GitHub Release titled `Carom <version>` with `carom-android-<version>.apk`, its `.sha256`, and the changelog section plus install steps as notes. Pushing the same tag again replaces the assets and notes. **Run workflow** on the Actions tab performs a dry run that only uploads a workflow artifact.
+The tag runs `.github/workflows/release.yml`: unit tests, a check that the tag matches all three versions, the signed build, certificate verification, a checksum, and a GitHub Release titled `Carom <version>` with `carom-android-<version>.apk`, its `.sha256`, and the changelog section plus install steps as notes. Pushing the same tag again replaces the assets and notes. The workflow also builds the Mac app (universal, ad-hoc signed, not notarized) on a `macos-26` runner and attaches `Carom-<version>-macos.zip` with its `.sha256`.
+
+After the release is published, update `Casks/carom.rb` in [tajchert/homebrew-tap](https://github.com/tajchert/homebrew-tap): set `version` and `sha256` (from the zip's `.sha256` asset) and push. **Run workflow** on the Actions tab performs a dry run that only uploads a workflow artifact.
 
 ## Retain artifacts
 
