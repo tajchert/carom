@@ -88,6 +88,13 @@ final class AppModel {
         var codeClearDelay: Duration = .seconds(60)
         /// Shared with the Hub clients; the model shows its drift as a banner and a notice.
         var clockSkew: ClockSkewTracker?
+        /// A message sealed longer ago than this is late (the Mac or phone was offline): it is
+        /// recorded in the history but does not banner, auto-copy or write the pasteboard.
+        var lateThreshold: TimeInterval = 120
+        /// Late notifications at least this many in one burst post a single summary.
+        var lateSummaryMinimum = 4
+        /// A burst of late notifications is over after this long without another.
+        var lateSummaryDelay: Duration = .seconds(2)
     }
 
     // MARK: State read by the views
@@ -145,6 +152,8 @@ final class AppModel {
     @ObservationIgnored private var sawNetworkPath = false
     @ObservationIgnored private var liveUpdates: [(id: String, posted: NotificationPosted)] = []
     @ObservationIgnored private var codeClearTask: Task<Void, Never>?
+    @ObservationIgnored private var lateCount = 0
+    @ObservationIgnored private var lateSummaryTask: Task<Void, Never>?
     @ObservationIgnored private var codeClearCount: Int?
     @ObservationIgnored private var lastAutoCopied: String?
     /// Hub time minus local time while the clock warning is up; nil otherwise.
@@ -453,11 +462,15 @@ final class AppModel {
     func receive(_ message: IncomingMessage) async {
         trace("message \(message.message.type.rawValue)")
         await dispatch(message.message, msgId: message.msgId, sender: message.sender,
-                       replyTo: message.received.payload.replyTo)
+                       replyTo: message.received.payload.replyTo,
+                       sentAt: Date(timeIntervalSince1970: Double(message.received.payload.ts) / 1000))
     }
 
-    /// Applies one decoded message from a trusted sender. `replyTo` is the payload's `reply_to`.
-    func dispatch(_ message: Message, msgId: String, sender: DeviceRecord, replyTo: String? = nil) async {
+    /// Applies one decoded message from a trusted sender. `replyTo` is the payload's `reply_to`;
+    /// `sentAt` is its `ts` (nil: not late).
+    func dispatch(_ message: Message, msgId: String, sender: DeviceRecord, replyTo: String? = nil,
+                  sentAt: Date? = nil) async {
+        let isLate = sentAt.map { options.now().timeIntervalSince($0) > options.lateThreshold } ?? false
         switch message {
         case .notificationPosted(let n):
             if preferences.noteApp(id: n.app.id, name: n.app.name) { savePreferences() }
@@ -471,17 +484,22 @@ final class AppModel {
             let code = CodeExtractor.code(in: n)
             activity.add(RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
-                                            msgId: msgId, code: code, date: options.now(), icon: n.app.icon))
+                                            msgId: msgId, code: code, date: postedDate(n.postedAt), icon: n.app.icon))
             await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
             trackLive(phoneId: sender.id, posted: n)
-            autoCopy(code, phoneId: sender.id, key: n.key)
+            if !isLate { autoCopy(code, phoneId: sender.id, key: n.key) }
             var shown = n
             shown.text = text
             let card = CardItem(phoneId: sender.id, phoneName: phones.count > 1 ? sender.name : nil, msgId: msgId,
                                 posted: shown, receivedAt: options.now(),
                                 phoneAcceptsActions: Routing.advertises(sender, .notificationAction))
-            await notifications.posted(card)
-            trace("notification presented")
+            await notifications.posted(card, quiet: isLate)
+            if isLate {
+                noteLate()
+                trace("notification late")
+            } else {
+                trace("notification presented")
+            }
         case .notificationRemoved(let r):
             notifications.removed(phoneId: sender.id, key: r.key)
             activity.removeNotification(phoneId: sender.id, key: r.key)
@@ -489,10 +507,15 @@ final class AppModel {
             trace("notification withdrawn")
         case .clipboardSet(let c):
             guard !preferences.paused, receives(.clipboard, from: sender.id) else { return }
-            clipboard.write(text: c.text, sensitive: c.sensitive)
-            trace("clipboard written")
+            // A late item would overwrite what the user has copied since; it stays in the history.
+            if isLate {
+                trace("clipboard late")
+            } else {
+                clipboard.write(text: c.text, sensitive: c.sensitive)
+                trace("clipboard written")
+            }
             activity.add(RecentClip(direction: .received(from: sender.name), text: c.text, sensitive: c.sensitive,
-                                    date: options.now()))
+                                    date: min(sentAt ?? options.now(), options.now())))
         case .deviceStatus(let s):
             deviceStatus[sender.id] = s
         case .notificationDismiss:
@@ -505,6 +528,30 @@ final class AppModel {
             applyMedia(m, msgId: msgId, sender: sender)
         case .notificationAction, .mediaCommand:
             break  // a desktop does not receive these
+        }
+    }
+
+    /// The phone's `posted_at` (ms) as a date: now when it is missing, never in the future.
+    private func postedDate(_ postedAt: Int) -> Date {
+        let now = options.now()
+        guard postedAt > 0 else { return now }
+        return min(Date(timeIntervalSince1970: Double(postedAt) / 1000), now)
+    }
+
+    /// Counts a late notification; once the burst settles, a big one gets a single summary.
+    private func noteLate() {
+        lateCount += 1
+        lateSummaryTask?.cancel()
+        let delay = options.lateSummaryDelay
+        lateSummaryTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            let count = self.lateCount
+            self.lateCount = 0
+            self.lateSummaryTask = nil
+            guard count >= self.options.lateSummaryMinimum else { return }
+            await self.presenter.notify(title: "Carom", body: UserMessages.awayNotifications(count),
+                                        identifier: "carom.late")
         }
     }
 

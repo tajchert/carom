@@ -260,6 +260,17 @@ so.
 - `removed` withdraws the card and the macOS notification.
 - Plain text only. URLs are never opened automatically.
 
+### Late messages
+
+When a Mac was offline, the Hub delivers a backlog on reconnect. A message is late when the
+decrypted payload's `ts` (not `posted_at`, which an ongoing notification keeps across updates)
+is more than 2 minutes older than now. A late notification goes to the history only: no banner,
+no panel card, no sound, no auto-copy of its code (the Copy button stays). When 4 or more arrive
+in one burst, the Mac posts one notice, "N notifications while you were away". A late clipboard
+item does not overwrite the pasteboard; it waits in the history to copy by hand. A later fresh
+update of the same notification is shown as usual. The history and cards show `posted_at`
+(never later than now) as the time.
+
 ### Media (phone → Mac)
 
 The phone does not send media notifications. It sends `media.state@1` instead, from the media

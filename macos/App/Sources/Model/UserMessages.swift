@@ -20,6 +20,9 @@ enum UserMessages {
     static let loginItemFailed = "Couldn't change the login item. Check System Settings › General › Login Items."
     static let loginItemNeedsApproval = "Allow Carom in System Settings › General › Login Items to open it at login."
 
+    /// The summary for a burst of late notifications (four or more, so always plural).
+    static func awayNotifications(_ count: Int) -> String { "\(count) notifications while you were away" }
+
     /// `skewMs` is hub time minus local time: negative when this Mac's clock is ahead.
     static func clockOff(skewMs: Int) -> String {
         let minutes = max(1, Int((Double(abs(skewMs)) / 60_000).rounded()))

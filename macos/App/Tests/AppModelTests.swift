@@ -227,6 +227,89 @@ struct AppModelTests {
         #expect(h.model.preferences.seenApps == [SeenApp(id: "com.chat", name: "Chat")])
     }
 
+    // MARK: Late messages
+
+    private func sentAgo(_ h: Harness, _ seconds: TimeInterval) -> Date { h.clock.now.addingTimeInterval(-seconds) }
+
+    @Test func freshNotificationIsPresentedAndAutoCopied() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel, sentAt: sentAgo(h, 5))
+        #expect(h.presenter.presented.count == 1)
+        #expect(h.clipboard.written == [ClipboardItem(text: "482913", sensitive: true)])
+    }
+
+    @Test func lateNotificationIsQuietButListedAndNotCopied() async {
+        let h = Harness()
+        await h.start()
+        h.model.setAutoCopyCodes(true)
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel, sentAt: sentAgo(h, 600))
+        #expect(h.presenter.presented.isEmpty)
+        #expect(h.clipboard.written.isEmpty)
+        #expect(h.model.activity.notifications.first?.code == "482913")
+    }
+
+    @Test func freshUpdateAfterALateOneIsPresented() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted(), msgId: "m1", sender: pixel, sentAt: sentAgo(h, 600))
+        await h.model.dispatch(posted(), msgId: "m2", sender: pixel, sentAt: sentAgo(h, 1))
+        #expect(h.presenter.presented.count == 1)
+        #expect(h.presenter.presented[0].0.msgId == "m2")
+    }
+
+    @Test func fourLateNotificationsPostOneSummary() async throws {
+        let h = Harness()
+        await h.start()
+        for i in 0..<4 {
+            await h.model.dispatch(posted("k\(i)"), msgId: "m\(i)", sender: pixel, sentAt: sentAgo(h, 600))
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(h.presenter.presented.isEmpty)
+        #expect(h.presenter.notices.map(\.body) == ["4 notifications while you were away"])
+    }
+
+    @Test func threeLateNotificationsPostNoSummary() async throws {
+        let h = Harness()
+        await h.start()
+        for i in 0..<3 {
+            await h.model.dispatch(posted("k\(i)"), msgId: "m\(i)", sender: pixel, sentAt: sentAgo(h, 600))
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(h.presenter.notices.isEmpty)
+        #expect(h.model.activity.notifications.count == 3)
+    }
+
+    @Test func lateClipboardGoesToHistoryOnly() async {
+        let h = Harness()
+        await h.start()
+        let sent = sentAgo(h, 600)
+        await h.model.dispatch(.clipboardSet(ClipboardSet(text: "old", sensitive: false)), msgId: "m1", sender: pixel,
+                               sentAt: sent)
+        #expect(h.clipboard.written.isEmpty)
+        #expect(h.model.activity.clips.first?.text == "old")
+        #expect(h.model.activity.clips.first?.date == sent)
+        await h.model.dispatch(.clipboardSet(ClipboardSet(text: "new", sensitive: false)), msgId: "m2", sender: pixel,
+                               sentAt: sentAgo(h, 3))
+        #expect(h.clipboard.written == [ClipboardItem(text: "new", sensitive: false)])
+    }
+
+    @Test func historyIsDatedByPostedAtAndClampedToNow() async {
+        let h = Harness()
+        await h.start()
+        let posted1 = h.clock.now.addingTimeInterval(-30)
+        var n = NotificationPosted(key: "a", app: .init(id: "com.chat", name: "Chat"), title: "t", text: "x",
+                                   postedAt: Int(posted1.timeIntervalSince1970 * 1000))
+        await h.model.dispatch(.notificationPosted(n), msgId: "m1", sender: pixel)
+        n.key = "b"
+        n.postedAt = Int(h.clock.now.addingTimeInterval(3600).timeIntervalSince1970 * 1000)
+        await h.model.dispatch(.notificationPosted(n), msgId: "m2", sender: pixel)
+        let dates = Dictionary(uniqueKeysWithValues: h.model.activity.notifications.map { ($0.key, $0.date) })
+        #expect(abs(dates["a"]!.timeIntervalSince(posted1)) < 0.01)
+        #expect(dates["b"] == h.clock.now)
+    }
+
     @Test func showsPhoneNameWithTwoPhones() async {
         let h = Harness(directory: [entry(pixel), entry(galaxy)])
         await h.start()

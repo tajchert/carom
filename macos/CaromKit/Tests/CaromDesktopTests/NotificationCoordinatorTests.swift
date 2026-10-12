@@ -25,6 +25,21 @@ import Testing
         #expect(!native.presented[0].showPhoneName)
     }
 
+    @Test func quietPostRecordsTheCardWithoutPresentingIt() async {
+        let (c, native, panel, _) = makeCoordinator(timers: timers)
+        await c.posted(Fixture.card(Fixture.posted()), quiet: true)
+        #expect(c.cards[Fixture.id("k1")] != nil)
+        #expect(c.onPanel.isEmpty && panel.shows == 0 && native.presented.isEmpty)
+
+        await c.posted(Fixture.card(Fixture.posted()))
+        #expect(c.onPanel == [Fixture.id("k1")])
+        #expect(native.presented.count == 1, "a later fresh update behaves as usual")
+
+        await c.posted(Fixture.card(Fixture.posted("k2")), quiet: true)
+        c.removed(phoneId: Fixture.phone, key: "k2")
+        #expect(c.cards[Fixture.id("k2")] == nil)
+    }
+
     @Test func actionCapChangeUpdatesThatPhonesCardsWithoutReposting() async {
         let (c, native, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.withActions(Fixture.posted()), actions: false))

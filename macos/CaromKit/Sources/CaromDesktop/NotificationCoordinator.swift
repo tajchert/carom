@@ -118,10 +118,13 @@ public final class NotificationCoordinator {
 
     // MARK: Phone events
 
-    /// A `notification.posted` (new, or an update of the same key).
-    public func posted(_ item: CardItem) async {
+    /// A `notification.posted` (new, or an update of the same key). `quiet` (a late message
+    /// delivered after an offline gap) only records the card, so a later removal or live update
+    /// still finds it: no panel card, no native notification.
+    public func posted(_ item: CardItem, quiet: Bool = false) async {
         let isUpdate = cards[item.id] != nil
         cards[item.id] = item
+        if quiet { return }
         // Messaging apps re-post a conversation with the user's own reply appended (no sender).
         // That changes the card in place, silently, and keeps it handled.
         let ownReply = isUpdate && Self.endsWithOwnMessage(item)

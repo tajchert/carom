@@ -280,6 +280,7 @@ struct Harness {
         options.pairingPollInterval = .milliseconds(20)
         options.outboxInterval = .seconds(3600)
         options.codeClearDelay = .milliseconds(40)
+        options.lateSummaryDelay = .milliseconds(30)
         options.now = { clock.now }
         model = AppModel(sync: sync,
                          desktop: DesktopServices(presenter: presenter, clipboard: clipboard, hotkey: hotkey,
