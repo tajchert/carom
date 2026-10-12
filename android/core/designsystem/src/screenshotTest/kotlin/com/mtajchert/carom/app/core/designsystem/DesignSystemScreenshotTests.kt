@@ -21,6 +21,8 @@ import com.mtajchert.carom.app.core.designsystem.component.CaromElevatedCard
 import com.mtajchert.carom.app.core.designsystem.component.CaromEmptyState
 import com.mtajchert.carom.app.core.designsystem.component.CaromErrorState
 import com.mtajchert.carom.app.core.designsystem.component.CaromLoadingIndicator
+import com.mtajchert.carom.app.core.designsystem.component.CaromMark
+import com.mtajchert.carom.app.core.designsystem.component.CaromMarkState
 import com.mtajchert.carom.app.core.designsystem.component.CaromOutlinedButton
 import com.mtajchert.carom.app.core.designsystem.component.CaromSmallLoadingIndicator
 import com.mtajchert.carom.app.core.designsystem.component.CaromTextButton
@@ -121,6 +123,20 @@ fun TopAppBarsScreenshotTest() {
         Column {
             CaromTopAppBar(title = "Overview")
             CaromTopAppBar(title = "Details", onNavigationClick = {})
+        }
+    }
+}
+
+@PreviewTest
+@ComponentThemes
+@Composable
+fun CaromMarkScreenshotTest() {
+    CaromTheme(dynamicColor = false) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            CaromMarkState.entries.forEach { CaromMark(state = it, size = 64.dp) }
         }
     }
 }
