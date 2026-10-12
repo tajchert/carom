@@ -25,6 +25,7 @@ android/local.properties
 # macOS / Xcode
 macos/**/build/
 macos/**/DerivedData/
+.e2e-dd/
 macos/**/.build/
 macos/**/xcuserdata/
 *.xcuserstate
