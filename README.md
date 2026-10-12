@@ -88,30 +88,65 @@ at once. Outside the window they wait until you open Carom, and the Mac says the
 Keys are exchanged by QR code when you pair, and never leave your devices. The Hub stores messages
 only until they're delivered (one or two days at most).
 
-## Quick start
+## Get started
 
-You need a free Cloudflare account, Node.js 22+, a Mac with macOS 14+, and an Android 10+ phone.
+You need a Mac with macOS 14+, an Android 10+ phone, a free Cloudflare account and Node.js 22+.
+It takes about ten minutes.
+
+**1. Install the Mac app**
+
+```sh
+brew install --cask tajchert/tap/carom
+```
+
+Or download `Carom-<version>-macos.zip` from the [latest release](https://github.com/tajchert/carom/releases/latest).
+The app isn't notarized yet: if macOS says it can't verify Carom, click **Done**, then open
+**System Settings → Privacy & Security** and choose **Open Anyway**.
+
+**2. Install the Android app**
+
+On the phone, download `carom-android-<version>.apk` from the
+[latest release](https://github.com/tajchert/carom/releases/latest) and open it. Allow your
+browser or file manager to install unknown apps when Android asks.
+
+**3. Deploy your Hub to Cloudflare**
 
 ```sh
 git clone https://github.com/tajchert/carom.git && cd carom
 npm install
-node hub/bin/carom-hub.mjs deploy      # logs in to Cloudflare, deploys, prints a setup QR code
+node hub/bin/carom-hub.mjs deploy      # logs in to Cloudflare, deploys, prints a setup link and QR code
 ```
 
-1. **Mac:** open Carom → *Set Up a New Hub* → paste the `carom://setup…` link → *Add a Phone*.
-2. **Phone:** open Carom → *Join with a code* → scan the QR code → grant notification access.
-3. That's it. Your next notification appears on the Mac.
+Keep the `carom://setup…` link it prints. Lost it? `node hub/bin/carom-hub.mjs qr` shows it again,
+until the first device has used it. Add `--jurisdiction eu` to keep the data in the EU (this
+can't be changed later).
 
-The **[setup guide](docs/SETUP.md)** walks through every step, permissions, daily use and troubleshooting.
+**4. Set up the Mac**
+
+Open Carom (it lives in the menu bar) → **Set Up a New Hub** → paste the `carom://setup…` link, or
+drop a screenshot of the QR code → **Set Up**. Name the Mac, allow notifications, then click
+**Add a Phone** to show a pairing QR code (valid for 5 minutes).
+
+**5. Pair the phone**
+
+Open Carom → **Get started** → **Join with a code** → scan the QR code on the Mac. Check that both
+screens show the same short code and click **Add Device** on the Mac. Name the phone, then tap
+**Notification access**.
+
+**6. Allow restricted settings, then turn on notification access**
+
+Android blocks notification access for apps installed from an APK, so the **Carom notification
+forwarding** switch is greyed out ("Restricted setting"). Tap it once, then open **Settings → Apps →
+Carom**, tap **⋮** (top right) → **Allow restricted settings** and confirm. Go back to Carom and
+turn the switch on. Your next notification appears on the Mac.
+
+The **[setup guide](docs/SETUP.md)** covers every step, optional permissions, daily use and
+troubleshooting.
 
 Your Hub's URL is public. The Hub rate-limits strangers before they can cost anything, but a flood
 from many addresses can still use up the Free plan's 100k daily requests. The Hub then pauses
-until the next day, and your data stays safe ([details](hub/README.md#limits-and-cost)).
-
-> **Downloads.** Get the Mac app with `brew install --cask tajchert/tap/carom`, and the Android
-> app from the [Releases page](https://github.com/tajchert/carom/releases/latest) as a signed APK.
-> The Mac app is not notarized yet, so on first launch choose **Open Anyway** in System Settings →
-> Privacy & Security. What's new in each version is in the [changelog](CHANGELOG.md).
+until the next day, and your data stays safe ([details](hub/README.md#limits-and-cost)). What's
+new in each version is in the [changelog](CHANGELOG.md).
 
 ## The Android app
 
