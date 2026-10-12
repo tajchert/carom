@@ -40,19 +40,19 @@ struct AddDeviceView: View {
             ProgressView("Adding the device…")
             Spacer()
         case .added(let fingerprint):
-            Outcome(symbol: "checkmark.circle.fill", tint: .green, title: "Device Added",
+            Outcome(symbol: "checkmark.circle.fill", tint: .statusGreen, title: "Device Added",
                     message: "Device \(fingerprint) can now sync. Its name appears in your devices once it finishes setting up.") {
                 Button("Done") { dismiss() }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             }
         case .expired:
-            Outcome(symbol: "clock.badge.exclamationmark", tint: .orange, title: "The Code Expired",
+            Outcome(symbol: "clock.badge.exclamationmark", tint: .statusAmber, title: "The Code Expired",
                     message: "Pairing codes work for 5 minutes. Show a new one to try again.") {
                 retryButtons
             }
         case .failed(let message):
-            Outcome(symbol: "exclamationmark.triangle.fill", tint: .orange, title: "Pairing Didn't Finish",
+            Outcome(symbol: "exclamationmark.triangle.fill", tint: .statusAmber, title: "Pairing Didn't Finish",
                     message: message) {
                 retryButtons
             }
@@ -76,6 +76,8 @@ private struct ShowingInvite: View {
 
     var body: some View {
         VStack(spacing: 6) {
+            CaromTile(size: 36)
+                .padding(.bottom, 4)
             Text("Add a Device")
                 .font(.title2.weight(.semibold))
             Text("Scan this code with Carom on your phone. On another Mac, paste the link instead.")

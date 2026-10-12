@@ -226,6 +226,11 @@ extension Color {
     })
 }
 
+extension Color {
+    /// Paused / attention amber (#E8B04A).
+    static let statusAmber = Color(red: 0xE8 / 255, green: 0xB0 / 255, blue: 0x4A / 255)
+}
+
 /// The Carom "two-rail C" mark, drawn in a 100-unit box (live variant: solid ball).
 struct CaromMark: Shape {
     func path(in rect: CGRect) -> Path {

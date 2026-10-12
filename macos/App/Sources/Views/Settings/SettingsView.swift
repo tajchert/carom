@@ -30,9 +30,9 @@ struct NotSetUpPlaceholder: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "arrow.left.arrow.right.circle")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.secondary)
+            CaromMark()
+                .fill(.secondary)
+                .frame(width: 34, height: 34)
             Text("Set up Carom to change these settings.")
                 .foregroundStyle(.secondary)
             Button("Set Up…") { model.request(.onboarding) }
