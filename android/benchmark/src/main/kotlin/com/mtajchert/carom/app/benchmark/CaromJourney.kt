@@ -11,8 +11,8 @@ internal object CaromJourney {
     const val PACKAGE_NAME = "com.mtajchert.carom.app"
     private const val TIMEOUT_MS = 10_000L
 
-    /** Home is ready: either the setup prompt (fresh install) or the paired dashboard. */
-    private val HOME_READY = By.pkg(PACKAGE_NAME).text(Pattern.compile("Set up Carom|Add a device"))
+    /** The first screen is ready: onboarding (fresh install), the setup prompt, or the paired dashboard. */
+    private val HOME_READY = By.pkg(PACKAGE_NAME).text(Pattern.compile("Welcome to Carom|Set up Carom|Add a device"))
 
     fun waitForHome(device: UiDevice) {
         check(device.wait(Until.hasObject(HOME_READY), TIMEOUT_MS)) {

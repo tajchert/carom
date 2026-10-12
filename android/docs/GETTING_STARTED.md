@@ -29,7 +29,7 @@ adb shell am start -n com.mtajchert.carom.app.debug/com.mtajchert.carom.app.Main
 
 The debug application ID is `com.mtajchert.carom.app.debug`; release is `com.mtajchert.carom.app`. With several devices attached, select the target explicitly, for example with `adb -s <serial>` and Android Studio's run-device selector.
 
-A fresh install has no keys, so Home offers "Set up Carom". To try the app against a local Hub, run `npm run dev -w hub` (see [`hub/`](../../hub/)) and forward its port to the device:
+A fresh install has no keys, so it opens onboarding ("Welcome to Carom"). To try the app against a local Hub, run `npm run dev -w hub` (see [`hub/`](../../hub/)) and forward its port to the device:
 
 ```bash
 adb reverse tcp:8787 tcp:8787

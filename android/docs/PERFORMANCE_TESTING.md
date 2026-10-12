@@ -4,7 +4,7 @@ The `:benchmark` Android test module targets the complete app and contains two
 small examples. `BaselineProfileGenerator` captures startup until Home is ready.
 `StartupBenchmark` measures
 five cold launches without compilation, then five with the required app profile.
-The examples wait for Home ("Set up Carom" on a fresh install, "Add a device" once paired). The module also contains `StartupSmokeTest`: a functional process-restart journey that collect no performance timings and can run on an emulator. See [Testing](TESTING.md) for their command and CI coverage.
+The examples wait for the first screen ("Welcome to Carom" onboarding on a fresh install, "Add a device" once paired). The module also contains `StartupSmokeTest`: a functional process-restart journey that collect no performance timings and can run on an emulator. See [Testing](TESTING.md) for their command and CI coverage.
 
 The Baseline Profile plugin creates `nonMinifiedRelease` for profile generation
 and `benchmarkRelease` for measurements. Both are non-debuggable, locally signed
