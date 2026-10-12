@@ -105,4 +105,20 @@ class AppsViewModelTest {
             assertTrue(awaitItem().accessGranted)
         }
     }
+
+    @Test
+    fun `an expanded row stays listed when editing moves it out of the filter`() = runTest {
+        viewModel.uiState.test {
+            skipItems(2)
+            viewModel.setFilter(AppsFilter.FORWARD)
+            assertEquals(listOf("Signal"), awaitItem().apps.map { it.label })
+            viewModel.setExpanded("org.signal")
+            viewModel.setMode("org.signal", AppForwardingMode.OFF)
+            var state = awaitItem()
+            while (state.offCount == 0) state = awaitItem()
+            assertEquals(listOf("Signal"), state.apps.map { it.label })
+            viewModel.setExpanded(null)
+            assertTrue(awaitItem().apps.isEmpty())
+        }
+    }
 }

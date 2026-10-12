@@ -49,4 +49,9 @@
     <string name="feature_notifications_actions_channel_description">Shown while your phone stays ready for your Mac.</string>
     <string name="feature_notifications_actions_service_title">Ready for your Mac</string>
     <string name="feature_notifications_actions_service_text">Always-on mode uses more battery. Change it in Settings.</string>
+    <string name="feature_notifications_no_results_filter">No apps in this filter</string>
+    <string name="feature_notifications_filter_chip">%1$s %2$d</string>
+    <string name="feature_notifications_change_forwarding">Change forwarding</string>
+    <string name="feature_notifications_state_expanded">Expanded</string>
+    <string name="feature_notifications_state_collapsed">Collapsed</string>
 </resources>

@@ -74,6 +74,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,6 +104,7 @@ fun AppsScreen(onBack: () -> Unit, viewModel: AppsViewModel = hiltViewModel()) {
         onBack = onBack,
         onQueryChange = viewModel::setQuery,
         onFilterChange = viewModel::setFilter,
+        onExpandedChange = viewModel::setExpanded,
         onModeChange = viewModel::setMode,
         onForwardOngoingChange = viewModel::setForwardOngoing,
         onPausedChange = viewModel::setPaused,
@@ -124,6 +126,7 @@ fun AppsContent(
     onOnlyWhenLockedChange: (Boolean) -> Unit,
     onOpenAccessSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    onExpandedChange: (String?) -> Unit = {},
 ) {
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(
@@ -155,12 +158,23 @@ fun AppsContent(
                     item(key = "empty") { EmptyApps() }
                 } else {
                     item(key = "search") { SearchField(state.query, onQueryChange) }
-                    item(key = "filters") { FilterRow(state, onFilterChange) }
+                    item(key = "filters") {
+                        FilterRow(state) {
+                            expanded = null
+                            onFilterChange(it)
+                        }
+                    }
                     item(key = "switches") { SwitchesCard(state, onPausedChange, onOnlyWhenLockedChange) }
                     if (state.apps.isEmpty()) {
                         item(key = "no_results") {
                             Text(
-                                stringResource(R.string.feature_notifications_no_results),
+                                stringResource(
+                                    if (state.filter != AppsFilter.ALL && state.query.isBlank()) {
+                                        R.string.feature_notifications_no_results_filter
+                                    } else {
+                                        R.string.feature_notifications_no_results
+                                    },
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 8.dp),
@@ -171,7 +185,10 @@ fun AppsContent(
                         AppRow(
                             app,
                             expanded = expanded == app.packageName,
-                            onToggleExpanded = { expanded = if (expanded == app.packageName) null else app.packageName },
+                            onToggleExpanded = {
+                                expanded = if (expanded == app.packageName) null else app.packageName
+                                onExpandedChange(expanded)
+                            },
                             onModeChange = { onModeChange(app.packageName, it) },
                             onForwardOngoingChange = { onForwardOngoingChange(app.packageName, it) },
                         )
@@ -277,7 +294,7 @@ private fun FilterRow(state: AppsUiState, onFilterChange: (AppsFilter) -> Unit) 
             FilterChip(
                 selected = selected,
                 onClick = { onFilterChange(filter) },
-                label = { Text("${stringResource(label)} $count") },
+                label = { Text(stringResource(R.string.feature_notifications_filter_chip, stringResource(label), count)) },
                 leadingIcon = if (selected) {
                     { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
                 } else {
@@ -331,6 +348,9 @@ private fun AppRow(
     onForwardOngoingChange: (Boolean) -> Unit,
 ) {
     val shape = RoundedCornerShape(20.dp)
+    val expandedState = stringResource(
+        if (expanded) R.string.feature_notifications_state_expanded else R.string.feature_notifications_state_collapsed,
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -348,7 +368,8 @@ private fun AppRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClickLabel = null, role = Role.Button, onClick = onToggleExpanded)
+                .semantics { stateDescription = expandedState }
+                .clickable(onClickLabel = stringResource(R.string.feature_notifications_change_forwarding), role = Role.Button, onClick = onToggleExpanded)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),

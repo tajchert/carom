@@ -59,13 +59,16 @@ class AppsViewModel @Inject constructor(
     private val filter = MutableStateFlow(AppsFilter.ALL)
     private val accessGranted = MutableStateFlow(access.isGranted())
 
+    /** The expanded row stays listed even if editing it moves it out of the current filter. */
+    private val pinned = MutableStateFlow<String?>(null)
+
     val uiState: StateFlow<AppsUiState> = combine(
         apps.apps,
         preferences.userPreferences,
         query,
         accessGranted,
-        filter,
-    ) { all, prefs, q, granted, f ->
+        combine(filter, pinned, ::Pair),
+    ) { all, prefs, q, granted, (f, pin) ->
         AppsUiState(
             loading = false,
             query = q,
@@ -73,7 +76,7 @@ class AppsViewModel @Inject constructor(
             forwardCount = all.count { it.mode == AppForwardingMode.FORWARD },
             hiddenCount = all.count { it.mode == AppForwardingMode.HIDE_CONTENT },
             offCount = all.count { it.mode == AppForwardingMode.OFF },
-            apps = all.filter { it.matches(q) && f.accepts(it.mode) },
+            apps = all.filter { it.matches(q) && (f.accepts(it.mode) || it.packageName == pin) },
             totalApps = all.size,
             paused = prefs.forwardingPaused,
             onlyWhenLocked = prefs.forwardOnlyWhenLocked,
@@ -85,7 +88,13 @@ class AppsViewModel @Inject constructor(
         query.value = value
     }
 
+    /** The screen expanded [packageName] (or collapsed everything, null). */
+    fun setExpanded(packageName: String?) {
+        pinned.value = packageName
+    }
+
     fun setFilter(value: AppsFilter) {
+        pinned.value = null
         filter.value = value
     }
 

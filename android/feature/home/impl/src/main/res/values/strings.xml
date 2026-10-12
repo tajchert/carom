@@ -23,6 +23,10 @@
     <string name="feature_home_status_retrying">Retrying when you\'re back online</string>
     <string name="feature_home_status_refused">Hub refused this phone</string>
     <string name="feature_home_status_refused_detail">Pair again to continue</string>
+    <string name="feature_home_status_paused">Paused</string>
+    <string name="feature_home_status_paused_detail">Notifications stay on this phone</string>
+    <string name="feature_home_pill_paused">Paused</string>
+    <string name="feature_home_resume">Resume forwarding</string>
     <string name="feature_home_pill_live">Live</string>
     <string name="feature_home_pill_syncing">Syncing</string>
     <string name="feature_home_pill_offline">Offline</string>

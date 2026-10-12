@@ -66,3 +66,8 @@ fun HomeProblemsScreenshotTest() = Home(
 fun HomePairAgainScreenshotTest() = Home(
     paired.copy(connection = ConnectionStatus.REJECTED, pendingMessages = 0, banners = listOf(HomeBanner.PairAgain)),
 )
+
+@PreviewTest
+@Preview(name = "Phone", showBackground = true, widthDp = 412, heightDp = 892, apiLevel = 36)
+@Composable
+fun HomePausedScreenshotTest() = Home(paired.copy(paused = true))

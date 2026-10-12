@@ -9,6 +9,7 @@ import com.mtajchert.carom.app.core.model.RecentItemKind
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.testing.repository.FakeRecentItemsRepository
 import com.mtajchert.carom.app.core.testing.repository.FakeSessionRepository
+import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesRepository
 import com.mtajchert.carom.app.core.testing.runtime.FakeNotificationAccess
 import com.mtajchert.carom.app.core.testing.runtime.FakeSyncStatusRepository
 import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
@@ -30,12 +31,14 @@ class HomeViewModelTest {
     private val status = FakeSyncStatusRepository()
     private val access = FakeNotificationAccess(granted = true)
     private val recent = FakeRecentItemsRepository()
+    private val prefs = FakeUserPreferencesRepository()
     private val clockSkew = ClockSkewTracker { NOW }
     // Built lazily, after MainDispatcherRule has installed the test Main dispatcher.
     private val viewModel by lazy {
         HomeViewModel(
             ObserveHomeStatusUseCase(session, sync, InMemoryOutboxStore(), status),
             recent,
+            prefs,
             status,
             access,
             sync,
@@ -137,5 +140,18 @@ class HomeViewModelTest {
 
     private companion object {
         const val NOW = 1_791_758_047_000L
+    }
+
+    @Test
+    fun `paused preference is exposed and resume clears it`() = runTest {
+        paired()
+        prefs.setForwardingPaused(true)
+        viewModel.uiState.test {
+            var item = awaitItem()
+            while (item !is HomeUiState.Paired || !item.paused) item = awaitItem()
+            viewModel.resumeForwarding()
+            while (item !is HomeUiState.Paired || item.paused) item = awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

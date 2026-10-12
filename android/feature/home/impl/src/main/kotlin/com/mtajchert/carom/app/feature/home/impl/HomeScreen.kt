@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.CloudOff
@@ -99,6 +100,7 @@ class HomeActions(
     val onOpenDateSettings: () -> Unit = {},
     val onPairAgain: () -> Unit = {},
     val onDismissNotices: () -> Unit = {},
+    val onResume: () -> Unit = {},
 )
 
 @Composable
@@ -129,6 +131,7 @@ fun HomeScreen(
             onOpenDateSettings = { context.openDateSettings() },
             onPairAgain = viewModel::pairAgain,
             onDismissNotices = viewModel::dismissNotices,
+            onResume = viewModel::resumeForwarding,
         ),
     )
 }
@@ -256,7 +259,7 @@ private fun Paired(state: HomeUiState.Paired, actions: HomeActions, now: Long) {
                 onAction = actions.onDismissNotices,
             )
         }
-        StatusCard(state, now)
+        StatusCard(state, now, actions.onResume)
         if (!mustPairAgain) {
             SendClipboardButton(actions.onSendClipboard)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -319,7 +322,7 @@ private fun HomeTopBar(actions: @Composable () -> Unit) {
     )
 }
 
-private enum class PathMode { Live, Offline, Rejected }
+private enum class PathMode { Live, Offline, Rejected, Paused }
 
 private fun ConnectionStatus.pathMode() = when (this) {
     ConnectionStatus.OFFLINE -> PathMode.Offline
@@ -328,28 +331,29 @@ private fun ConnectionStatus.pathMode() = when (this) {
 }
 
 @Composable
-private fun StatusCard(state: HomeUiState.Paired, now: Long) {
+private fun StatusCard(state: HomeUiState.Paired, now: Long, onResume: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val mode = state.connection.pathMode()
+    val mode = if (state.paused && state.connection != ConnectionStatus.REJECTED) PathMode.Paused else state.connection.pathMode()
     val container = when (mode) {
         PathMode.Live -> colors.primaryContainer
-        PathMode.Offline -> colors.surfaceContainer
+        PathMode.Offline, PathMode.Paused -> colors.surfaceContainer
         PathMode.Rejected -> colors.errorContainer
     }
     val content = when (mode) {
         PathMode.Live -> colors.onPrimaryContainer
-        PathMode.Offline -> colors.onSurface
+        PathMode.Offline, PathMode.Paused -> colors.onSurface
         PathMode.Rejected -> colors.onErrorContainer
     }
     val phone = state.deviceName ?: stringResource(R.string.feature_home_this_device)
     val (title, subtitle) = when {
+        mode == PathMode.Paused -> stringResource(R.string.feature_home_status_paused) to stringResource(R.string.feature_home_status_paused_detail)
         state.connection == ConnectionStatus.SYNCING -> stringResource(R.string.feature_home_status_syncing) to phone
         mode == PathMode.Live -> stringResource(R.string.feature_home_status_forwarding) to phone
         mode == PathMode.Offline ->
             stringResource(R.string.feature_home_status_waiting) to stringResource(R.string.feature_home_status_retrying)
         else -> stringResource(R.string.feature_home_status_refused) to stringResource(R.string.feature_home_status_refused_detail)
     }
-    val (pillIcon, pillLabel) = when (state.connection) {
+    val (pillIcon, pillLabel) = if (mode == PathMode.Paused) Icons.Filled.Pause to R.string.feature_home_pill_paused else when (state.connection) {
         ConnectionStatus.OFFLINE -> Icons.Outlined.CloudOff to R.string.feature_home_pill_offline
         ConnectionStatus.REJECTED -> Icons.Outlined.ErrorOutline to R.string.feature_home_pill_refused
         ConnectionStatus.SYNCING -> Icons.Filled.Sync to R.string.feature_home_pill_syncing
@@ -359,7 +363,7 @@ private fun StatusCard(state: HomeUiState.Paired, now: Long) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
-        border = if (mode == PathMode.Offline) BorderStroke(1.dp, colors.outlineVariant) else null,
+        border = if (mode == PathMode.Offline || mode == PathMode.Paused) BorderStroke(1.dp, colors.outlineVariant) else null,
     ) {
         Column(
             Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 16.dp),
@@ -376,13 +380,16 @@ private fun StatusCard(state: HomeUiState.Paired, now: Long) {
             PathRow(state.hubHost, mode, content)
             HorizontalDivider(color = content.copy(alpha = 0.15f))
             StatusFooter(state, mode, now)
+            if (mode == PathMode.Paused) {
+                TextButton(onClick = onResume) { Text(stringResource(R.string.feature_home_resume)) }
+            }
         }
     }
 }
 
 @Composable
 private fun StatusPill(icon: ImageVector, label: String, content: Color, mode: PathMode) {
-    val bg = if (mode == PathMode.Live) Color.White.copy(alpha = 0.55f) else content.copy(alpha = 0.08f)
+    val bg = if (mode == PathMode.Live) content.copy(alpha = 0.12f) else content.copy(alpha = 0.08f)
     Row(
         modifier = Modifier.background(bg, CircleShape).padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
