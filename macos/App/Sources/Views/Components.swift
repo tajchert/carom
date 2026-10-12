@@ -76,29 +76,6 @@ struct BannerView: View {
     }
 }
 
-/// A small coloured dot for the connection state.
-struct ConnectionDot: View {
-    let state: ConnectionState
-    let paused: Bool
-
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 7, height: 7)
-            .accessibilityHidden(true)
-    }
-
-    private var color: Color {
-        if paused { return .secondary }
-        switch state {
-        case .connected: return .green
-        case .connecting, .asleep: return .yellow
-        case .offline, .noNetwork: return .secondary
-        case .stopped: return .red
-        }
-    }
-}
-
 /// SF Symbol for a device kind.
 func deviceSymbol(_ kind: DeviceKind) -> String {
     switch kind {
@@ -238,4 +215,54 @@ enum Links {
     static let hubDocs = URL(string: "https://github.com/tajchert/carom#readme")!
     static let notificationSettings = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!
     static let privacySettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy")!
+}
+
+extension Color {
+    /// Status green: #1F8A62 in light, #6CDBAC in dark.
+    static let statusGreen = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0x6C / 255, green: 0xDB / 255, blue: 0xAC / 255, alpha: 1)
+            : NSColor(srgbRed: 0x1F / 255, green: 0x8A / 255, blue: 0x62 / 255, alpha: 1)
+    })
+}
+
+/// The Carom "two-rail C" mark, drawn in a 100-unit box (live variant: solid ball).
+struct CaromMark: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = min(rect.width, rect.height) / 100
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * s, y: rect.minY + y * s)
+        }
+        var path = Path()
+        path.move(to: p(80, 22))
+        path.addLine(to: p(40, 22))
+        path.addLine(to: p(22, 50))
+        path.addLine(to: p(40, 78))
+        path.addLine(to: p(62, 78))
+        return path.strokedPath(StrokeStyle(lineWidth: 10 * s, lineCap: .round, lineJoin: .round))
+            .union(Path(ellipseIn: CGRect(x: p(80, 78).x - 8.5 * s, y: p(80, 78).y - 8.5 * s,
+                                          width: 17 * s, height: 17 * s)))
+    }
+}
+
+/// The app tile: the mark on the brand gradient (dark: charcoal with a mint mark).
+struct CaromTile: View {
+    var size: CGFloat = 30
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let dark = scheme == .dark
+        RoundedRectangle(cornerRadius: size * 0.233, style: .continuous)
+            .fill(LinearGradient(
+                colors: dark ? [Color(red: 0.141, green: 0.188, blue: 0.169), Color(red: 0.071, green: 0.094, blue: 0.082)]
+                    : [Color(red: 0.165, green: 0.604, blue: 0.447), Color(red: 0.082, green: 0.376, blue: 0.282)],
+                startPoint: .top, endPoint: .bottom))
+            .frame(width: size, height: size)
+            .overlay {
+                CaromMark()
+                    .fill(dark ? Color(red: 0.424, green: 0.859, blue: 0.675) : Color(red: 0.957, green: 0.984, blue: 0.969))
+                    .frame(width: size * 0.64, height: size * 0.64)
+            }
+            .accessibilityHidden(true)
+    }
 }
