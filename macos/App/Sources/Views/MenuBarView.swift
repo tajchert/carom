@@ -310,7 +310,7 @@ private struct NotificationRow: View {
                         .font(.system(size: 13))
                         .lineLimit(2)
                 }
-                if let code = item.code {
+                if let code = item.code, hovering {
                     HStack(spacing: 8) {
                         Text(code)
                             .font(.system(size: 13, design: .monospaced).weight(.medium))

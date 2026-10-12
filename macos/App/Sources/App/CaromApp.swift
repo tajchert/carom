@@ -84,7 +84,7 @@ struct MenuBarLabel: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Image(glyph)
+        icon
             .onChange(of: model.windowRequest) { _, request in
                 guard let request else { return }
                 if request.window == .settings {
@@ -94,7 +94,27 @@ struct MenuBarLabel: View {
                 }
                 AppEnvironment.activate()
             }
-            .accessibilityLabel("Carom")
+            .accessibilityLabel("Carom, \(stateDescription)")
+    }
+
+    @ViewBuilder private var icon: some View {
+        if needsAttention {
+            Image(systemName: "exclamationmark.triangle")
+        } else {
+            Image(glyph)
+        }
+    }
+
+    /// Hub rejected the token (401): the user must re-pair.
+    private var needsAttention: Bool { model.phase == .ready && model.connection == .stopped }
+
+    private var stateDescription: String {
+        if needsAttention { return "Needs attention" }
+        return switch glyph {
+        case "MenuBarPaused": "Paused"
+        case "MenuBarOffline": "Offline"
+        default: "Connected"
+        }
     }
 
     /// Template glyph asset: the mark with a solid ball (live), pause bars (paused) or a hollow ball (offline).
@@ -102,7 +122,7 @@ struct MenuBarLabel: View {
         guard model.phase == .ready else { return "MenuBarOffline" }
         if model.preferences.paused { return "MenuBarPaused" }
         switch model.connection {
-        case .stopped, .noNetwork, .offline: return "MenuBarOffline"
+        case .noNetwork, .offline: return "MenuBarOffline"
         default: break
         }
         if model.banners.contains(where: { $0.kind == .hubUnreachable }) { return "MenuBarOffline" }
