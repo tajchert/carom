@@ -61,6 +61,27 @@ struct InitialBadge: View {
     }
 }
 
+/// A neutral grey tile with the first letter: the menu-bar history's placeholder.
+struct NeutralInitial: View {
+    let text: String
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let dark = scheme == .dark
+        GeometryReader { geo in
+            Rectangle()
+                .fill(dark ? Color(red: 0x3A / 255, green: 0x40 / 255, blue: 0x3D / 255)
+                    : Color(red: 0xE3 / 255, green: 0xE8 / 255, blue: 0xE5 / 255))
+                .overlay(
+                    Text(verbatim: String(text.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased())
+                        .font(.system(size: max(6, geo.size.height * 0.5), weight: .semibold))
+                        .foregroundStyle(dark ? Color(red: 0xC7 / 255, green: 0xCD / 255, blue: 0xC9 / 255)
+                            : Color(red: 0x5F / 255, green: 0x6A / 255, blue: 0x65 / 255))
+                )
+        }
+    }
+}
+
 /// An app's icon from its blob reference, with the card's first-letter placeholder while it
 /// loads or when there is none. The menu-bar history uses it (spec §6.2).
 public struct AppIconImage: View {
@@ -75,8 +96,8 @@ public struct AppIconImage: View {
     }
 
     public var body: some View {
-        ImageSlot(ref: ref, images: images) { InitialBadge(text: appName, tint: .accentColor) }
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        ImageSlot(ref: ref, images: images) { NeutralInitial(text: appName) }
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .accessibilityHidden(true)
     }
 }
