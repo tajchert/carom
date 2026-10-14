@@ -188,6 +188,14 @@ existing design.
 | [`protocol/`](protocol/) | Spec, JSON Schemas, test vectors, TypeScript reference implementation |
 | [`docs/`](docs/) | [Setup guide](docs/SETUP.md), [client behaviour](docs/CLIENTS.md) |
 
+## Known issues
+
+- **Mac: the rich banner ignores Focus and Do Not Disturb.** The quiet macOS copy follows Focus,
+  but Carom's own banner still shows. To hide it during a Focus, Carom has to read the Focus status,
+  which needs the Communication Notifications entitlement. That entitlement requires Developer ID
+  signing, and release builds are ad-hoc signed. Workaround: set **Show notifications as** to
+  **Native only** in Settings.
+
 ## License
 
 [GPL-3.0](LICENSE). Contributions welcome.
