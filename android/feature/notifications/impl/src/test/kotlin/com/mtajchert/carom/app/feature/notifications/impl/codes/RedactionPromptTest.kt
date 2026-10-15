@@ -7,8 +7,9 @@ import org.junit.Test
 class RedactionPromptTest {
     private val access = FakeCodeForwardingAccess()
     private val associations = FakeAssociationApi()
+    private val store = FakeRedactionPromptStore()
     private val shown = mutableListOf<Boolean>()
-    private val prompt = RedactionPrompt(access, associations) { shown += it }
+    private val prompt = RedactionPrompt(access, associations, { shown += it }, store)
     private val hour = 60 * 60 * 1000L
 
     @Test
@@ -41,5 +42,28 @@ class RedactionPromptTest {
         associations.associated = true
         prompt.onRedacted(now = 1_000 + 24 * hour)
         assertEquals(listOf(true, true), shown)
+    }
+
+    @Test
+    fun `the cooldown survives a new process`() {
+        prompt.onRedacted(now = 1_000)
+        val restarted = RedactionPrompt(access, associations, { shown += it }, store)
+        restarted.onRedacted(now = 1_000 + hour)
+        assertEquals(1, shown.size)
+    }
+
+    @Test
+    fun `a clock moved backwards does not silence it forever`() {
+        store.lastShownAt = 10 * hour
+        prompt.onRedacted(now = 1_000)
+        assertEquals(1, shown.size)
+    }
+
+    @Test
+    fun `never shows once muted`() {
+        store.muted = true
+        prompt.onRedacted(now = 1_000)
+        prompt.onRedacted(now = 1_000 + 48 * hour)
+        assertEquals(emptyList<Boolean>(), shown)
     }
 }

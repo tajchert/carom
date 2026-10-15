@@ -27,7 +27,9 @@ import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidCodeForwa
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AppOpsSensitiveAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidRedactionPromptNotifier
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AssociationApi
+import com.mtajchert.carom.app.feature.notifications.impl.codes.PrefsRedactionPromptStore
 import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPromptNotifier
+import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPromptStore
 import com.mtajchert.carom.app.feature.notifications.impl.codes.SensitiveAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.media.AndroidMediaSessionSource
 import com.mtajchert.carom.app.feature.notifications.impl.media.MediaArtUploader
@@ -110,6 +112,9 @@ internal abstract class NotificationsModule {
 
     @Binds
     abstract fun bindsRedactionPromptNotifier(impl: AndroidRedactionPromptNotifier): RedactionPromptNotifier
+
+    @Binds
+    abstract fun bindsRedactionPromptStore(impl: PrefsRedactionPromptStore): RedactionPromptStore
 
     /** Adds `notification.action@1` to this device's handlers; the setting decides whether it is advertised. */
     @Binds

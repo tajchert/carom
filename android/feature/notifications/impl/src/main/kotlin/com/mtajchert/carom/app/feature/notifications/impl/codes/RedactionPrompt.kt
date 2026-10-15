@@ -4,8 +4,10 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -23,32 +25,59 @@ fun interface RedactionPromptNotifier {
     fun show(stillRedacted: Boolean)
 }
 
+/** When the prompt last showed and whether the user muted it. Survives process restarts. */
+interface RedactionPromptStore {
+    var lastShownAt: Long?
+    var muted: Boolean
+}
+
+class PrefsRedactionPromptStore @Inject constructor(
+    @ApplicationContext context: Context,
+) : RedactionPromptStore {
+    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    override var lastShownAt: Long?
+        get() = prefs.getLong(KEY_LAST_SHOWN, NEVER).takeIf { it != NEVER }
+        set(value) = prefs.edit().apply { if (value == null) remove(KEY_LAST_SHOWN) else putLong(KEY_LAST_SHOWN, value) }.apply()
+
+    override var muted: Boolean
+        get() = prefs.getBoolean(KEY_MUTED, false)
+        set(value) = prefs.edit().putBoolean(KEY_MUTED, value).apply()
+
+    private companion object {
+        const val PREFS = "carom_code_forwarding_prompt"
+        const val KEY_LAST_SHOWN = "last_shown_at"
+        const val KEY_MUTED = "muted"
+        const val NEVER = Long.MIN_VALUE
+    }
+}
+
 /**
  * Offers code forwarding when [com.mtajchert.carom.app.feature.notifications.impl.RedactionDetector]
- * fires (spec §5.2). At most once per [COOLDOWN_MS] per process, and only on Android 15+. The
- * prompt never carries notification content.
+ * fires (spec §5.2). At most once per [COOLDOWN_MS], never after the user picks "Don't show again",
+ * and only on Android 15+. The prompt never carries notification content.
  */
 @Singleton
 class RedactionPrompt @Inject constructor(
     private val access: CodeForwardingAccess,
     private val associations: AssociationApi,
     private val notifier: RedactionPromptNotifier,
+    private val store: RedactionPromptStore,
 ) {
-    private var lastShownAt = NEVER
-
     fun onRedacted(now: Long = System.currentTimeMillis()) {
+        if (store.muted) return
         val state = access.state()
         if (state == CodeForwardingState.UNSUPPORTED) return
         synchronized(this) {
-            if (lastShownAt != NEVER && now - lastShownAt < COOLDOWN_MS) return
-            lastShownAt = now
+            val last = store.lastShownAt
+            if (last != null && now - last in 0 until COOLDOWN_MS) return
+            store.lastShownAt = now
         }
         notifier.show(stillRedacted = state == CodeForwardingState.ENABLED || associations.hasAssociation())
     }
 
     companion object {
         const val COOLDOWN_MS = 24 * 60 * 60 * 1000L
-        private const val NEVER = Long.MIN_VALUE
     }
 }
 
@@ -65,11 +94,18 @@ class AndroidRedactionPromptNotifier @Inject constructor(
             .putExtra(CodeForwardingActivity.EXTRA_STILL_REDACTED, stillRedacted)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pending = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val mute = PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(context, RedactionPromptMuteReceiver::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.feature_notifications_ic_notification)
             .setContentTitle(context.getString(R.string.feature_notifications_codes_prompt_title))
             .setContentText(context.getString(R.string.feature_notifications_codes_prompt_text))
             .setContentIntent(pending)
+            .addAction(0, context.getString(R.string.feature_notifications_codes_prompt_mute), mute)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -94,5 +130,13 @@ class AndroidRedactionPromptNotifier @Inject constructor(
     companion object {
         const val CHANNEL_ID = "code_forwarding_prompt"
         const val NOTIFICATION_ID = 0xC0DE
+    }
+}
+
+/** "Don't show again" on the prompt: mutes it for good and removes it. */
+class RedactionPromptMuteReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        PrefsRedactionPromptStore(context.applicationContext).muted = true
+        NotificationManagerCompat.from(context).cancel(AndroidRedactionPromptNotifier.NOTIFICATION_ID)
     }
 }

@@ -12,6 +12,11 @@
             android:exported="false"
             android:theme="@style/Theme.CaromCodeForwarding" />
 
+        <!-- Not exported: only our own prompt's "Don't show again" action sends it. -->
+        <receiver
+            android:name=".codes.RedactionPromptMuteReceiver"
+            android:exported="false" />
+
         <!--
             Deliberately exported (AGENTS.md): the system binds notification listeners, and only
             holders of BIND_NOTIFICATION_LISTENER_SERVICE (the system) may bind it. The default

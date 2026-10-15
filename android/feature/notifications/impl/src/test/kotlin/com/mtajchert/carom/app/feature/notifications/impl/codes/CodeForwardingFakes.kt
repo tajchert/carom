@@ -30,3 +30,8 @@ class FakeAssociationApi : AssociationApi {
 
     override fun hasAssociation(): Boolean = associated
 }
+
+class FakeRedactionPromptStore : RedactionPromptStore {
+    override var lastShownAt: Long? = null
+    override var muted = false
+}

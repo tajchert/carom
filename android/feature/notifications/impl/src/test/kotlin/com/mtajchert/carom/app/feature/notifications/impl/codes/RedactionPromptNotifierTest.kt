@@ -5,6 +5,7 @@ import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
@@ -40,5 +41,26 @@ class RedactionPromptNotifierTest {
         shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
         notifier.show(stillRedacted = false)
         assertFalse(shadowOf(manager).allNotifications.isNotEmpty())
+    }
+
+    @Test
+    fun `don't show again mutes the prompt and removes it`() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        notifier.show(stillRedacted = false)
+
+        val action = shadowOf(manager).allNotifications.single().actions.single()
+        assertEquals("Don't show again", action.title.toString())
+        val broadcast = shadowOf(action.actionIntent).savedIntent
+        assertEquals(RedactionPromptMuteReceiver::class.java.name, broadcast.component?.className)
+
+        RedactionPromptMuteReceiver().onReceive(app, Intent(broadcast))
+        assertTrue(PrefsRedactionPromptStore(app).muted)
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+    }
+
+    @Test
+    fun `the store keeps the last shown time`() {
+        PrefsRedactionPromptStore(app).lastShownAt = 42L
+        assertEquals(42L, PrefsRedactionPromptStore(app).lastShownAt)
     }
 }

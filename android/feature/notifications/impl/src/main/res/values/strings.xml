@@ -43,6 +43,7 @@
     <string name="feature_notifications_codes_channel_description">A quiet reminder when Android hides verification codes from Carom</string>
     <string name="feature_notifications_codes_prompt_title">One-time codes</string>
     <string name="feature_notifications_codes_prompt_text">Android hides verification codes from notification apps. Tap to enable.</string>
+    <string name="feature_notifications_codes_prompt_mute">Don\'t show again</string>
 
     <!-- The ongoing notification of "Actions from Mac: Always while a Mac is online". -->
     <string name="feature_notifications_actions_channel_name">Actions from Mac</string>
