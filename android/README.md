@@ -74,8 +74,7 @@ Done (foundation):
   `ActionsForegroundService` is the "Always" mode. The code-forwarding screen creates a
   `CompanionDeviceManager` association (self-managed profile first) and falls back to the adb
   command (`AdbFallback`). `RedactionPrompt` posts the quiet "Tap to enable" notification.
-  Which association profile unlocks codes on Android 15 and 16 still needs checking on a device
-  (`docs/V2-DEVICE-CHECKLIST.md`).
+  Which association profile unlocks codes on Android 15 and 16 still needs checking on a device.
 - Settings → "Actions from Mac" (Off / After a notification with 2, 5 or 15 minutes / Always). Off
   removes `notification.action@1` and `media.command@1` from the published `caps`
   (`SetActionsFromMacUseCase`).
@@ -202,9 +201,6 @@ without depending on the platform's stripped BouncyCastle.
 - [Release workflow](docs/RELEASING.md), [Localization](docs/LOCALIZATION.md)
 - [Performance testing](docs/PERFORMANCE_TESTING.md)
 - [Agent setup](docs/AGENT_SETUP.md) and the repository rules in [AGENTS.md](AGENTS.md)
-
-The [Modern Android Guide](MODERN_ANDROID_GUIDE.md) is background from the template; it
-describes optional patterns, not what this app implements.
 
 ## Quality contract
 
