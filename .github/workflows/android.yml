@@ -48,7 +48,7 @@ jobs:
           :app:lintRelease :app:assembleRelease
       - name: Upload reports on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-reports
           path: 'android/**/build/reports/**'
@@ -85,7 +85,7 @@ jobs:
           ./gradlew --no-daemon :benchmark:connectedNonMinifiedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.mtajchert.carom.app.benchmark.StartupSmokeTest
       - name: Upload device reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: device-reports
           path: |
@@ -128,7 +128,7 @@ jobs:
           :feature:clipboard:impl:validateDebugScreenshotTest
       - name: Upload screenshot comparisons
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: screenshot-reports
           path: |
