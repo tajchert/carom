@@ -3,6 +3,18 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [1.0.4] - 2026-10-15
+
+Change many apps at once, and the forwarding switches now live in Settings.
+
+### 📱 Android app
+
+- **Select several apps.** On the Apps screen, long-press an app to start selecting. Tap more
+  apps, or use **Select all**, then choose Forward, Hide content or Off for all of them at once.
+- **Forwarding switches moved to Settings.** "Only when screen is locked or off" is now in
+  Settings, next to **Pause notification forwarding**. The duplicate pause switch on the Apps
+  screen is gone.
+
 ## [1.0.3] - 2026-10-15
 
 A quieter one-time code reminder and a more consistent Android app.
