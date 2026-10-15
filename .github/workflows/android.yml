@@ -39,7 +39,7 @@ jobs:
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Unit tests (incl. protocol vectors), lint, debug builds, and release R8 verification
         run: >-
           ./gradlew --no-daemon --stacktrace
@@ -69,7 +69,7 @@ jobs:
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: 'platform-tools emulator platforms;android-37.0 build-tools;36.0.0 system-images;android-35;google_apis;x86_64'
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Run Keystore tests and the cold-start journey
         run: |
           sudo chmod a+rw /dev/kvm
@@ -113,7 +113,7 @@ jobs:
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Validate reviewed screenshots
         run: >-
           ./gradlew --no-daemon
