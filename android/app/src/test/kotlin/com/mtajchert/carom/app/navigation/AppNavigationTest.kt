@@ -73,11 +73,12 @@ class AppNavigationTest {
     }
 
     @Test
-    fun `settings open the Apps and Clipboard screens with the settings moved there`() {
+    fun `settings hold the forwarding switches and open the Apps and Clipboard screens`() {
         startOnHome()
         composeRule.onNodeWithContentDescription("Settings").performClick()
-        awaitText("Apps").performScrollTo().performClick()
         awaitText("Only when screen is locked or off").performScrollTo().assertIsDisplayed()
+        awaitText("Apps").performScrollTo().performClick()
+        awaitText("No apps yet").assertIsDisplayed()
         back()
         awaitText("Clipboard").performScrollTo().performClick()
         awaitText("Show a notification when a clipboard arrives").performScrollTo().assertIsDisplayed()
