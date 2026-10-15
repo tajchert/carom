@@ -19,6 +19,8 @@
     <string name="feature_settings_clipboard_summary">Choose where the clipboard goes and what arrives.</string>
     <string name="feature_settings_pause">Pause notification forwarding</string>
     <string name="feature_settings_pause_summary">Notifications stay on this phone until you turn this off.</string>
+    <string name="feature_settings_only_locked">Only when screen is locked or off</string>
+    <string name="feature_settings_only_locked_summary">While you use the phone, its notifications stay here.</string>
 
     <string name="feature_settings_section_about">About</string>
     <string name="feature_settings_hub">Hub</string>

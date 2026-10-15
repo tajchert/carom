@@ -32,6 +32,7 @@ class SettingsScreenTest {
 
     private var backs = 0
     private val paused = mutableListOf<Boolean>()
+    private val onlyLocked = mutableListOf<Boolean>()
     private var apps = 0
     private var left = 0
     private val modes = mutableListOf<ActionsFromMac>()
@@ -45,6 +46,7 @@ class SettingsScreenTest {
                     onBack = { backs++ },
                     onOpenNotificationApps = if (withApps) ({ apps++ }) else null,
                     onPauseChanged = { paused += it },
+                    onOnlyWhenLockedChanged = { onlyLocked += it },
                     onLeaveHub = { left++ },
                     onActionsFromMacChanged = { modes += it },
                     onActionWindowChanged = { windows += it },
@@ -58,6 +60,8 @@ class SettingsScreenTest {
         show(paired)
         composeRule.onNodeWithText("Pause notification forwarding").assertIsDisplayed().performClick()
         assertEquals(listOf(true), paused)
+        composeRule.onNodeWithText("Only when screen is locked or off").performScrollTo().performClick()
+        assertEquals(listOf(true), onlyLocked)
         composeRule.onNodeWithText("Apps").performClick()
         assertEquals(1, apps)
         composeRule.onNodeWithContentDescription("Navigate back").performClick()

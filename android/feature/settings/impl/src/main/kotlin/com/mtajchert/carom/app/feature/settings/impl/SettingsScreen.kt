@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.ContentPasteGo
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.PauseCircle
+import androidx.compose.material.icons.outlined.ScreenLockPortrait
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -68,6 +69,7 @@ class SettingsActions(
     val onActionWindowChanged: (Int) -> Unit = {},
     val onRename: (String) -> Unit = {},
     val onPauseChanged: (Boolean) -> Unit = {},
+    val onOnlyWhenLockedChanged: (Boolean) -> Unit = {},
     val onLeaveHub: () -> Unit = {},
     val onMessageShown: () -> Unit = {},
 )
@@ -91,6 +93,7 @@ fun SettingsScreen(
             onActionWindowChanged = viewModel::chooseActionWindow,
             onRename = viewModel::rename,
             onPauseChanged = viewModel::setForwardingPaused,
+            onOnlyWhenLockedChanged = viewModel::setForwardOnlyWhenLocked,
             onLeaveHub = viewModel::leaveHub,
             onMessageShown = viewModel::messageShown,
         ),
@@ -131,6 +134,13 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
                 NavigationRow(stringResource(R.string.feature_settings_clipboard), stringResource(R.string.feature_settings_clipboard_summary), it, icon = Icons.Outlined.ContentPasteGo)
             }
             ToggleRow(stringResource(R.string.feature_settings_pause), stringResource(R.string.feature_settings_pause_summary), state.forwardingPaused, actions.onPauseChanged, icon = Icons.Outlined.PauseCircle)
+            ToggleRow(
+                stringResource(R.string.feature_settings_only_locked),
+                stringResource(R.string.feature_settings_only_locked_summary),
+                state.forwardOnlyWhenLocked,
+                actions.onOnlyWhenLockedChanged,
+                icon = Icons.Outlined.ScreenLockPortrait,
+            )
         }
 
         Section(stringResource(R.string.feature_settings_section_actions)) {

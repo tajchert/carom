@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mtajchert.carom.app.core.data.repository.UserPreferencesRepository
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.model.NotificationAppSetting
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationAppsRepository
@@ -15,6 +14,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -44,15 +44,14 @@ data class AppsUiState(
     val apps: List<NotificationAppSetting> = emptyList(),
     /** Every app seen so far, to tell "no apps yet" from "no search results". */
     val totalApps: Int = 0,
-    val paused: Boolean = false,
-    val onlyWhenLocked: Boolean = false,
     val accessGranted: Boolean = true,
+    /** Packages picked by long-press; non-empty means the screen is in selection mode. */
+    val selected: Set<String> = emptySet(),
 )
 
 @HiltViewModel
 class AppsViewModel @Inject constructor(
     private val apps: NotificationAppsRepository,
-    private val preferences: UserPreferencesRepository,
     private val access: NotificationAccessChecker,
 ) : ViewModel() {
     private val query = MutableStateFlow("")
@@ -61,14 +60,15 @@ class AppsViewModel @Inject constructor(
 
     /** The expanded row stays listed even if editing it moves it out of the current filter. */
     private val pinned = MutableStateFlow<String?>(null)
+    private val selected = MutableStateFlow<Set<String>>(emptySet())
 
     val uiState: StateFlow<AppsUiState> = combine(
         apps.apps,
-        preferences.userPreferences,
         query,
         accessGranted,
         combine(filter, pinned, ::Pair),
-    ) { all, prefs, q, granted, (f, pin) ->
+        selected,
+    ) { all, q, granted, (f, pin), sel ->
         AppsUiState(
             loading = false,
             query = q,
@@ -78,9 +78,8 @@ class AppsViewModel @Inject constructor(
             offCount = all.count { it.mode == AppForwardingMode.OFF },
             apps = all.filter { it.matches(q) && (f.accepts(it.mode) || it.packageName == pin) },
             totalApps = all.size,
-            paused = prefs.forwardingPaused,
-            onlyWhenLocked = prefs.forwardOnlyWhenLocked,
             accessGranted = granted,
+            selected = sel,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppsUiState())
 
@@ -106,12 +105,26 @@ class AppsViewModel @Inject constructor(
         viewModelScope.launch { apps.setForwardOngoing(packageName, enabled) }
     }
 
-    fun setPaused(value: Boolean) {
-        viewModelScope.launch { preferences.setForwardingPaused(value) }
+    fun toggleSelected(packageName: String) {
+        pinned.value = null
+        selected.update { if (packageName in it) it - packageName else it + packageName }
     }
 
-    fun setOnlyWhenLocked(value: Boolean) {
-        viewModelScope.launch { preferences.setForwardOnlyWhenLocked(value) }
+    /** Selects every app currently listed, or clears the selection when all of them already are. */
+    fun toggleSelectAll() {
+        val listed = uiState.value.apps.map { it.packageName }.toSet()
+        selected.update { if (it.containsAll(listed)) emptySet() else it + listed }
+    }
+
+    fun clearSelection() {
+        selected.value = emptySet()
+    }
+
+    /** Applies [mode] to every selected app and leaves selection mode. */
+    fun setModeForSelected(mode: AppForwardingMode) {
+        val packages = selected.value
+        selected.value = emptySet()
+        viewModelScope.launch { packages.forEach { apps.setMode(it, mode) } }
     }
 
     /** Re-checks notification access, e.g. when the user comes back from system settings. */

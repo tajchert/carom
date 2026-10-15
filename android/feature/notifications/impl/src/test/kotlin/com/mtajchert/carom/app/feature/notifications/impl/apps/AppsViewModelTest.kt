@@ -4,7 +4,6 @@ import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.model.NotificationAppSetting
-import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesRepository
 import com.mtajchert.carom.app.core.testing.util.MainDispatcherRule
 import com.mtajchert.carom.app.feature.notifications.impl.FakeNotificationAppsRepository
 import kotlinx.coroutines.test.runTest
@@ -24,19 +23,17 @@ class AppsViewModelTest {
             NotificationAppSetting("com.bank", "My Bank", AppForwardingMode.HIDE_CONTENT, 0),
         ),
     )
-    private val prefs = FakeUserPreferencesRepository()
     private var granted = false
     // Created on first use, after MainDispatcherRule swaps in the test dispatcher.
-    private val viewModel by lazy { AppsViewModel(apps, prefs) { granted } }
+    private val viewModel by lazy { AppsViewModel(apps) { granted } }
 
     @Test
-    fun `starts loading, then lists apps by label with the global switches`() = runTest {
+    fun `starts loading, then lists apps by label`() = runTest {
         assertTrue(viewModel.uiState.value.loading)
         viewModel.uiState.test {
             val state = awaitLoaded()
             assertEquals(listOf("My Bank", "Signal"), state.apps.map { it.label })
             assertEquals(2, state.totalApps)
-            assertFalse(state.paused)
             assertFalse(state.accessGranted)
         }
     }
@@ -71,18 +68,49 @@ class AppsViewModelTest {
     }
 
     @Test
-    fun `mode and global switches are written through`() = runTest {
+    fun `mode is written through`() = runTest {
         viewModel.uiState.test {
             awaitLoaded()
             viewModel.setMode("org.signal", AppForwardingMode.OFF)
             assertEquals(AppForwardingMode.OFF, awaitItem().apps.first { it.packageName == "org.signal" }.mode)
-            viewModel.setPaused(true)
-            assertTrue(awaitItem().paused)
-            viewModel.setOnlyWhenLocked(true)
-            assertTrue(awaitItem().onlyWhenLocked)
         }
-        assertTrue(prefs.current.forwardingPaused)
-        assertTrue(prefs.current.forwardOnlyWhenLocked)
+    }
+
+    @Test
+    fun `one mode applies to every selected app and ends selection`() = runTest {
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.toggleSelected("org.signal")
+            assertEquals(setOf("org.signal"), awaitItem().selected)
+            viewModel.toggleSelected("com.bank")
+            assertEquals(setOf("org.signal", "com.bank"), awaitItem().selected)
+            viewModel.setModeForSelected(AppForwardingMode.OFF)
+            var state = awaitItem()
+            while (state.offCount < 2) state = awaitItem()
+            assertTrue(state.selected.isEmpty())
+            assertTrue(state.apps.all { it.mode == AppForwardingMode.OFF })
+        }
+    }
+
+    @Test
+    fun `select all covers the listed apps, again clears, toggling deselects`() = runTest {
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.setQuery("bank")
+            awaitItem()
+            viewModel.toggleSelectAll()
+            assertEquals(setOf("com.bank"), awaitItem().selected)
+            viewModel.toggleSelectAll()
+            assertTrue(awaitItem().selected.isEmpty())
+            viewModel.toggleSelected("com.bank")
+            awaitItem()
+            viewModel.toggleSelected("com.bank")
+            assertTrue(awaitItem().selected.isEmpty())
+            viewModel.toggleSelected("com.bank")
+            awaitItem()
+            viewModel.clearSelection()
+            assertTrue(awaitItem().selected.isEmpty())
+        }
     }
 
     @Test

@@ -62,12 +62,14 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `rename and pause are saved`() = runTest {
+    fun `rename, pause and only-when-locked are saved`() = runTest {
         collectState()
         viewModel.rename("Work phone")
         viewModel.setForwardingPaused(true)
+        viewModel.setForwardOnlyWhenLocked(true)
         assertEquals("Work phone", viewModel.uiState.value.deviceName)
         assertTrue(viewModel.uiState.value.forwardingPaused)
+        assertTrue(viewModel.uiState.value.forwardOnlyWhenLocked)
         assertEquals(1, sync.published)
     }
 

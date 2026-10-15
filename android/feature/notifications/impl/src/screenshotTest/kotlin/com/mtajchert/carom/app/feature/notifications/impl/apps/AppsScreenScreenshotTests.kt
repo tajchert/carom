@@ -34,8 +34,6 @@ private fun Apps(state: AppsUiState) {
             onFilterChange = {},
             onModeChange = { _, _ -> },
             onForwardOngoingChange = { _, _ -> },
-            onPausedChange = {},
-            onOnlyWhenLockedChange = {},
             onOpenAccessSettings = {},
         )
     }
@@ -49,7 +47,7 @@ fun AppsPopulatedScreenshotTest() = Apps(populated)
 @PreviewTest
 @LargeFontPreview
 @Composable
-fun AppsPopulatedLargeFontScreenshotTest() = Apps(populated.copy(paused = true))
+fun AppsPopulatedLargeFontScreenshotTest() = Apps(populated)
 
 @PreviewTest
 @Preview(name = "Phone", showBackground = true, widthDp = 412, heightDp = 892, apiLevel = 36)
@@ -60,5 +58,12 @@ fun AppsEmptyNoAccessScreenshotTest() = Apps(AppsUiState(loading = false, access
 @Preview(name = "Phone", showBackground = true, widthDp = 412, heightDp = 892, apiLevel = 36)
 @Composable
 fun AppsNoSearchResultsScreenshotTest() = Apps(
-    populated.copy(query = "weather", apps = emptyList(), onlyWhenLocked = true),
+    populated.copy(query = "weather", apps = emptyList()),
+)
+
+@PreviewTest
+@Preview(name = "Phone", showBackground = true, widthDp = 412, heightDp = 892, apiLevel = 36)
+@Composable
+fun AppsSelectionScreenshotTest() = Apps(
+    populated.copy(selected = setOf("com.google.android.gm", "org.thoughtcrime.securesms")),
 )

@@ -16,6 +16,12 @@ import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
 import com.mtajchert.carom.app.core.model.AppForwardingMode
 import com.mtajchert.carom.app.core.model.NotificationAppSetting
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,7 +36,9 @@ class AppsScreenTest {
     private val ongoing = mutableListOf<Pair<String, Boolean>>()
     private val queries = mutableListOf<String>()
     private val filters = mutableListOf<AppsFilter>()
-    private var paused: Boolean? = null
+    private val toggled = mutableListOf<String>()
+    private val bulk = mutableListOf<AppForwardingMode>()
+    private var cleared = 0
     private var accessClicks = 0
     private var backs = 0
 
@@ -43,9 +51,10 @@ class AppsScreenTest {
                 onFilterChange = { filters += it },
                 onModeChange = { pkg, mode -> modes += pkg to mode },
                 onForwardOngoingChange = { pkg, on -> ongoing += pkg to on },
-                onPausedChange = { paused = it },
-                onOnlyWhenLockedChange = {},
                 onOpenAccessSettings = { accessClicks++ },
+                onToggleSelected = { toggled += it },
+                onClearSelection = { cleared++ },
+                onModeForSelected = { bulk += it },
             )
         }
     }
@@ -67,14 +76,50 @@ class AppsScreenTest {
         composeRule.onNodeWithText("Off").performClick()
         assertEquals(listOf("org.signal" to AppForwardingMode.OFF), modes)
 
-        composeRule.onNodeWithText("Pause forwarding").performClick()
-        assertEquals(true, paused)
-
         composeRule.onNodeWithText("Search apps").performTextInput("sig")
         assertEquals(listOf("sig"), queries)
 
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
         assertEquals(1, backs)
+    }
+
+    @Test
+    fun longPressSelectsAndTheBarAppliesOneMode() {
+        val apps = listOf(
+            NotificationAppSetting("org.signal", "Signal", AppForwardingMode.FORWARD, 0),
+            NotificationAppSetting("com.bank", "My Bank", AppForwardingMode.HIDE_CONTENT, 0),
+        )
+        var state by mutableStateOf(AppsUiState(loading = false, apps = apps, totalApps = 2))
+        composeRule.setContent {
+            CaromTheme {
+                AppsContent(
+                    state = state,
+                    onBack = {},
+                    onQueryChange = {},
+                    onFilterChange = {},
+                    onModeChange = { pkg, mode -> modes += pkg to mode },
+                    onForwardOngoingChange = { _, _ -> },
+                    onOpenAccessSettings = {},
+                    onToggleSelected = { pkg ->
+                        toggled += pkg
+                        state = state.copy(selected = if (pkg in state.selected) state.selected - pkg else state.selected + pkg)
+                    },
+                    onClearSelection = { cleared++ },
+                    onModeForSelected = { bulk += it },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Signal").performTouchInput { longClick() }
+        composeRule.onNodeWithText("1 selected").assertIsDisplayed()
+        // In selection mode a tap toggles instead of expanding.
+        composeRule.onNodeWithText("My Bank").performClick()
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+        assertEquals(listOf("org.signal", "com.bank"), toggled)
+        composeRule.onNodeWithText("Hide content").performClick()
+        assertEquals(listOf(AppForwardingMode.HIDE_CONTENT), bulk)
+        assertTrue(modes.isEmpty())
+        composeRule.onNodeWithContentDescription("Clear selection").performClick()
+        assertEquals(1, cleared)
     }
 
     @Test

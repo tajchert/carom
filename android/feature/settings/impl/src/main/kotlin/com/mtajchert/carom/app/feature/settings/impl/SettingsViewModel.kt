@@ -34,6 +34,7 @@ data class SettingsUiState(
     val paired: Boolean = false,
     val deviceName: String = "",
     val forwardingPaused: Boolean = false,
+    val forwardOnlyWhenLocked: Boolean = false,
     val hubUrl: String? = null,
     val deviceId: String? = null,
     val appVersion: String = "",
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
             paired = paired != null,
             deviceName = name,
             forwardingPaused = prefs.forwardingPaused,
+            forwardOnlyWhenLocked = prefs.forwardOnlyWhenLocked,
             actionsFromMac = prefs.actionsFromMac,
             actionWindowMinutes = prefs.actionWindowMinutes,
             hubUrl = paired?.hubUrl,
@@ -83,6 +85,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setForwardingPaused(paused: Boolean) {
         viewModelScope.launch { preferences.setForwardingPaused(paused) }
+    }
+
+    fun setForwardOnlyWhenLocked(enabled: Boolean) {
+        viewModelScope.launch { preferences.setForwardOnlyWhenLocked(enabled) }
     }
 
     /** Saves the choice and republishes the record: Off removes the action types from `caps`. */

@@ -20,6 +20,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
@@ -107,13 +114,18 @@ fun AppsScreen(onBack: () -> Unit, viewModel: AppsViewModel = hiltViewModel()) {
         onExpandedChange = viewModel::setExpanded,
         onModeChange = viewModel::setMode,
         onForwardOngoingChange = viewModel::setForwardOngoing,
-        onPausedChange = viewModel::setPaused,
-        onOnlyWhenLockedChange = viewModel::setOnlyWhenLocked,
+        onToggleSelected = viewModel::toggleSelected,
+        onToggleSelectAll = viewModel::toggleSelectAll,
+        onClearSelection = viewModel::clearSelection,
+        onModeForSelected = viewModel::setModeForSelected,
         onOpenAccessSettings = { openNotificationAccessSettings(context) },
     )
 }
 
-/** Stateless "Apps" screen: global switches, search, filters, and one Forward / Hide content / Off choice per app. */
+/**
+ * Stateless "Apps" screen: search, filters, and one Forward / Hide content / Off choice per app.
+ * Long-pressing a row starts selection mode, where the bottom bar applies one choice to every selected app.
+ */
 @Composable
 fun AppsContent(
     state: AppsUiState,
@@ -122,16 +134,39 @@ fun AppsContent(
     onFilterChange: (AppsFilter) -> Unit,
     onModeChange: (String, AppForwardingMode) -> Unit,
     onForwardOngoingChange: (String, Boolean) -> Unit,
-    onPausedChange: (Boolean) -> Unit,
-    onOnlyWhenLockedChange: (Boolean) -> Unit,
     onOpenAccessSettings: () -> Unit,
     modifier: Modifier = Modifier,
     onExpandedChange: (String?) -> Unit = {},
+    onToggleSelected: (String) -> Unit = {},
+    onToggleSelectAll: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onModeForSelected: (AppForwardingMode) -> Unit = {},
 ) {
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
+    val selecting = state.selected.isNotEmpty()
+    BackHandler(enabled = selecting, onBack = onClearSelection)
     Scaffold(
         modifier = modifier,
-        topBar = { CaromTopAppBar(title = stringResource(R.string.feature_notifications_apps_title), onNavigationClick = onBack) },
+        topBar = {
+            if (selecting) {
+                CaromTopAppBar(
+                    title = pluralStringResource(R.plurals.feature_notifications_selected_count, state.selected.size, state.selected.size),
+                    onNavigationClick = onClearSelection,
+                    navigationIcon = Icons.Filled.Close,
+                    navigationIconContentDescription = stringResource(R.string.feature_notifications_clear_selection),
+                    actions = {
+                        IconButton(onClick = onToggleSelectAll) {
+                            Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.feature_notifications_select_all))
+                        }
+                    },
+                )
+            } else {
+                CaromTopAppBar(title = stringResource(R.string.feature_notifications_apps_title), onNavigationClick = onBack)
+            }
+        },
+        bottomBar = {
+            if (selecting) BulkModeBar(onModeForSelected)
+        },
     ) { padding ->
         if (state.loading) {
             CaromLoadingIndicator(Modifier.padding(padding))
@@ -154,7 +189,6 @@ fun AppsContent(
                     item(key = "access") { AccessCard(onOpenAccessSettings) }
                 }
                 if (state.totalApps == 0) {
-                    item(key = "switches") { SwitchesCard(state, onPausedChange, onOnlyWhenLockedChange) }
                     item(key = "empty") { EmptyApps() }
                 } else {
                     item(key = "search") { SearchField(state.query, onQueryChange) }
@@ -164,7 +198,6 @@ fun AppsContent(
                             onFilterChange(it)
                         }
                     }
-                    item(key = "switches") { SwitchesCard(state, onPausedChange, onOnlyWhenLockedChange) }
                     if (state.apps.isEmpty()) {
                         item(key = "no_results") {
                             Text(
@@ -184,7 +217,15 @@ fun AppsContent(
                     items(state.apps, key = { it.packageName }) { app ->
                         AppRow(
                             app,
-                            expanded = expanded == app.packageName,
+                            expanded = !selecting && expanded == app.packageName,
+                            selection = if (selecting) app.packageName in state.selected else null,
+                            onToggleSelected = {
+                                if (expanded != null) {
+                                    expanded = null
+                                    onExpandedChange(null)
+                                }
+                                onToggleSelected(app.packageName)
+                            },
                             onToggleExpanded = {
                                 expanded = if (expanded == app.packageName) null else app.packageName
                                 onExpandedChange(expanded)
@@ -213,20 +254,6 @@ private fun AccessCard(onOpenAccessSettings: () -> Unit) {
                 text = stringResource(R.string.feature_notifications_access_action),
                 modifier = Modifier.padding(top = 12.dp),
             )
-        }
-    }
-}
-
-@Composable
-private fun SwitchesCard(
-    state: AppsUiState,
-    onPausedChange: (Boolean) -> Unit,
-    onOnlyWhenLockedChange: (Boolean) -> Unit,
-) {
-    CaromGroup {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-            ToggleRow(stringResource(R.string.feature_notifications_pause), state.paused, onPausedChange)
-            ToggleRow(stringResource(R.string.feature_notifications_only_locked), state.onlyWhenLocked, onOnlyWhenLockedChange)
         }
     }
 }
@@ -338,10 +365,40 @@ private val modes = listOf(
     AppForwardingMode.OFF to R.string.feature_notifications_mode_off,
 )
 
+/** Forward / Hide content / Off for every selected app. */
+@Composable
+private fun BulkModeBar(onModeForSelected: (AppForwardingMode) -> Unit) {
+    BottomAppBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        modes.forEach { (mode, label) ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable(role = Role.Button) { onModeForSelected(mode) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(mode.icon(), contentDescription = null)
+                Text(stringResource(label), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2)
+            }
+        }
+    }
+}
+
+private fun AppForwardingMode.icon(): ImageVector = when (this) {
+    AppForwardingMode.FORWARD -> Icons.AutoMirrored.Filled.ArrowForward
+    AppForwardingMode.HIDE_CONTENT -> Icons.Filled.VisibilityOff
+    AppForwardingMode.OFF -> Icons.Filled.Block
+}
+
+/** [selection] is null outside selection mode, else whether this row is selected. */
 @Composable
 private fun AppRow(
     app: NotificationAppSetting,
     expanded: Boolean,
+    selection: Boolean?,
+    onToggleSelected: () -> Unit,
     onToggleExpanded: () -> Unit,
     onModeChange: (AppForwardingMode) -> Unit,
     onForwardOngoingChange: (Boolean) -> Unit,
@@ -364,16 +421,30 @@ private fun AppRow(
                 },
             ),
     ) {
+        val selectLabel = stringResource(R.string.feature_notifications_select)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics { stateDescription = expandedState }
-                .clickable(onClickLabel = stringResource(R.string.feature_notifications_change_forwarding), role = Role.Button, onClick = onToggleExpanded)
+                .then(
+                    if (selection == null) {
+                        Modifier
+                            .semantics { stateDescription = expandedState }
+                            .combinedClickable(
+                                onClickLabel = stringResource(R.string.feature_notifications_change_forwarding),
+                                role = Role.Button,
+                                onLongClickLabel = selectLabel,
+                                onLongClick = onToggleSelected,
+                                onClick = onToggleExpanded,
+                            )
+                    } else {
+                        Modifier.toggleable(value = selection, role = Role.Checkbox, onValueChange = { onToggleSelected() })
+                    },
+                )
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            AppAvatar(app)
+            if (selection == null) AppAvatar(app) else SelectionMark(selection)
             Column(Modifier.weight(1f)) {
                 Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (app.label != app.packageName) {
@@ -424,6 +495,23 @@ private fun AppRow(
     }
 }
 
+/** Stands in for the app icon in selection mode: a filled check when selected, an empty ring otherwise. */
+@Composable
+private fun SelectionMark(selected: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .then(
+                if (selected) Modifier.background(colors.primary) else Modifier.border(2.dp, colors.outline, CircleShape),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) Icon(Icons.Filled.Check, contentDescription = null, tint = colors.onPrimary)
+    }
+}
+
 /** The app's launcher icon when the package is installed, else its first letter. */
 @Composable
 private fun AppAvatar(app: NotificationAppSetting) {
@@ -453,10 +541,11 @@ private fun AppAvatar(app: NotificationAppSetting) {
 /** One-word state: icon plus label, never colour alone. */
 @Composable
 private fun StateChip(mode: AppForwardingMode) {
-    val (icon, label) = when (mode) {
-        AppForwardingMode.FORWARD -> Icons.AutoMirrored.Filled.ArrowForward to R.string.feature_notifications_mode_forward
-        AppForwardingMode.HIDE_CONTENT -> Icons.Filled.VisibilityOff to R.string.feature_notifications_chip_hide
-        AppForwardingMode.OFF -> Icons.Filled.Block to R.string.feature_notifications_mode_off
+    val icon = mode.icon()
+    val label = when (mode) {
+        AppForwardingMode.FORWARD -> R.string.feature_notifications_mode_forward
+        AppForwardingMode.HIDE_CONTENT -> R.string.feature_notifications_chip_hide
+        AppForwardingMode.OFF -> R.string.feature_notifications_mode_off
     }
     val shape = CircleShape
     val colors = MaterialTheme.colorScheme
