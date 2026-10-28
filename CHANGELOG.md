@@ -3,6 +3,22 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [1.0.6] - 2026-10-28
+
+Pair for codes from Settings, and a taller list in the Mac menu.
+
+### 📱 Android app
+
+- **Verification codes in Settings.** A new row under Forwarding opens code forwarding at any
+  time, so existing installs can pair with the Mac without waiting for the reminder.
+- **Code forwarding shows as on only once the phone is paired with the Mac.** A permission set
+  with adb alone is lost on reboot, so it now counts as off and the screen offers pairing.
+
+### 💻 Mac app
+
+- **The menu shows more.** The recent activity list was squeezed to part of one notification. It
+  now fits about two and a half notifications and scrolls for the rest.
+
 ## [1.0.5] - 2026-10-28
 
 One-time codes on Android 15 and later without adb: the Mac poses as a watch for a moment.
