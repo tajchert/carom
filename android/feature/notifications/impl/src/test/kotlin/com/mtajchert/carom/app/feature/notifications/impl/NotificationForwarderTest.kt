@@ -111,6 +111,97 @@ class NotificationForwarderTest {
     }
 
     @Test
+    fun `resync sends posted copies only to the requester, flagged, uncollapsed and with a one day ttl`() = runTest {
+        val f = forwarder()
+        f.resync("dev_mac") { listOf(snapshot(key = "a"), snapshot(key = "b", text = "second")) }
+        runCurrent()
+        assertEquals(emptyList<String>(), logged)
+        assertEquals(listOf("a", "b"), fake.sent.map { it.body["key"]!!.jsonPrimitive.content })
+        for (s in fake.sent) {
+            assertEquals(MessageTypes.NOTIFICATION_POSTED, s.type)
+            assertEquals(setOf("dev_mac"), s.onlyTo)
+            assertEquals(false, s.collapse)
+            assertEquals(86_400L, s.ttlS)
+            assertEquals(true, MessageBodies.fromJson(MessageBodies.NotificationPosted.serializer(), s.body)!!.resync)
+        }
+        assertEquals(setOf("a", "b"), forwardedKeys.all())
+    }
+
+    @Test
+    fun `live posts carry no resync flag and keep collapsing`() = runTest {
+        val f = forwarder()
+        f.onPosted { snapshot() }
+        runCurrent()
+        assertTrue("resync" !in fake.sent.single().body)
+        assertEquals(true, fake.sent.single().collapse)
+        assertEquals(null, fake.sent.single().ttlS)
+    }
+
+    @Test
+    fun `resync sends nothing while forwarding is paused`() = runTest {
+        prefs.setForwardingPaused(true)
+        val f = forwarder()
+        f.resync("dev_mac") { listOf(snapshot()) }
+        runCurrent()
+        assertTrue(fake.sent.isEmpty())
+    }
+
+    @Test
+    fun `resync ignores only when locked but still honours per app modes and the filters`() = runTest {
+        prefs.setForwardOnlyWhenLocked(true)
+        locked = false
+        apps.recordSeen("com.off", "Off", 0)
+        apps.setMode("com.off", AppForwardingMode.OFF)
+        val f = forwarder()
+        f.onPosted { snapshot(key = "live") }
+        f.resync("dev_mac") {
+            listOf(snapshot(key = "a"), snapshot(key = "b", pkg = "com.off"), snapshot(key = "c").copy(importance = 1))
+        }
+        runCurrent()
+        assertEquals(listOf("a"), fake.sent.map { it.body["key"]!!.jsonPrimitive.content })
+    }
+
+    @Test
+    fun `resync sends keys that were already forwarded again and caps at fifty`() = runTest {
+        val f = forwarder()
+        f.onPosted { snapshot(key = "k0") }
+        runCurrent()
+        f.resync("dev_mac") { (0 until 60).map { snapshot(key = "k$it") } }
+        runCurrent()
+        assertEquals(51, fake.sent.size)
+        assertEquals("k0", fake.sent[1].body["key"]!!.jsonPrimitive.content)
+        assertEquals(true, fake.sent[1].body["resync"]!!.jsonPrimitive.content.toBoolean())
+    }
+
+    @Test
+    fun `resync uploads only the convergent icons`() = runTest {
+        val uploaded = mutableListOf<Set<ImageSlot>>()
+        val f = forwarder(
+            images = ImageLoader { sources -> sources.mapValues { EncodedImage(byteArrayOf(1, 2, 3), 8, 8) } },
+            uploader = BlobUploader { images ->
+                uploaded += images.keys
+                images.mapValues { blobRef("x") }
+            },
+        )
+        val n = snapshot().copy(
+            imageSources = mapOf(
+                ImageSlot.AppIcon to ImageSource.FromApp("com.chat", null),
+                ImageSlot.Picture to ImageSource.FromApp("com.chat", null),
+            ),
+        )
+        f.resync("dev_mac") { listOf(n) }
+        runCurrent()
+        assertEquals(listOf<Set<ImageSlot>>(setOf(ImageSlot.AppIcon)), uploaded)
+    }
+
+    @Test
+    fun `resync with an unreadable list sends nothing`() = runTest {
+        forwarder().resync("dev_mac") { null }
+        runCurrent()
+        assertTrue(fake.sent.isEmpty())
+    }
+
+    @Test
     fun `structurally filtered notifications are neither sent nor recorded`() = runTest {
         val f = forwarder()
         f.onPosted { snapshot(pkg = "com.mtajchert.carom.app") }
@@ -627,6 +718,8 @@ class NotificationForwarderTest {
             replyTo: String?,
             replyToSender: String?,
             onlyTo: Set<String>?,
+            collapse: Boolean,
+            ttlS: Long?,
         ): SendResult {
             failNextSend?.let {
                 failNextSend = null
@@ -637,7 +730,7 @@ class NotificationForwarderTest {
                 tooLargeBodies += body
                 return SendResult.TooLarge
             }
-            return inner.send(type, body, replyTo, replyToSender, onlyTo)
+            return inner.send(type, body, replyTo, replyToSender, onlyTo, collapse, ttlS)
         }
     }
 }

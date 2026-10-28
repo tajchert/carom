@@ -49,6 +49,7 @@
     },
     "when": { "$ref": "urn:carom:v1:common#/$defs/time_ms" },
     "show_when": { "type": "boolean" },
+    "resync": { "type": "boolean", "description": "True on a copy sent in answer to notification.resync@1 (SPEC §4.4)." },
     "chronometer": {
       "type": "object",
       "properties": { "count_down": { "type": "boolean" } },

@@ -211,6 +211,7 @@ object Routing {
             MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone,
             MessageTypes.NOTIFICATION_ACTION to ReceiveRule.Everyone,
             MessageTypes.MEDIA_COMMAND to ReceiveRule.Everyone,
+            MessageTypes.NOTIFICATION_RESYNC to ReceiveRule.Everyone,
         )
         DeviceKind.DESKTOP -> linkedMapOf(
             MessageTypes.NOTIFICATION_POSTED to ReceiveRule.Everyone,

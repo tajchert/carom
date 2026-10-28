@@ -15,6 +15,7 @@ import com.mtajchert.carom.app.core.testing.hub.FakeHub
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -108,6 +109,55 @@ class DefaultCaromSyncTest {
         assertTrue(phone.sync.publishOwnRecord())
         mac.sync.refreshDirectory()
         assertTrue(mac.sync.send(MessageTypes.CLIPBOARD_SET, clipboard("z")) is SendResult.Sent)
+    }
+
+    @Test
+    fun `a phone record without the resync rule gets it added, and a desktop does not`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+
+        phone.receive = mapOf(MessageTypes.CLIPBOARD_SET to ReceiveRule.Everyone)
+        assertTrue(phone.sync.publishOwnRecord())
+        mac.sync.refreshDirectory()
+        val published = mac.directory.all().first { it.id == phone.id }.record!!.receive
+        assertEquals(ReceiveRule.Everyone, published[MessageTypes.NOTIFICATION_RESYNC])
+        assertEquals(ReceiveRule.Everyone, published[MessageTypes.CLIPBOARD_SET])
+
+        assertTrue(mac.sync.publishOwnRecord())
+        phone.sync.refreshDirectory()
+        assertNull(phone.directory.all().first { it.id == mac.id }.record!!.receive[MessageTypes.NOTIFICATION_RESYNC])
+    }
+
+    @Test
+    fun `a resync request is collapsed, and a posted copy without collapse keeps a one day ttl`() = runTest {
+        val h = SyncHarness(this)
+        val phone = h.setUp()
+        val mac = h.join(phone, "Mac")
+        phone.sync.refreshDirectory()
+        mac.sync.refreshDirectory()
+
+        assertTrue(mac.sync.send(MessageTypes.NOTIFICATION_RESYNC, JsonObject(emptyMap())) is SendResult.Sent)
+        assertTrue(mac.sync.send(MessageTypes.NOTIFICATION_RESYNC, JsonObject(emptyMap())) is SendResult.Sent)
+        phone.sync.fetchMessages()
+        val requests = phone.received(MessageTypes.NOTIFICATION_RESYNC)
+        assertEquals(1, requests.size) // the newer request replaced the queued one
+        assertEquals(mac.id, requests.single().envelope.from)
+
+        val copy = phone.sync.send(
+            MessageTypes.NOTIFICATION_POSTED, posted("k1"),
+            onlyTo = setOf(mac.id), collapse = false, ttlS = 86_400L,
+        )
+        assertTrue(copy is SendResult.Sent)
+        val live = phone.sync.send(MessageTypes.NOTIFICATION_POSTED, posted("k1"))
+        assertTrue(live is SendResult.Sent)
+        mac.sync.fetchMessages()
+        val got = mac.received(MessageTypes.NOTIFICATION_POSTED)
+        assertEquals(2, got.size) // the live post did not replace the copy
+        assertNull(got[0].envelope.collapse)
+        assertEquals(86_400L, got[0].envelope.ttlS)
+        assertNotNull(got[1].envelope.collapse)
+        assertEquals(2 * 86_400L, got[1].envelope.ttlS)
     }
 
     @Test

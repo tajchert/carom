@@ -10,6 +10,7 @@ import com.mtajchert.carom.app.core.protocol.B64
 import com.mtajchert.carom.app.core.protocol.Blobs
 import com.mtajchert.carom.app.core.protocol.Collapse
 import com.mtajchert.carom.app.core.protocol.DeviceIds
+import com.mtajchert.carom.app.core.protocol.DeviceKind
 import com.mtajchert.carom.app.core.protocol.DeviceRecord
 import com.mtajchert.carom.app.core.protocol.Envelope
 import com.mtajchert.carom.app.core.protocol.Envelopes
@@ -22,6 +23,7 @@ import com.mtajchert.carom.app.core.protocol.Payload
 import com.mtajchert.carom.app.core.protocol.Protocol
 import com.mtajchert.carom.app.core.protocol.ReceiveContext
 import com.mtajchert.carom.app.core.protocol.ReceiveError
+import com.mtajchert.carom.app.core.protocol.ReceiveRule
 import com.mtajchert.carom.app.core.protocol.Received
 import com.mtajchert.carom.app.core.protocol.Receiver
 import com.mtajchert.carom.app.core.protocol.Records
@@ -132,6 +134,8 @@ class DefaultCaromSync(
         replyTo: String?,
         replyToSender: String?,
         onlyTo: Set<String>?,
+        collapse: Boolean,
+        ttlS: Long?,
     ): SendResult = outboxLock.withLock {
         val s = session() ?: return SendResult.NotPaired
         val records = directory.all().mapNotNull { it.record }
@@ -143,15 +147,15 @@ class DefaultCaromSync(
         val payload = Payload(type = type, ts = now, body = body, replyTo = replyTo)
         if (payload.encode(pad = false).size > Protocol.Limits.MAX_PLAINTEXT) return SendResult.TooLarge
         val msgId = ids.next()
-        val ttlS = MessageTypes.defaultTtlS(type)
-        val envelope = seal(s.identity, s.key, msgId, to, ttlS, payload)
+        val ttl = ttlS ?: MessageTypes.defaultTtlS(type)
+        val envelope = seal(s.identity, s.key, msgId, to, ttl, payload, collapse)
         val item = OutboxItem(
             msgId = msgId,
             type = type,
             recipients = to,
             envelopeJson = envelope.toJsonString(),
             createdAt = now,
-            expiresAt = now + ttlS * 1000,
+            expiresAt = now + ttl * 1000,
             state = OutboxState.PENDING,
         )
         outbox.put(item)
@@ -270,14 +274,23 @@ class DefaultCaromSync(
         val original = parseJsonOrNull(item.envelopeJson)
         val opened = Envelopes.open(original, s.identity.signPub, contents.keysByKv)
         val value = (opened as? Outcome.Ok)?.value ?: return null
-        val envelope = seal(s.identity, key, item.msgId, recipients, value.envelope.ttlS, value.payload)
+        val envelope = seal(s.identity, key, item.msgId, recipients, value.envelope.ttlS, value.payload, collapses = value.envelope.collapse != null)
         val next = item.copy(recipients = recipients, envelopeJson = envelope.toJsonString())
         outbox.put(next)
         return next
     }
 
-    private fun seal(identity: Identity, key: StoredGroupKey, msgId: String, to: List<String>, ttlS: Long, payload: Payload): Envelope {
+    /** A phone paired before `notification.resync@1` existed gets it added (SPEC §5.1); there is no setting to turn it off. */
+    private fun withResyncRule(kind: DeviceKind, receive: Map<String, ReceiveRule>): Map<String, ReceiveRule> =
+        if (kind == DeviceKind.PHONE && MessageTypes.NOTIFICATION_RESYNC !in receive) {
+            receive + (MessageTypes.NOTIFICATION_RESYNC to ReceiveRule.Everyone)
+        } else {
+            receive
+        }
+
+    private fun seal(identity: Identity, key: StoredGroupKey, msgId: String, to: List<String>, ttlS: Long, payload: Payload, collapses: Boolean = true): Envelope {
         val collapse = MessageTypes.collapseRealKey(payload.type, payload.body)
+            ?.takeIf { collapses }
             ?.let { Collapse.value(key.key, identity.deviceId, it) }
         return Envelopes.seal(
             msgId = msgId,
@@ -842,7 +855,7 @@ class DefaultCaromSync(
             signPub = B64.encode(s.identity.signPub),
             kxPub = B64.encode(s.identity.kxPub),
             caps = advertisedCaps(profile),
-            receive = profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind),
+            receive = withResyncRule(profile.kind, profile.receive ?: previous?.receive ?: Routing.defaultReceive(profile.kind)),
             updated = maxOf(clock.now(), (previous?.updated ?: 0) + 1),
         )
         val sealed = Records.seal(record, s.key.key, s.key.kv, s.identity.signSk, rng = rng)

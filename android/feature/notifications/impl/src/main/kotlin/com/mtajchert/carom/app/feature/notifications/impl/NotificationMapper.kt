@@ -112,6 +112,7 @@ object NotificationMapper {
         category = body.category,
         postedAt = body.postedAt.coerceAtLeast(0),
         redacted = body.redacted,
+        resync = body.resync,
     )
 
     fun postedJson(body: MessageBodies.NotificationPosted): JsonObject =

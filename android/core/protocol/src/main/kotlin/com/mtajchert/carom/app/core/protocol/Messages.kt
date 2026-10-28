@@ -19,6 +19,7 @@ object MessageTypes {
     const val NOTIFICATION_ACTION_RESULT = "notification.action_result@1"
     const val MEDIA_STATE = "media.state@1"
     const val MEDIA_COMMAND = "media.command@1"
+    const val NOTIFICATION_RESYNC = "notification.resync@1"
 
     val ALL: Set<String> = linkedSetOf(
         NOTIFICATION_POSTED,
@@ -30,6 +31,7 @@ object MessageTypes {
         NOTIFICATION_ACTION_RESULT,
         MEDIA_STATE,
         MEDIA_COMMAND,
+        NOTIFICATION_RESYNC,
     )
 
     /** Types that are always a reply: a message without payload-level `reply_to` is `bad_payload` (SPEC V2 §3.5). */
@@ -58,6 +60,7 @@ object MessageTypes {
         CLIPBOARD_SET -> "clip"
         DEVICE_STATUS -> "status"
         MEDIA_STATE -> body["session"].stringOrNull()?.let { "m:$it" }
+        NOTIFICATION_RESYNC -> "resync"
         else -> null
     }
 
@@ -183,8 +186,9 @@ object MessageTypes {
             body.str("key") && isValidApp(body["app"]) &&
                 body.optStr("title") && body.optStr("text") && body.optStr("sub_text") && body.optStr("category") &&
                 body["posted_at"].safeUintOrNull() != null && body["redacted"].booleanOrNull() != null &&
-                body.optBool("ongoing") && isValidPostedExtras(body)
+                body.optBool("ongoing") && body.optBool("resync") && isValidPostedExtras(body)
         NOTIFICATION_REMOVED, NOTIFICATION_DISMISS -> body.str("key")
+        NOTIFICATION_RESYNC -> true
         NOTIFICATION_ACTION -> body.str("key") && isValidActionRef(body["action"])
         NOTIFICATION_ACTION_RESULT -> body["ok"].booleanOrNull() != null && body.optStr("error")
         MEDIA_STATE ->
@@ -352,9 +356,14 @@ object MessageBodies {
         val call: Call? = null,
         val group: Group? = null,
         val channel: Channel? = null,
+        val resync: Boolean? = null,
     ) {
         override fun toString() = "NotificationPosted(key=$key, app=${app.id})" // never log content
     }
+
+    /** A desktop asks the phone to re-send what it shows (SPEC §4.4). */
+    @Serializable
+    data object NotificationResync
 
     @Serializable
     data class NotificationRemoved(val key: String)

@@ -11,6 +11,7 @@ public enum Routing {
                 MessageType.notificationDismiss.rawValue: .everyone,
                 MessageType.notificationAction.rawValue: .everyone,
                 MessageType.mediaCommand.rawValue: .everyone,
+                MessageType.notificationResync.rawValue: .everyone,
             ]
         case .desktop:
             [

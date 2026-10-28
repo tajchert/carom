@@ -30,6 +30,7 @@ class MessageTypesV2Test {
             listOf(
                 "notification.posted@1", "notification.removed@1", "notification.dismiss@1", "clipboard.set@1", "device.status@1",
                 "notification.action@1", "notification.action_result@1", "media.state@1", "media.command@1",
+                "notification.resync@1",
             ),
             MessageTypes.ALL.toList(),
         )
@@ -48,6 +49,8 @@ class MessageTypesV2Test {
         assertNull(MessageTypes.collapseRealKey(MessageTypes.NOTIFICATION_ACTION, obj("""{"key":"k"}""")))
         assertNull(MessageTypes.collapseRealKey(MessageTypes.NOTIFICATION_ACTION_RESULT, obj("""{"ok":true}""")))
         assertNull(MessageTypes.collapseRealKey(MessageTypes.MEDIA_COMMAND, obj("""{"session":"abc"}""")))
+        assertEquals(86_400L, MessageTypes.defaultTtlS(MessageTypes.NOTIFICATION_RESYNC))
+        assertEquals("resync", MessageTypes.collapseRealKey(MessageTypes.NOTIFICATION_RESYNC, obj("""{}""")))
     }
 
     @Test
@@ -202,6 +205,7 @@ class MessageTypesV2Test {
         val phoneRules = Routing.defaultReceive(DeviceKind.PHONE)
         assertEquals(ReceiveRule.Everyone, phoneRules[MessageTypes.NOTIFICATION_ACTION])
         assertEquals(ReceiveRule.Everyone, phoneRules[MessageTypes.MEDIA_COMMAND])
+        assertEquals(ReceiveRule.Everyone, phoneRules[MessageTypes.NOTIFICATION_RESYNC])
         assertNull(phoneRules[MessageTypes.MEDIA_STATE])
         assertNull(phoneRules[MessageTypes.NOTIFICATION_ACTION_RESULT])
         val desktopRules = Routing.defaultReceive(DeviceKind.DESKTOP)
@@ -209,6 +213,7 @@ class MessageTypesV2Test {
         assertEquals(ReceiveRule.Everyone, desktopRules[MessageTypes.MEDIA_STATE])
         assertNull(desktopRules[MessageTypes.NOTIFICATION_ACTION])
         assertNull(desktopRules[MessageTypes.MEDIA_COMMAND])
+        assertNull(desktopRules[MessageTypes.NOTIFICATION_RESYNC])
         assertEquals(setOf(MessageTypes.CLIPBOARD_SET), Routing.defaultReceive(DeviceKind.CLI).keys)
     }
 }

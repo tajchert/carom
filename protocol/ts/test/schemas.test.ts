@@ -150,6 +150,9 @@ describe('JSON Schemas', () => {
     ['media.command@1', { session: 's', command: 'seek', position_ms: 1_000 }, true],
     ['media.command@1', { session: 's', command: 'seek' }, false],
     ['media.command@1', { session: 's', command: 'stop' }, false],
+    ['notification.resync@1', {}, true],
+    ['notification.posted@1', { ...MIN_POSTED, resync: true }, true],
+    ['notification.posted@1', { ...MIN_POSTED, resync: 'yes' }, false],
   ];
   it.each(bodies)('%s body validator matches the schema: %j', (type, body, expected) => {
     expect(validate(type, body)).toBe(expected);

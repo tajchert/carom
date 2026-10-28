@@ -26,6 +26,8 @@ interface CaromSync {
      *
      * @param replyTo msg_id this replies to; the message then goes only to [replyToSender].
      * @param onlyTo optional user selection ("Send clipboard to"), intersected with the routing rules.
+     * @param collapse false omits the envelope's collapse value (a resync copy must not replace a queued message for another desktop).
+     * @param ttlS overrides the type's default TTL.
      */
     suspend fun send(
         type: String,
@@ -33,6 +35,8 @@ interface CaromSync {
         replyTo: String? = null,
         replyToSender: String? = null,
         onlyTo: Set<String>? = null,
+        collapse: Boolean = true,
+        ttlS: Long? = null,
     ): SendResult
 
     /** Posts every due outbox item. Returns the earliest time more work is due, or null. */

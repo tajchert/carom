@@ -71,6 +71,10 @@
           "body": { "$ref": "urn:carom:v1:media.command@1" }
         }
       }
+    },
+    {
+      "if": { "properties": { "type": { "const": "notification.resync@1" } } },
+      "then": { "properties": { "body": { "$ref": "urn:carom:v1:notification.resync@1" } } }
     }
   ]
 }

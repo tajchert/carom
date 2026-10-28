@@ -25,6 +25,8 @@ class FakeCaromSync : CaromSync {
         val replyTo: String?,
         val onlyTo: Set<String>?,
         val replyToSender: String? = null,
+        val collapse: Boolean = true,
+        val ttlS: Long? = null,
     )
 
     val sent = mutableListOf<Sent>()
@@ -40,8 +42,8 @@ class FakeCaromSync : CaromSync {
     var published = 0
     var wipes = 0
 
-    override suspend fun send(type: String, body: JsonObject, replyTo: String?, replyToSender: String?, onlyTo: Set<String>?): SendResult {
-        sent += Sent(type, body, replyTo, onlyTo, replyToSender)
+    override suspend fun send(type: String, body: JsonObject, replyTo: String?, replyToSender: String?, onlyTo: Set<String>?, collapse: Boolean, ttlS: Long?): SendResult {
+        sent += Sent(type, body, replyTo, onlyTo, replyToSender, collapse, ttlS)
         return nextSendResult
     }
 

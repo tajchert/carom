@@ -120,6 +120,7 @@ describe('messages and routing', () => {
     expect(DEFAULT_TTL_S['notification.action_result@1']).toBe(600);
     expect(DEFAULT_TTL_S['media.state@1']).toBe(86_400);
     expect(DEFAULT_TTL_S['media.command@1']).toBe(600);
+    expect(DEFAULT_TTL_S['notification.resync@1']).toBe(86_400);
     expect(collapseRealKey('notification.posted@1', { key: 'k', app: { id: 'a', name: 'A' }, posted_at: 0, redacted: false })).toBe('n:k');
     expect(collapseRealKey('notification.removed@1', { key: 'k' })).toBe('n:k');
     expect(collapseRealKey('clipboard.set@1', { mime: 'text/plain', text: '', sensitive: false })).toBe('clip');
@@ -129,6 +130,7 @@ describe('messages and routing', () => {
     expect(collapseRealKey('notification.action@1', { key: 'k', action: 'answer' })).toBeNull();
     expect(collapseRealKey('notification.action_result@1', { ok: true })).toBeNull();
     expect(collapseRealKey('media.command@1', { session: 's1', command: 'play' })).toBeNull();
+    expect(collapseRealKey('notification.resync@1', {})).toBe('resync');
     expect(MESSAGE_TYPES.filter(requiresReplyTo)).toEqual([
       'notification.dismiss@1',
       'notification.action@1',
@@ -143,6 +145,7 @@ describe('messages and routing', () => {
       'notification.dismiss@1': '*',
       'notification.action@1': '*',
       'media.command@1': '*',
+      'notification.resync@1': '*',
     });
     expect(Object.keys(defaultReceive('desktop')).sort()).toEqual([
       'clipboard.set@1',

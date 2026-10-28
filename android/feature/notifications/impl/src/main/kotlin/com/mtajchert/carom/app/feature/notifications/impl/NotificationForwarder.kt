@@ -73,6 +73,7 @@ class NotificationForwarder(
         class Posted(val read: suspend () -> NotificationSnapshot?) : Event
         class Removed(val key: String) : Event
         class Reconcile(val activeKeys: () -> Set<String>?) : Event
+        class Resync(val requester: String, val active: () -> List<NotificationSnapshot>?) : Event
     }
 
     private sealed interface Work {
@@ -144,36 +145,84 @@ class NotificationForwarder(
         when (event) {
             is Event.Posted -> event.read()?.let { posted(it) }
             is Event.Removed -> submit(event.key, Work.Remove)
+            is Event.Resync -> resynced(event.requester, event.active)
             is Event.Reconcile -> event.activeKeys()?.let { active ->
                 for (key in forwarded.all() - active) submit(key, Work.Remove)
             }
         }
     }
 
-    private suspend fun posted(n: NotificationSnapshot) {
-        if (NotificationFilter.structural(n, env.ownPackage) != null) return
-        val now = env.now()
-        val app = apps.recordSeen(n.packageName, n.appLabel, now)
+    /**
+     * Answers `notification.resync@1` (SPEC §4.4): sends [requester] a `resync` copy of each
+     * active notification that passes the usual filters. Runs beside the live pipeline, since up to
+     * [RESYNC_MAX] sends can take a while. [active] runs on the consumer, newest first; null means
+     * the list could not be read.
+     */
+    fun resync(requester: String, active: () -> List<NotificationSnapshot>?) {
+        events.trySend(Event.Resync(requester, active))
+    }
+
+    private suspend fun resynced(requester: String, active: () -> List<NotificationSnapshot>?) {
+        val list = active() ?: return
+        scope.launch {
+            for (n in list.take(RESYNC_MAX)) {
+                try {
+                    resyncOne(requester, n)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    env.log("resync_failed", e.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private suspend fun resyncOne(requester: String, n: NotificationSnapshot) {
+        val admitted = admit(n, resync = true) ?: return
+        // Only the per-app icons: they come from the convergent cache; message-scoped images are skipped.
+        val sources = n.imageSources.filterKeys { it.convergent && (!admitted.hide || it == ImageSlot.AppIcon) }
+        val encoded = if (sources.isEmpty()) emptyMap() else images.load(sources)
+        val refs = if (encoded.isEmpty()) emptyMap() else uploader.upload(encoded)
+        val work = Work.Post(n.copy(imageSources = emptyMap()), admitted.label, admitted.hide, encoded, UpdateThrottle.Traits(), hash = "")
+        val result = sendBody(work, refs, NotificationMapper.MAX_BODY_BYTES, requester)
+            .let { if (it == SendResult.TooLarge) sendBody(work, refs, NotificationMapper.FALLBACK_BODY_BYTES, requester) else it }
+        // The Mac may now show this key, so a later removal must reach it.
+        if (result is SendResult.Sent || result is SendResult.Queued) forwarded.add(n.key, env.now())
+        after(result)
+    }
+
+    private class Admitted(val label: String, val hide: Boolean)
+
+    /** The filters and per-app mode shared by live posts and resync; null when [n] must not be sent. */
+    private suspend fun admit(n: NotificationSnapshot, resync: Boolean): Admitted? {
+        if (NotificationFilter.structural(n, env.ownPackage) != null) return null
+        val app = apps.recordSeen(n.packageName, n.appLabel, env.now())
         val prefs = preferences.userPreferences.first()
+        // A resync is an explicit request, so "only when the screen is locked" does not apply.
+        val onlyWhenLocked = prefs.forwardOnlyWhenLocked && !resync
         val skip = NotificationFilter.policy(
             mode = app.mode,
             paused = prefs.forwardingPaused,
-            onlyWhenLocked = prefs.forwardOnlyWhenLocked,
-            screenLocked = prefs.forwardOnlyWhenLocked && env.isScreenLocked(),
+            onlyWhenLocked = onlyWhenLocked,
+            screenLocked = onlyWhenLocked && env.isScreenLocked(),
         ) ?: NotificationFilter.ongoing(n, app.forwardOngoing)
-        if (skip != null) return
+        if (skip != null) return null
+        return Admitted(app.label, hide = app.mode == AppForwardingMode.HIDE_CONTENT)
+    }
 
-        val hide = app.mode == AppForwardingMode.HIDE_CONTENT
+    private suspend fun posted(n: NotificationSnapshot) {
+        val admitted = admit(n, resync = false) ?: return
+        val hide = admitted.hide
         // Content-URI grants end with the notification, so images are loaded now, before any upload.
         // Hide content shows the app icon only: nothing else is loaded, let alone uploaded.
         val sources = if (hide) n.imageSources.filterKeys { it == ImageSlot.AppIcon } else n.imageSources
         val encoded = if (sources.isEmpty()) emptyMap() else images.load(sources)
-        val plain = NotificationMapper.posted(n, app.label, hide)
+        val plain = NotificationMapper.posted(n, admitted.label, hide)
         submit(
             n.key,
             Work.Post(
                 n = n.copy(imageSources = emptyMap()),
-                appName = app.label,
+                appName = admitted.label,
                 hide = hide,
                 images = encoded,
                 traits = UpdateThrottle.Traits(
@@ -269,13 +318,23 @@ class NotificationForwarder(
         work: Work.Post,
         refs: Map<ImageSlot, MessageBodies.BlobRef>,
         maxBodyBytes: Int,
+        resyncFor: String? = null,
     ): SendResult {
-        val body = NotificationMapper.posted(work.n, work.appName, work.hide, refs, maxBodyBytes = maxBodyBytes)
+        var body = NotificationMapper.posted(work.n, work.appName, work.hide, refs, maxBodyBytes = maxBodyBytes)
+        if (resyncFor != null) body = body.copy(resync = true)
         var json = NotificationMapper.postedJson(body)
         if (!MessageTypes.isValidBody(MessageTypes.NOTIFICATION_POSTED, json)) {
             // The Mac would reject the whole message; send what V1 knows instead. A code only, never content.
             env.log("notification_invalid_body")
             json = NotificationMapper.postedJson(NotificationMapper.v1Only(body))
+        }
+        if (resyncFor != null) {
+            // Not collapsed: the Hub keeps one message per (sender, collapse) whatever the recipients, so a
+            // collapse value would replace a queued copy meant for another desktop (SPEC §4.4).
+            return sync.send(
+                MessageTypes.NOTIFICATION_POSTED, json,
+                onlyTo = setOf(resyncFor), collapse = false, ttlS = RESYNC_TTL_S,
+            )
         }
         return sync.send(MessageTypes.NOTIFICATION_POSTED, json)
     }
@@ -333,5 +392,7 @@ class NotificationForwarder(
 
     companion object {
         const val FETCH_INTERVAL_MS = 15_000L
+        const val RESYNC_MAX = 50
+        private const val RESYNC_TTL_S = 86_400L
     }
 }

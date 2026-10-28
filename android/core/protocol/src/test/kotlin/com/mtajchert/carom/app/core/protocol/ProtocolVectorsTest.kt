@@ -504,6 +504,7 @@ class ProtocolVectorsTest {
             MessageTypes.NOTIFICATION_ACTION_RESULT -> roundTrip(MessageBodies.NotificationActionResult.serializer(), body, ordered = false)
             MessageTypes.MEDIA_STATE -> roundTrip(MessageBodies.MediaState.serializer(), body, ordered = false)
             MessageTypes.MEDIA_COMMAND -> roundTrip(MessageBodies.MediaCommand.serializer(), body, ordered = false)
+            MessageTypes.NOTIFICATION_RESYNC -> roundTrip(MessageBodies.NotificationResync.serializer(), body)
             else -> error("unknown type $type")
         }
     }

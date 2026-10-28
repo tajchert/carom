@@ -16,6 +16,7 @@ export function defaultReceive(kind: DeviceKind): Partial<Record<MessageType, Re
         'notification.dismiss@1': '*',
         'notification.action@1': '*',
         'media.command@1': '*',
+        'notification.resync@1': '*',
       };
     case 'desktop':
       return {

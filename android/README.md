@@ -61,7 +61,11 @@ Done (foundation):
   kept in Room, so removals are sent across listener reconnects and process death; on connect the
   listener sends `removed` for forwarded keys that are no longer showing.
   `notification.dismiss@1` cancels the notification if it is still showing (the engine has
-  already checked that the key matches the posted message it replies to). The "Apps" screen
+  already checked that the key matches the posted message it replies to).
+  `notification.resync@1` (a desktop that just launched) makes the listener re-send up to 50 active
+  notifications to that desktop only, as `notification.posted@1` with `resync: true`, no collapse
+  value and a one day TTL; it ignores "Only when locked" and duplicate suppression, honours pause
+  and the per-app modes, and uploads only the per-app icons. The "Apps" screen
   (`NotificationAppsRoute`) lists apps seen posting notifications with their Forward / Hide
   content / Off mode and the "Ongoing: Forward / Off" switch.
 - Actions, media and code forwarding (`feature:notifications:impl`, packages `actions/`, `media/`

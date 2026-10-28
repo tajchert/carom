@@ -74,6 +74,24 @@ class CaromListenerService : NotificationListenerService() {
                 Log.i(TAG, "listener_rebind_failed")
             }
         }
+
+        override fun resync(requester: String) {
+            val f = forwarder ?: return
+            f.resync(requester) {
+                try {
+                    val ranking = currentRanking
+                    activeNotifications.orEmpty()
+                        .filter { it.packageName != packageName }
+                        .sortedByDescending { it.postTime }
+                        .take(NotificationForwarder.RESYNC_MAX)
+                        .map { snapshot(it, ranking) }
+                } catch (_: SecurityException) {
+                    null // access was revoked
+                } catch (_: RuntimeException) {
+                    null // the binder went away
+                }
+            }
+        }
     }
 
     override fun onListenerConnected() {
@@ -119,13 +137,16 @@ class CaromListenerService : NotificationListenerService() {
         mediaBridge.onPosted(sbn)
         callTracker.onPosted(sbn)
         f.onPosted {
-            val ranking = Ranking()
-            val map = rankingMap ?: currentRanking
-            extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true }).also {
+            snapshot(sbn, rankingMap ?: currentRanking).also {
                 // Android 15+ hid the content: offer code forwarding (spec §5.2). No content is passed on.
                 if (it.redacted) redactionPrompt.onRedacted()
             }
         }
+    }
+
+    private fun snapshot(sbn: StatusBarNotification, map: RankingMap?): NotificationSnapshot {
+        val ranking = Ranking()
+        return extractor.extract(sbn, ranking.takeIf { map?.getRanking(sbn.key, it) == true })
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) = onNotificationPosted(sbn, null)
@@ -188,6 +209,9 @@ class ActiveNotificationsBridge @Inject constructor() : ListenerReconnector {
 
         /** Unbinds and rebinds the listener so Android re-reads its access to codes. */
         fun reconnect() {}
+
+        /** Re-sends what is showing to [requester] (`notification.resync@1`). */
+        fun resync(requester: String) = Unit
     }
 
     @Volatile
@@ -206,6 +230,13 @@ class ActiveNotificationsBridge @Inject constructor() : ListenerReconnector {
         val l = listener ?: return false
         if (!l.isActive(key)) return false
         l.cancel(key)
+        return true
+    }
+
+    /** Asks the connected listener to answer a resync from [requester]; false when none is connected. */
+    fun resync(requester: String): Boolean {
+        val l = listener ?: return false
+        l.resync(requester)
         return true
     }
 

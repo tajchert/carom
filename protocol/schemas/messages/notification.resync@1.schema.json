@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carom:v1:notification.resync@1",
+  "title": "notification.resync@1 body",
+  "description": "SPEC §4.4. Desktop to phone: re-send the notifications you currently show. Default TTL 1 day, collapse key `resync`. The body has no fields.",
+  "type": "object"
+}

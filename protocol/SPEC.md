@@ -225,6 +225,7 @@ MUST ignore unknown fields.
 | `notification.action_result@1` | phone → desktop | `ok, error?` (§4.2) | 10 minutes | none | required: the action msg_id |
 | `media.state@1` | phone → desktop | §4.3 | 1 day | `m:<session>` | — |
 | `media.command@1` | desktop → phone | `session, command, position_ms?` (§4.3) | 10 minutes | none | required: a `media.state` msg_id of that session |
+| `notification.resync@1` | desktop → phone | `{}` (none) | 1 day | `resync` | — |
 
 Notification text is plain text. Receivers MUST NOT render markup or auto-open URLs.
 
@@ -259,6 +260,7 @@ Text fields are plain text.
 | `call` | `{type, person?, is_video?, verification?}` | `type` is `incoming`, `ongoing`, `screening` or `unknown`, and receivers treat other values as `unknown`. `person` is `{name, key?, icon?}`. |
 | `group` | `{key, summary, sort_key?, alert}` | `alert` is `all`, `summary` or `children`, and receivers treat other values as `all`. |
 | `channel` | `{id, importance}` | `importance` is the `NotificationManager.IMPORTANCE_*` value. |
+| `resync` | bool | `true` on a copy sent in answer to `notification.resync@1` (§4.4). |
 
 `ongoing` is now filled in.
 
@@ -318,6 +320,25 @@ that lists them.
 `next`, `previous` and `seek`, and `seek` requires `position_ms`. There is no result message:
 the next `media.state@1` shows the effect.
 
+### 4.4 Resync
+
+A desktop keeps its recent notifications in memory only. Once per launch, after its first
+successful sync, it sends `notification.resync@1` to ask each capable phone to re-send what it
+currently shows. The body is empty and receivers ignore unknown fields.
+
+The phone sends nothing while forwarding is paused. Otherwise it takes its active
+notifications, newest first, at most 50, and sends each through the usual filters and
+per-app modes as a `notification.posted@1` with `resync: true`. It ignores the "only when
+locked" condition and any duplicate suppression. The copies go only to the requesting
+desktop, with TTL 1 day and no collapse value: the Hub keeps one message per (`from`,
+collapse) whatever the recipients (§3.2), so a collapse value would replace a queued copy
+meant for another desktop.
+
+A receiver adds a `resync` copy only if it does not already hold that key, since a live post
+that arrived first is newer. It never alerts for it: no banner, sound or other presentation.
+The copy's `posted_at` stays the notification's original time, and the desktop can reply to
+the copy's msg_id like any posted notification (§3.3 rule 7).
+
 ## 5. Devices, directory and trust
 
 ### 5.1 Device record (plaintext)
@@ -366,6 +387,9 @@ Default `receive` written at pairing:
 | `notification.dismiss@1` | `"*"` (only replies to its own notifications arrive) | — |
 | `notification.action@1`, `media.command@1` | `"*"` (only replies to its own messages arrive) | — |
 | `notification.action_result@1`, `media.state@1` | — | `"*"` |
+| `notification.resync@1` | `"*"` (only a desktop sends it) | — |
+
+A phone adds `notification.resync@1` to a stored `receive` map that lacks it, so a phone paired before the type existed starts receiving it.
 
 A `cli` device receives only `clipboard.set@1` by default. Routing (§5.2) also requires the
 type in the recipient's `caps`, so a phone gets actions only while it lists them (§4.2).

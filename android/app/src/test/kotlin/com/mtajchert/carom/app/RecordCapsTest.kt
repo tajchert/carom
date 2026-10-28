@@ -62,9 +62,15 @@ class RecordCapsTest {
     fun setUp() = hiltRule.inject()
 
     @Test
-    fun `the app handles exactly clipboard, dismiss, actions and media commands`() {
+    fun `the app handles exactly clipboard, dismiss, actions, media commands and resync`() {
         assertEquals(
-            setOf(MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_DISMISS, MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND),
+            setOf(
+                MessageTypes.CLIPBOARD_SET,
+                MessageTypes.NOTIFICATION_DISMISS,
+                MessageTypes.NOTIFICATION_ACTION,
+                MessageTypes.MEDIA_COMMAND,
+                MessageTypes.NOTIFICATION_RESYNC,
+            ),
             handlers.map { it.type }.toSet(),
         )
     }
@@ -76,7 +82,13 @@ class RecordCapsTest {
         assertEquals(DeviceKind.PHONE, record.kind)
         // "Actions from Mac" defaults to After a notification, so both action types are advertised.
         assertEquals(
-            listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_ACTION, MessageTypes.MEDIA_COMMAND),
+            listOf(
+                MessageTypes.NOTIFICATION_DISMISS,
+                MessageTypes.CLIPBOARD_SET,
+                MessageTypes.NOTIFICATION_ACTION,
+                MessageTypes.MEDIA_COMMAND,
+                MessageTypes.NOTIFICATION_RESYNC,
+            ),
             record.caps,
         )
         assertEquals(
@@ -85,6 +97,7 @@ class RecordCapsTest {
                 MessageTypes.NOTIFICATION_DISMISS to ReceiveRule.Everyone,
                 MessageTypes.NOTIFICATION_ACTION to ReceiveRule.Everyone,
                 MessageTypes.MEDIA_COMMAND to ReceiveRule.Everyone,
+                MessageTypes.NOTIFICATION_RESYNC to ReceiveRule.Everyone,
             ),
             record.receive,
         )
@@ -96,7 +109,7 @@ class RecordCapsTest {
 
         val record = publishedRecord()
 
-        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET), record.caps)
+        assertEquals(listOf(MessageTypes.NOTIFICATION_DISMISS, MessageTypes.CLIPBOARD_SET, MessageTypes.NOTIFICATION_RESYNC), record.caps)
     }
 
     /** Enrolls through the real engine on an in-memory Hub and opens this phone's published record. */

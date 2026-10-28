@@ -55,6 +55,19 @@ struct RecentActivity: Equatable, Sendable {
         if notifications.count > Self.notificationLimit { notifications.removeLast(notifications.count - Self.notificationLimit) }
     }
 
+    /// Adds a copy the phone re-sent after a restart, unless the phone and key are already listed
+    /// (a live post that arrived first is newer). It goes in by date, keeping the list newest
+    /// first. Returns whether it was added.
+    @discardableResult
+    mutating func addResynced(_ n: RecentNotification) -> Bool {
+        guard !notifications.contains(where: { $0.id == n.id }) else { return false }
+        let index = notifications.firstIndex { $0.date < n.date } ?? notifications.endIndex
+        guard index < Self.notificationLimit else { return false }
+        notifications.insert(n, at: index)
+        if notifications.count > Self.notificationLimit { notifications.removeLast(notifications.count - Self.notificationLimit) }
+        return true
+    }
+
     mutating func add(_ clip: RecentClip) {
         clips.insert(clip, at: 0)
         if clips.count > Self.clipLimit { clips.removeLast(clips.count - Self.clipLimit) }

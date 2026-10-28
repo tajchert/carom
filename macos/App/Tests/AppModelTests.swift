@@ -24,9 +24,68 @@ private func replyable(_ key: String = "k1") -> Message {
     return .notificationPosted(n)
 }
 
+private func resynced(_ key: String, postedAt: Int, text: String? = "Your code is 482913") -> Message {
+    .notificationPosted(NotificationPosted(key: key, app: .init(id: "com.chat", name: "Chat"), title: "Ana",
+                                           text: text, postedAt: postedAt, resync: true))
+}
+
 @MainActor
 @Suite("AppModel")
 struct AppModelTests {
+    // MARK: Resync
+
+    @Test func resyncCopyIsListedSilently() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(resynced("k1", postedAt: 1_000), msgId: "m1", sender: pixel)
+        let n = h.model.activity.notifications
+        #expect(n.map(\.key) == ["k1"])
+        #expect(n.first?.msgId == "m1")
+        #expect(n.first?.date == Date(timeIntervalSince1970: 1))
+        #expect(h.panel.shows == 0)
+        #expect(h.presenter.presented.isEmpty)
+        #expect(h.model.notifications.cards.isEmpty)
+    }
+
+    @Test func resyncCopyIsSkippedWhenTheKeyIsHeld() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(posted("k1", text: "live"), msgId: "live", sender: pixel)
+        await h.model.dispatch(resynced("k1", postedAt: 1_000, text: "old"), msgId: "copy", sender: pixel)
+        #expect(h.model.activity.notifications.count == 1)
+        #expect(h.model.activity.notifications.first?.msgId == "live")
+        #expect(h.model.activity.notifications.first?.text == "live")
+    }
+
+    @Test func resyncCopiesKeepTheListNewestFirst() async {
+        let h = Harness()
+        await h.start()
+        await h.model.dispatch(resynced("mid", postedAt: 2_000), msgId: "m1", sender: pixel)
+        await h.model.dispatch(resynced("new", postedAt: 3_000), msgId: "m2", sender: pixel)
+        await h.model.dispatch(resynced("old", postedAt: 1_000), msgId: "m3", sender: pixel)
+        #expect(h.model.activity.notifications.map(\.key) == ["new", "mid", "old"])
+    }
+
+    @Test func resyncCopyOfAMutedAppIsDropped() async {
+        let h = Harness()
+        await h.start()
+        h.model.setMuted("com.chat", true)
+        await h.model.dispatch(resynced("k1", postedAt: 1_000), msgId: "m1", sender: pixel)
+        #expect(h.model.activity.notifications.isEmpty)
+    }
+
+    @Test func resyncIsRequestedOncePerLaunch() async {
+        let h = Harness()
+        await h.start()
+        h.model.realtimeChanged(.connected)
+        h.model.realtimeChanged(.connecting)
+        h.model.realtimeChanged(.connected)
+        await settle()
+        let sent = await h.sync.sent.filter { $0.type == .notificationResync }
+        #expect(sent.count == 1)
+        #expect(sent.first?.body == [:])
+    }
+
     // MARK: Rich notifications
 
     @Test func nativeOnlyStyleSkipsThePanelAndIsSaved() async {

@@ -173,6 +173,8 @@ export function messageVectors(): VectorFile {
     { name: 'stopped media session with only the required fields', payload: { type: 'media.state@1', ts: T0 + 80_000, body: { session: MEDIA_SESSION, app: { id: 'com.spotify.music', name: 'Spotify' }, state: 'stopped', controls: [] } } },
     { name: 'seek command', payload: MEDIA_COMMAND },
     { name: 'next command', payload: { type: 'media.command@1', ts: T0 + 46_000, reply_to: MEDIA_COMMAND.reply_to!, body: { session: MEDIA_SESSION, command: 'next' } } },
+    { name: 'resync request (empty body)', payload: { type: 'notification.resync@1', ts: T0 + 90_000, body: {} } },
+    { name: 'resync copy of a posted notification', payload: { ...HIDDEN, body: { ...HIDDEN.body, resync: true } } },
   ];
   const invalid: Array<[string, MessageType, Record<string, unknown>]> = [
     ['color is not an integer', 'notification.posted@1', { ...MIN_POSTED, color: 1.5 }],
@@ -197,6 +199,7 @@ export function messageVectors(): VectorFile {
     ['blob reference without hash', 'notification.posted@1', { ...MIN_POSTED, large_icon: { id: AVATAR_REF.id, key: AVATAR_REF.key, mime: AVATAR_REF.mime, size: AVATAR_REF.size } }],
     ['blob reference key with padding', 'notification.posted@1', { ...MIN_POSTED, large_icon: { ...AVATAR_REF, key: AVATAR_REF.key + '=' } }],
     ['app icon is not a blob reference', 'notification.posted@1', { ...MIN_POSTED, app: { id: 'a', name: 'A', icon: 'icon.png' } }],
+    ['resync is not a boolean', 'notification.posted@1', { ...MIN_POSTED, resync: 'yes' }],
     ['unknown fixed action', 'notification.action@1', { key: 'k', action: 'press' }],
     ['button without title', 'notification.action@1', { key: 'k', action: { index: 0 } }],
     ['reply_text is not a string', 'notification.action@1', { key: 'k', action: { index: 0, title: 'Reply', reply_text: 5 } }],
@@ -229,6 +232,7 @@ export function messageVectors(): VectorFile {
     { type: 'notification.action_result@1', body: ACTION_RESULT.body },
     { type: 'media.state@1', body: MEDIA_STATE.body },
     { type: 'media.command@1', body: MEDIA_COMMAND.body },
+    { type: 'notification.resync@1', body: {} },
   ];
 
   for (const c of valid) {

@@ -166,7 +166,8 @@ public enum Receiver {
             case .mediaCommand(let command):
                 allowed = isMediaCommandAllowed(session: command.session, replyTo: replyTo,
                                                 originalSessions: ctx.originalSessions)
-            case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState:
+            case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState,
+                 .notificationResync:
                 allowed = true
             }
             if !allowed { return .failure(.replyNotAllowed) }

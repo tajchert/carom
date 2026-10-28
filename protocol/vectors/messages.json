@@ -45,6 +45,11 @@
       "type": "media.command@1",
       "default_ttl_s": 600,
       "reply_to_required": true
+    },
+    {
+      "type": "notification.resync@1",
+      "default_ttl_s": 86400,
+      "reply_to_required": false
     }
   ],
   "collapse_cases": [
@@ -265,6 +270,11 @@
         "position_ms": 90000
       },
       "real_key": null
+    },
+    {
+      "type": "notification.resync@1",
+      "body": {},
+      "real_key": "resync"
     }
   ],
   "valid": [
@@ -659,6 +669,40 @@
         "body": {
           "session": "com.spotify.music/7f3a9c",
           "command": "next"
+        }
+      }
+    },
+    {
+      "name": "resync request (empty body)",
+      "payload": {
+        "type": "notification.resync@1",
+        "ts": 1791648090000,
+        "body": {}
+      }
+    },
+    {
+      "name": "resync copy of a posted notification",
+      "payload": {
+        "type": "notification.posted@1",
+        "ts": 1791648070000,
+        "body": {
+          "key": "0|com.whatsapp|2|family|10124",
+          "app": {
+            "id": "com.whatsapp",
+            "name": "WhatsApp",
+            "icon": {
+              "id": "a_E-v7sgUURwwK0nQ5Gp_giYa2yQSns6vxL3Z0aujzc",
+              "key": "DoMnd3QFh8LLGjD_mF29dAdu9aE-d8AVIeOCbIHQ5yI",
+              "mime": "image/webp",
+              "size": 300,
+              "hash": "e6ZrrzwPfx57VPWgppiTpA",
+              "w": 128,
+              "h": 128
+            }
+          },
+          "posted_at": 1791648069000,
+          "redacted": true,
+          "resync": true
         }
       }
     }
@@ -1152,6 +1196,20 @@
         },
         "posted_at": 1791648000000,
         "redacted": false
+      }
+    },
+    {
+      "name": "resync is not a boolean",
+      "type": "notification.posted@1",
+      "body": {
+        "key": "k",
+        "app": {
+          "id": "a",
+          "name": "A"
+        },
+        "posted_at": 1791648000000,
+        "redacted": false,
+        "resync": "yes"
       }
     },
     {

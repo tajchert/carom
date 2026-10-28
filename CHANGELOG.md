@@ -3,6 +3,20 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [Unreleased]
+
+### 💻 Mac app
+
+- **The menu fills in after a restart.** At launch the Mac asks your phone to re-send the
+  notifications it still shows, so the list isn't empty. They appear quietly, without banners or
+  sounds. With **Actions from Mac: Always** they arrive at once; otherwise the next time the phone
+  connects.
+
+### 📱 Android app
+
+- Answers the Mac's request with the notifications it currently shows, following Pause and your
+  per-app settings.
+
 ## [1.0.7] - 2026-10-28
 
 One-time codes show up on the Mac right after pairing.

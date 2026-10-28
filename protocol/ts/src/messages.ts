@@ -14,6 +14,7 @@ export const MESSAGE_TYPES = [
   'notification.action_result@1',
   'media.state@1',
   'media.command@1',
+  'notification.resync@1',
 ] as const;
 
 export type MessageType = (typeof MESSAGE_TYPES)[number];
@@ -148,6 +149,8 @@ export interface NotificationPostedBody {
   call?: CallInfo;
   group?: GroupInfo;
   channel?: ChannelInfo;
+  /** True on a copy sent in answer to `notification.resync@1`. Receivers never alert for it. */
+  resync?: boolean;
 }
 
 export interface NotificationRemovedBody {
@@ -158,6 +161,9 @@ export interface NotificationRemovedBody {
 export interface NotificationDismissBody {
   key: string;
 }
+
+/** Sent by a desktop to a phone; asks it to re-send what it currently shows (SPEC §4.4). */
+export type NotificationResyncBody = Record<string, never>;
 
 export interface ClipboardSetBody {
   mime: 'text/plain';
@@ -222,6 +228,7 @@ export interface MessageBodies {
   'notification.action_result@1': NotificationActionResultBody;
   'media.state@1': MediaStateBody;
   'media.command@1': MediaCommandBody;
+  'notification.resync@1': NotificationResyncBody;
 }
 
 const DAY_S = 86_400;
@@ -237,6 +244,7 @@ export const DEFAULT_TTL_S: Record<MessageType, number> = {
   'notification.action_result@1': ACTION_TTL_S,
   'media.state@1': DAY_S,
   'media.command@1': ACTION_TTL_S,
+  'notification.resync@1': DAY_S,
 };
 
 const REPLY_TYPES: ReadonlySet<MessageType> = new Set<MessageType>([
@@ -265,6 +273,8 @@ export function collapseRealKey<T extends MessageType>(type: T, body: MessageBod
       return 'clip';
     case 'device.status@1':
       return 'status';
+    case 'notification.resync@1':
+      return 'resync';
     case 'media.state@1':
       return `m:${(body as MediaStateBody).session}`;
     default:
@@ -368,7 +378,8 @@ const BODY_VALIDATORS: Record<MessageType, (b: Obj) => boolean> = {
     opt(isChronometer)(b.chronometer) &&
     opt(isCall)(b.call) &&
     opt(isGroup)(b.group) &&
-    opt(isChannel)(b.channel),
+    opt(isChannel)(b.channel) &&
+    optBool(b.resync),
   'notification.removed@1': (b) => isStr(b.key),
   'notification.dismiss@1': (b) => isStr(b.key),
   'clipboard.set@1': (b) =>
@@ -397,6 +408,7 @@ const BODY_VALIDATORS: Record<MessageType, (b: Obj) => boolean> = {
     COMMANDS.has(b.command) &&
     optMs(b.position_ms) &&
     (b.command !== 'seek' || b.position_ms !== undefined),
+  'notification.resync@1': () => true,
 };
 
 /** Checks the known fields of a body. */

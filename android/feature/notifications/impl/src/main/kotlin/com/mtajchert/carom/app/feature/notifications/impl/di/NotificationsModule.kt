@@ -15,6 +15,7 @@ import com.mtajchert.carom.app.feature.notifications.impl.IconCache
 import com.mtajchert.carom.app.feature.notifications.impl.ImageEncoder
 import com.mtajchert.carom.app.feature.notifications.impl.ImageLoader
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationAppsRepository
+import com.mtajchert.carom.app.feature.notifications.impl.NotificationResyncHandler
 import com.mtajchert.carom.app.feature.notifications.impl.NotificationDismissHandler
 import com.mtajchert.carom.app.feature.notifications.impl.RedactionDetector
 import com.mtajchert.carom.app.feature.notifications.impl.RoomForwardedKeys
@@ -73,6 +74,11 @@ internal abstract class NotificationsModule {
     @Binds
     @IntoSet
     abstract fun bindsDismissHandler(impl: NotificationDismissHandler): IncomingMessageHandler
+
+    /** Adds `notification.resync@1` to this device's caps and known types. */
+    @Binds
+    @IntoSet
+    abstract fun bindsResyncHandler(impl: NotificationResyncHandler): IncomingMessageHandler
 
     @Binds
     abstract fun bindsImageLoader(impl: ImageEncoder): ImageLoader

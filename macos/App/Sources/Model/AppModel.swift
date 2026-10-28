@@ -142,6 +142,7 @@ final class AppModel {
     @ObservationIgnored private var socket: HubSocket?
     @ObservationIgnored private var monitor: SystemMonitor?
     @ObservationIgnored private var realtimeTask: Task<Void, Never>?
+    @ObservationIgnored private var resyncRequested = false
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var outboxTask: Task<Void, Never>?
     @ObservationIgnored private var unreachableTask: Task<Void, Never>?
@@ -378,6 +379,7 @@ final class AppModel {
         switch state {
         case .connected:
             connection = .connected
+            requestResyncOnce()
             unreachableTask?.cancel()
             unreachableTask = nil
             dismissBanner(kind: .hubUnreachable)
@@ -388,6 +390,18 @@ final class AppModel {
             armUnreachable()
         case .offline:
             break  // stopRealtime, revoke and reset set the state themselves
+        }
+    }
+
+    /// Asks the phones to re-send what they show, once per launch, after the first connection.
+    private func requestResyncOnce() {
+        guard !resyncRequested, !preferences.paused else { return }
+        resyncRequested = true
+        let sync = self.sync
+        Task {
+            do { _ = try await sync.send(NotificationResync(), replyTo: nil, only: nil) } catch {
+                log.error("resync request failed")
+            }
         }
     }
 
@@ -482,9 +496,18 @@ final class AppModel {
             // Hide content on the phone, which sends `redacted: true` and no text (SPEC §4.1).
             let text = n.redacted && (n.text ?? "").isEmpty ? UserMessages.contentHiddenOnPhone : n.text
             let code = CodeExtractor.code(in: n)
-            activity.add(RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
+            let recent = RecentNotification(phoneId: sender.id, phoneName: sender.name, appId: n.app.id,
                                             appName: n.app.name, title: n.title, text: text, key: n.key,
-                                            msgId: msgId, code: code, date: postedDate(n.postedAt), icon: n.app.icon))
+                                            msgId: msgId, code: code, date: postedDate(n.postedAt), icon: n.app.icon)
+            if n.resync == true {
+                // A copy re-sent after a restart: menu list and Live Updates chip only, no alert.
+                guard activity.addResynced(recent) else { return }
+                await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
+                trackLive(phoneId: sender.id, posted: n)
+                trace("notification resynced")
+                return
+            }
+            activity.add(recent)
             await blobs.noteIcons([n.app.icon, n.smallIcon].compactMap { $0 })
             trackLive(phoneId: sender.id, posted: n)
             if !isLate { autoCopy(code, phoneId: sender.id, key: n.key) }
@@ -526,7 +549,7 @@ final class AppModel {
             trace("action result")
         case .mediaState(let m):
             applyMedia(m, msgId: msgId, sender: sender)
-        case .notificationAction, .mediaCommand:
+        case .notificationAction, .mediaCommand, .notificationResync:
             break  // a desktop does not receive these
         }
     }

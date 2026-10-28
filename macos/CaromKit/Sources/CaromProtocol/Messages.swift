@@ -11,12 +11,13 @@ public enum MessageType: String, Sendable, CaseIterable, Codable {
     case notificationActionResult = "notification.action_result@1"
     case mediaState = "media.state@1"
     case mediaCommand = "media.command@1"
+    case notificationResync = "notification.resync@1"
 
     /// Default TTL in seconds.
     public var defaultTtlS: Int {
         switch self {
         case .notificationPosted, .notificationRemoved: 2 * 86_400
-        case .notificationDismiss, .clipboardSet, .deviceStatus, .mediaState: 86_400
+        case .notificationDismiss, .clipboardSet, .deviceStatus, .mediaState, .notificationResync: 86_400
         case .notificationAction, .notificationActionResult, .mediaCommand: 600
         }
     }
@@ -25,7 +26,7 @@ public enum MessageType: String, Sendable, CaseIterable, Codable {
     public var requiresReplyTo: Bool {
         switch self {
         case .notificationDismiss, .notificationAction, .notificationActionResult, .mediaCommand: true
-        case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState: false
+        case .notificationPosted, .notificationRemoved, .clipboardSet, .deviceStatus, .mediaState, .notificationResync: false
         }
     }
 }
@@ -147,6 +148,8 @@ public struct NotificationPosted: MessageBody {
     public var call: Call?
     public var group: Group?
     public var channel: Channel?
+    /// `true` on a copy sent in answer to `notification.resync@1` (SPEC §4.4).
+    public var resync: Bool?
 
     public init(key: String, app: App, title: String? = nil, text: String? = nil, subText: String? = nil,
                 category: String? = nil, postedAt: Int, redacted: Bool = false, ongoing: Bool? = nil,
@@ -156,7 +159,7 @@ public struct NotificationPosted: MessageBody {
                 conversation: Conversation? = nil, messages: [ConversationMessage]? = nil,
                 actions: [Action]? = nil, progress: Progress? = nil, live: Live? = nil,
                 when: Int? = nil, showWhen: Bool? = nil, chronometer: Chronometer? = nil, call: Call? = nil,
-                group: Group? = nil, channel: Channel? = nil) {
+                group: Group? = nil, channel: Channel? = nil, resync: Bool? = nil) {
         self.key = key
         self.app = app
         self.title = title
@@ -187,6 +190,7 @@ public struct NotificationPosted: MessageBody {
         self.call = call
         self.group = group
         self.channel = channel
+        self.resync = resync
     }
 
     public init?(json b: JSONObject) {
@@ -213,7 +217,8 @@ public struct NotificationPosted: MessageBody {
                 showWhen: try b.opt("show_when", \.boolValue),
                 chronometer: try b.opt("chronometer", { Chronometer(json: $0) }),
                 call: try b.opt("call", { Call(json: $0) }), group: try b.opt("group", { Group(json: $0) }),
-                channel: try b.opt("channel", { Channel(json: $0) }))
+                channel: try b.opt("channel", { Channel(json: $0) }),
+                resync: try b.opt("resync", \.boolValue))
         } catch { return nil }
     }
 
@@ -249,6 +254,7 @@ public struct NotificationPosted: MessageBody {
         if let call { o["call"] = call.json }
         if let group { o["group"] = group.json }
         if let channel { o["channel"] = channel.json }
+        if let resync { o["resync"] = .bool(resync) }
         return o
     }
 
@@ -278,6 +284,15 @@ public struct NotificationDismiss: MessageBody {
     }
     public var json: JSONObject { ["key": .string(key)] }
     public var collapseRealKey: String? { nil }
+}
+
+/// Desktop to phone: asks the phone to re-send its active notifications (SPEC §4.4).
+public struct NotificationResync: MessageBody {
+    public static let type = MessageType.notificationResync
+    public init() {}
+    public init?(json b: JSONObject) {}
+    public var json: JSONObject { [:] }
+    public var collapseRealKey: String? { "resync" }
 }
 
 public struct ClipboardSet: MessageBody {
@@ -354,6 +369,7 @@ public enum Message: Sendable, Equatable {
     case notificationActionResult(NotificationActionResult)
     case mediaState(MediaState)
     case mediaCommand(MediaCommand)
+    case notificationResync(NotificationResync)
 
     /// Decodes a known type's body; nil when the body fails its schema (`bad_payload`).
     public init?(type: MessageType, body: JSONObject) {
@@ -369,6 +385,7 @@ public enum Message: Sendable, Equatable {
             guard let b = NotificationActionResult(json: body) else { return nil }; self = .notificationActionResult(b)
         case .mediaState: guard let b = MediaState(json: body) else { return nil }; self = .mediaState(b)
         case .mediaCommand: guard let b = MediaCommand(json: body) else { return nil }; self = .mediaCommand(b)
+        case .notificationResync: guard let b = NotificationResync(json: body) else { return nil }; self = .notificationResync(b)
         }
     }
 
@@ -383,6 +400,7 @@ public enum Message: Sendable, Equatable {
         case .notificationActionResult: .notificationActionResult
         case .mediaState: .mediaState
         case .mediaCommand: .mediaCommand
+        case .notificationResync: .notificationResync
         }
     }
 
@@ -397,6 +415,7 @@ public enum Message: Sendable, Equatable {
         case .notificationActionResult(let b): b
         case .mediaState(let b): b
         case .mediaCommand(let b): b
+        case .notificationResync(let b): b
         }
     }
 }
@@ -425,6 +444,10 @@ extension NotificationRemoved: CustomStringConvertible {
 
 extension NotificationDismiss: CustomStringConvertible {
     public var description: String { "NotificationDismiss(key: \(key))" }
+}
+
+extension NotificationResync: CustomStringConvertible {
+    public var description: String { "NotificationResync()" }
 }
 
 extension ClipboardSet: CustomStringConvertible {
