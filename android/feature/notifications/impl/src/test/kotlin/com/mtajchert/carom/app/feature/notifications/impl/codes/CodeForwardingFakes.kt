@@ -35,3 +35,13 @@ class FakeRedactionPromptStore : RedactionPromptStore {
     override var lastShownAt: Long? = null
     override var muted = false
 }
+
+class FakeListenerReconnector : ListenerReconnector {
+    var connected = true
+    var calls = 0
+
+    override fun reconnect(): Boolean {
+        calls++
+        return connected
+    }
+}

@@ -56,6 +56,9 @@ class PrefsRedactionPromptStore @Inject constructor(
  * Offers code forwarding when [com.mtajchert.carom.app.feature.notifications.impl.RedactionDetector]
  * fires (spec §5.2). At most once per [COOLDOWN_MS], never after the user picks "Don't show again",
  * and only on Android 15+. The prompt never carries notification content.
+ *
+ * Codes hidden despite an association usually mean the listener bound before the association
+ * existed, so the first time per process it rebinds the listener instead of prompting.
  */
 @Singleton
 class RedactionPrompt @Inject constructor(
@@ -63,17 +66,26 @@ class RedactionPrompt @Inject constructor(
     private val associations: AssociationApi,
     private val notifier: RedactionPromptNotifier,
     private val store: RedactionPromptStore,
+    private val listener: ListenerReconnector,
 ) {
+    @Volatile
+    private var reconnected = false
+
     fun onRedacted(now: Long = System.currentTimeMillis()) {
-        if (store.muted) return
         val state = access.state()
         if (state == CodeForwardingState.UNSUPPORTED) return
+        val stillRedacted = state == CodeForwardingState.ENABLED || associations.hasAssociation()
+        if (stillRedacted && !reconnected) {
+            reconnected = true
+            if (listener.reconnect()) return
+        }
+        if (store.muted) return
         synchronized(this) {
             val last = store.lastShownAt
             if (last != null && now - last in 0 until COOLDOWN_MS) return
             store.lastShownAt = now
         }
-        notifier.show(stillRedacted = state == CodeForwardingState.ENABLED || associations.hasAssociation())
+        notifier.show(stillRedacted = stillRedacted)
     }
 
     companion object {

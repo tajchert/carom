@@ -28,7 +28,8 @@ class CodeForwardingViewModelTest {
 
     private val access = FakeCodeForwardingAccess()
     private val associations = FakeAssociationApi()
-    private val vm by lazy { CodeForwardingViewModel(associations, access) }
+    private val listener = FakeListenerReconnector()
+    private val vm by lazy { CodeForwardingViewModel(associations, access, listener) }
     private val sender: IntentSender = PendingIntent.getActivity(
         ApplicationProvider.getApplicationContext<Context>(),
         0,
@@ -49,7 +50,7 @@ class CodeForwardingViewModelTest {
         vm.open(stillRedacted = false)
         assertEquals(CodeForwardingUi.Enabled, vm.ui.value)
 
-        val again = CodeForwardingViewModel(associations, access)
+        val again = CodeForwardingViewModel(associations, access, listener)
         again.open(stillRedacted = true)
         assertEquals(CodeForwardingUi.UseAdb(access.adbCommand()), again.ui.value)
     }
@@ -88,6 +89,7 @@ class CodeForwardingViewModelTest {
         runCurrent()
         assertEquals(CodeForwardingUi.Enabled, vm.ui.value)
         assertEquals(1, associations.calls)
+        assertEquals(1, listener.calls)
     }
 
     @Test
@@ -106,6 +108,7 @@ class CodeForwardingViewModelTest {
         vm.enable()
         runCurrent()
         assertEquals(CodeForwardingUi.UseAdb(access.adbCommand()), vm.ui.value)
+        assertEquals(0, listener.calls)
     }
 
     @Test
@@ -122,6 +125,7 @@ class CodeForwardingViewModelTest {
         vm.onConsentResult(ok = true)
         runCurrent()
         assertEquals(CodeForwardingUi.Enabled, vm.ui.value)
+        assertEquals(1, listener.calls)
     }
 
     @Test
@@ -132,6 +136,7 @@ class CodeForwardingViewModelTest {
         vm.consentLaunched()
         vm.onConsentResult(ok = false)
         assertEquals(CodeForwardingUi.Intro, vm.ui.value)
+        assertEquals(0, listener.calls)
     }
 
     @Test

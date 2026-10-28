@@ -3,6 +3,7 @@ package com.mtajchert.carom.app.feature.notifications.impl.di
 import com.mtajchert.carom.app.core.data.runtime.SyncStartHook
 import com.mtajchert.carom.app.core.data.sync.IncomingMessageHandler
 import com.mtajchert.carom.app.core.data.sync.WipeHook
+import com.mtajchert.carom.app.feature.notifications.impl.ActiveNotificationsBridge
 import com.mtajchert.carom.app.feature.notifications.impl.BlobUploader
 import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingAccess
 import com.mtajchert.carom.app.feature.notifications.impl.ClearForwardedKeysOnWipe
@@ -26,6 +27,7 @@ import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidAssociati
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidCodeForwardingAccess
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AppOpsSensitiveAccessChecker
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AndroidRedactionPromptNotifier
+import com.mtajchert.carom.app.feature.notifications.impl.codes.ListenerReconnector
 import com.mtajchert.carom.app.feature.notifications.impl.codes.AssociationApi
 import com.mtajchert.carom.app.feature.notifications.impl.codes.PrefsRedactionPromptStore
 import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPromptNotifier
@@ -109,6 +111,9 @@ internal abstract class NotificationsModule {
     /** Used by onboarding, which depends on `:feature:notifications:api` only. */
     @Binds
     abstract fun bindsCodeForwardingAccess(impl: AndroidCodeForwardingAccess): CodeForwardingAccess
+
+    @Binds
+    abstract fun bindsListenerReconnector(impl: ActiveNotificationsBridge): ListenerReconnector
 
     @Binds
     abstract fun bindsRedactionPromptNotifier(impl: AndroidRedactionPromptNotifier): RedactionPromptNotifier

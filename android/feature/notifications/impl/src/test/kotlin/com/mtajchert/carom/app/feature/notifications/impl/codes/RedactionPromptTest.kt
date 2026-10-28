@@ -9,7 +9,8 @@ class RedactionPromptTest {
     private val associations = FakeAssociationApi()
     private val store = FakeRedactionPromptStore()
     private val shown = mutableListOf<Boolean>()
-    private val prompt = RedactionPrompt(access, associations, { shown += it }, store)
+    private val listener = FakeListenerReconnector()
+    private val prompt = RedactionPrompt(access, associations, { shown += it }, store, listener)
     private val hour = 60 * 60 * 1000L
 
     @Test
@@ -35,7 +36,34 @@ class RedactionPromptTest {
     }
 
     @Test
+    fun `hidden codes despite an association first rebind the listener, once`() {
+        associations.associated = true
+        prompt.onRedacted(now = 1_000)
+        assertEquals(1, listener.calls)
+        assertEquals(emptyList<Boolean>(), shown)
+
+        prompt.onRedacted(now = 2_000)
+        assertEquals(1, listener.calls)
+        assertEquals(listOf(true), shown)
+    }
+
+    @Test
+    fun `a muted prompt still rebinds the listener`() {
+        store.muted = true
+        access.current = CodeForwardingState.ENABLED
+        prompt.onRedacted(now = 1_000)
+        assertEquals(1, listener.calls)
+    }
+
+    @Test
+    fun `without an association it prompts and leaves the listener alone`() {
+        prompt.onRedacted(now = 1_000)
+        assertEquals(0, listener.calls)
+    }
+
+    @Test
     fun `hidden codes despite an enabled switch or an association point to the adb command`() {
+        listener.connected = false
         access.current = CodeForwardingState.ENABLED
         prompt.onRedacted(now = 1_000)
         access.current = CodeForwardingState.NOT_ENABLED
@@ -47,7 +75,7 @@ class RedactionPromptTest {
     @Test
     fun `the cooldown survives a new process`() {
         prompt.onRedacted(now = 1_000)
-        val restarted = RedactionPrompt(access, associations, { shown += it }, store)
+        val restarted = RedactionPrompt(access, associations, { shown += it }, store, listener)
         restarted.onRedacted(now = 1_000 + hour)
         assertEquals(1, shown.size)
     }

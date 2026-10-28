@@ -1,6 +1,7 @@
 package com.mtajchert.carom.app.feature.notifications.impl
 
 import android.app.KeyguardManager
+import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -10,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import com.mtajchert.carom.app.feature.notifications.impl.codes.ListenerReconnector
 import com.mtajchert.carom.app.feature.notifications.impl.codes.RedactionPrompt
 import com.mtajchert.carom.app.feature.notifications.impl.media.MediaBridge
 import dagger.hilt.android.AndroidEntryPoint
@@ -60,6 +62,17 @@ class CaromListenerService : NotificationListenerService() {
             getActiveNotifications(arrayOf(key))?.firstOrNull { it.key == key }
         } catch (_: SecurityException) {
             null // access was revoked between the check and the call
+        }
+
+        override fun reconnect() {
+            Log.i(TAG, "listener_rebind")
+            val component = ComponentName(this@CaromListenerService, CaromListenerService::class.java)
+            try {
+                requestUnbind()
+                requestRebind(component)
+            } catch (_: RuntimeException) {
+                Log.i(TAG, "listener_rebind_failed")
+            }
         }
     }
 
@@ -165,13 +178,16 @@ class CaromListenerService : NotificationListenerService() {
  * attaches itself while the system has it bound.
  */
 @javax.inject.Singleton
-class ActiveNotificationsBridge @Inject constructor() {
+class ActiveNotificationsBridge @Inject constructor() : ListenerReconnector {
     interface Listener {
         fun isActive(key: String): Boolean
         fun cancel(key: String)
 
         /** The live notification for [key], or null when it is gone or access was revoked. */
         fun find(key: String): StatusBarNotification? = null
+
+        /** Unbinds and rebinds the listener so Android re-reads its access to codes. */
+        fun reconnect() {}
     }
 
     @Volatile
@@ -195,4 +211,10 @@ class ActiveNotificationsBridge @Inject constructor() {
 
     /** The live notification for [key] from the connected listener, or null when none is connected or it is gone. */
     fun find(key: String): StatusBarNotification? = listener?.find(key)
+
+    override fun reconnect(): Boolean {
+        val l = listener ?: return false
+        l.reconnect()
+        return true
+    }
 }

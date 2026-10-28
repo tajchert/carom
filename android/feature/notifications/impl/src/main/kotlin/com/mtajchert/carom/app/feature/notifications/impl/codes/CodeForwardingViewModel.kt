@@ -35,6 +35,7 @@ sealed interface CodeForwardingUi {
 class CodeForwardingViewModel @Inject constructor(
     private val associations: AssociationApi,
     private val access: CodeForwardingAccess,
+    private val listener: ListenerReconnector,
 ) : ViewModel() {
     private val state = MutableStateFlow<CodeForwardingUi>(CodeForwardingUi.Intro)
     val ui: StateFlow<CodeForwardingUi> = state.asStateFlow()
@@ -64,7 +65,7 @@ class CodeForwardingViewModel @Inject constructor(
         state.value = CodeForwardingUi.Working
         viewModelScope.launch {
             state.value = when (val outcome = associations.associate()) {
-                AssociationOutcome.Created -> verified()
+                AssociationOutcome.Created -> associated()
                 is AssociationOutcome.NeedsConsent -> CodeForwardingUi.Consent(outcome.sender)
                 is AssociationOutcome.Failed -> CodeForwardingUi.UseAdb(access.adbCommand())
             }
@@ -82,7 +83,13 @@ class CodeForwardingViewModel @Inject constructor(
             state.value = CodeForwardingUi.Intro
             return
         }
-        viewModelScope.launch { state.value = verified() }
+        viewModelScope.launch { state.value = associated() }
+    }
+
+    /** The listener only sees codes once it rebinds after the association exists. */
+    private suspend fun associated(): CodeForwardingUi {
+        listener.reconnect()
+        return verified()
     }
 
     /** Android may take a moment to flip the switch after the association exists. */
