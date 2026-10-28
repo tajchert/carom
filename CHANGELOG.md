@@ -3,6 +3,17 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [1.0.7] - 2026-10-28
+
+One-time codes show up on the Mac right after pairing.
+
+### 📱 Android app
+
+- **Codes unlock as soon as the phone pairs with the Mac.** Android only checks whether Carom may
+  see codes when its notification listener connects, so after pairing codes stayed hidden until a
+  reboot. Carom now reconnects the listener after pairing. Phones paired with 1.0.5 or 1.0.6 heal
+  on their own: the first code still arrives hidden, the next ones come through.
+
 ## [1.0.6] - 2026-10-28
 
 Pair for codes from Settings, and a taller list in the Mac menu.
