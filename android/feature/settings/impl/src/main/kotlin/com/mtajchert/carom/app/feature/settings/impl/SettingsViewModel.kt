@@ -1,5 +1,7 @@
 package com.mtajchert.carom.app.feature.settings.impl
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +16,8 @@ import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
 import com.mtajchert.carom.app.core.domain.SetActionsFromMacUseCase
 import com.mtajchert.carom.app.core.model.ActionsFromMac
 import com.mtajchert.carom.app.core.model.SessionState
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingAccess
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,6 +44,8 @@ data class SettingsUiState(
     val appVersion: String = "",
     val actionsFromMac: ActionsFromMac = ActionsFromMac.AFTER_NOTIFICATION,
     val actionWindowMinutes: Int = ActionsFromMac.DEFAULT_WINDOW_MINUTES,
+    /** Hidden while [CodeForwardingState.UNSUPPORTED] (below Android 15). */
+    val codeForwarding: CodeForwardingState = CodeForwardingState.UNSUPPORTED,
     val busy: Boolean = false,
     val message: SettingsMessage? = null,
     /** This device left its Hub; the screen should close. */
@@ -54,6 +60,7 @@ class SettingsViewModel @Inject constructor(
     private val renameThisDevice: RenameThisDeviceUseCase,
     private val removeDevice: RemoveDeviceUseCase,
     private val setActionsFromMac: SetActionsFromMacUseCase,
+    private val codeForwardingAccess: CodeForwardingAccess,
     @param:Named(AndroidDeviceProfileProvider.APP_VERSION) private val appVersion: String,
 ) : ViewModel() {
 
@@ -61,10 +68,13 @@ class SettingsViewModel @Inject constructor(
 
     private val transient = MutableStateFlow(Transient())
 
+    // Not observable: re-read whenever the screen resumes (the pairing screen is its own activity).
+    private val codeForwarding = MutableStateFlow(codeForwardingAccess.state())
+
     // The profile resolves the default name (the phone model) when the user never set one.
     private val prefsWithName = preferences.userPreferences.map { it to profile.profile().name }
 
-    val uiState: StateFlow<SettingsUiState> = combine(prefsWithName, session.session, transient) { (prefs, name), s, t ->
+    val uiState: StateFlow<SettingsUiState> = combine(prefsWithName, session.session, transient, codeForwarding) { (prefs, name), s, t, codes ->
         val paired = s as? SessionState.Paired
         SettingsUiState(
             loading = s == SessionState.Loading,
@@ -74,6 +84,7 @@ class SettingsViewModel @Inject constructor(
             forwardOnlyWhenLocked = prefs.forwardOnlyWhenLocked,
             actionsFromMac = prefs.actionsFromMac,
             actionWindowMinutes = prefs.actionWindowMinutes,
+            codeForwarding = codes,
             hubUrl = paired?.hubUrl,
             deviceId = paired?.deviceId,
             appVersion = appVersion,
@@ -82,6 +93,12 @@ class SettingsViewModel @Inject constructor(
             left = t.left,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState(appVersion = appVersion))
+
+    fun refreshCodeForwarding() {
+        codeForwarding.value = codeForwardingAccess.state()
+    }
+
+    fun codeForwardingIntent(context: Context): Intent = codeForwardingAccess.enableIntent(context)
 
     fun setForwardingPaused(paused: Boolean) {
         viewModelScope.launch { preferences.setForwardingPaused(paused) }

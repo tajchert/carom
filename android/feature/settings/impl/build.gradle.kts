@@ -58,6 +58,7 @@ dependencies {
     implementation(projects.core.designsystem)
     implementation(projects.core.ui)
     implementation(projects.core.common)
+    implementation(projects.feature.notifications.api)
 
     // Compose BOM
     val composeBom = platform(libs.androidx.compose.bom)

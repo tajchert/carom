@@ -11,12 +11,12 @@ enum class CodeForwardingState {
     /** Android 15+ hides codes from Carom's listener. */
     NOT_ENABLED,
 
-    /** Carom may receive sensitive notification content. */
+    /** Carom may receive sensitive notification content, through a lasting watch association. */
     ENABLED,
 }
 
 /**
- * The "Enable code forwarding" flow, for screens outside the notifications feature (onboarding).
+ * The "Enable code forwarding" flow, for screens outside the notifications feature (onboarding, Settings).
  * The implementation lives in `:feature:notifications:impl`.
  */
 interface CodeForwardingAccess {

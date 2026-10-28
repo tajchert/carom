@@ -7,12 +7,14 @@ import com.mtajchert.carom.app.core.designsystem.preview.FormFactorPreviews
 import com.mtajchert.carom.app.core.designsystem.preview.LargeFontPreview
 import com.mtajchert.carom.app.core.designsystem.theme.CaromTheme
 import com.mtajchert.carom.app.core.model.ActionsFromMac
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 
 private val paired = SettingsUiState(
     loading = false,
     paired = true,
     deviceName = "Michał's Pixel",
     forwardingPaused = false,
+    codeForwarding = CodeForwardingState.ENABLED,
     hubUrl = "https://carom-hub.example.workers.dev",
     deviceId = "dev_3xlhcrwNLeOI88IkAOPtCQ",
     appVersion = "1.0.0",

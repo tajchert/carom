@@ -37,13 +37,18 @@ class AppOpsSensitiveAccessChecker @Inject constructor(
     }
 }
 
+/**
+ * Enabled means the app op is allowed *and* the watch association exists. An op set with adb alone
+ * is reset at boot, so it counts as not enabled and the screen offers pairing with the Mac.
+ */
 class AndroidCodeForwardingAccess @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val associations: AssociationApi,
     private val checker: SensitiveAccessChecker,
 ) : CodeForwardingAccess {
     override fun state(): CodeForwardingState = when {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM -> CodeForwardingState.UNSUPPORTED
-        checker.isAllowed() == true -> CodeForwardingState.ENABLED
+        checker.isAllowed() == true && associations.hasAssociation() -> CodeForwardingState.ENABLED
         else -> CodeForwardingState.NOT_ENABLED
     }
 

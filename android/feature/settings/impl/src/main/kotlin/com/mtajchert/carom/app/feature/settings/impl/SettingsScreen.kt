@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.ContentPasteGo
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.ScreenLockPortrait
 import androidx.compose.material.icons.outlined.Smartphone
@@ -51,7 +52,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 import com.mtajchert.carom.app.core.designsystem.component.CaromCard
 import com.mtajchert.carom.app.core.domain.RenameThisDeviceUseCase
 import com.mtajchert.carom.app.core.model.ActionsFromMac
@@ -65,6 +69,7 @@ class SettingsActions(
     val onBack: () -> Unit = {},
     val onOpenNotificationApps: (() -> Unit)? = null,
     val onOpenClipboardSettings: (() -> Unit)? = null,
+    val onOpenCodeForwarding: () -> Unit = {},
     val onActionsFromMacChanged: (ActionsFromMac) -> Unit = {},
     val onActionWindowChanged: (Int) -> Unit = {},
     val onRename: (String) -> Unit = {},
@@ -82,13 +87,19 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     LaunchedEffect(state.left) { if (state.left) onBack() }
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshCodeForwarding()
+        onPauseOrDispose {}
+    }
     SettingsContent(
         state = state,
         actions = SettingsActions(
             onBack = onBack,
             onOpenNotificationApps = onOpenNotificationApps,
             onOpenClipboardSettings = onOpenClipboardSettings,
+            onOpenCodeForwarding = { context.startActivity(viewModel.codeForwardingIntent(context)) },
             onActionsFromMacChanged = viewModel::chooseActionsFromMac,
             onActionWindowChanged = viewModel::chooseActionWindow,
             onRename = viewModel::rename,
@@ -132,6 +143,16 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             }
             actions.onOpenClipboardSettings?.let {
                 NavigationRow(stringResource(R.string.feature_settings_clipboard), stringResource(R.string.feature_settings_clipboard_summary), it, icon = Icons.Outlined.ContentPasteGo)
+            }
+            if (state.codeForwarding != CodeForwardingState.UNSUPPORTED) {
+                NavigationRow(
+                    stringResource(R.string.feature_settings_codes),
+                    stringResource(
+                        if (state.codeForwarding == CodeForwardingState.ENABLED) R.string.feature_settings_codes_on else R.string.feature_settings_codes_off,
+                    ),
+                    actions.onOpenCodeForwarding,
+                    icon = Icons.Outlined.Password,
+                )
             }
             ToggleRow(stringResource(R.string.feature_settings_pause), stringResource(R.string.feature_settings_pause_summary), state.forwardingPaused, actions.onPauseChanged, icon = Icons.Outlined.PauseCircle)
             ToggleRow(

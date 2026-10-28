@@ -1,5 +1,7 @@
 package com.mtajchert.carom.app.feature.settings.impl
 
+import android.content.Context
+import android.content.Intent
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfile
 import com.mtajchert.carom.app.core.data.sync.LocalDeviceProfileProvider
 import com.mtajchert.carom.app.core.data.sync.RevokeResult
@@ -14,6 +16,8 @@ import com.mtajchert.carom.app.core.testing.repository.FakeSessionRepository
 import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesRepository
 import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
 import com.mtajchert.carom.app.core.testing.util.MainDispatcherRule
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingAccess
+import com.mtajchert.carom.app.feature.notifications.api.CodeForwardingState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -35,6 +39,13 @@ class SettingsViewModelTest {
         LocalDeviceProfile(prefs.current.deviceName ?: "Pixel 9", DeviceKind.PHONE, "android", "1.0.0")
     }
 
+    private var codesState = CodeForwardingState.NOT_ENABLED
+    private val codeForwarding = object : CodeForwardingAccess {
+        override fun state() = codesState
+        override fun enableIntent(context: Context) = Intent()
+        override fun adbCommand() = ""
+    }
+
     // Built lazily, after MainDispatcherRule has installed the test Main dispatcher.
     private val viewModel by lazy {
         SettingsViewModel(
@@ -44,6 +55,7 @@ class SettingsViewModelTest {
             RenameThisDeviceUseCase(prefs, sync),
             RemoveDeviceUseCase(sync),
             SetActionsFromMacUseCase(prefs, sync),
+            codeForwarding,
             appVersion = "1.2.3",
         )
     }
@@ -99,5 +111,14 @@ class SettingsViewModelTest {
         viewModel.chooseActionWindow(15)
         assertEquals(15, viewModel.uiState.value.actionWindowMinutes)
         assertEquals(1, sync.published)
+    }
+
+    @Test
+    fun `code forwarding is re-read when the screen asks`() = runTest {
+        collectState()
+        assertEquals(CodeForwardingState.NOT_ENABLED, viewModel.uiState.value.codeForwarding)
+        codesState = CodeForwardingState.ENABLED
+        viewModel.refreshCodeForwarding()
+        assertEquals(CodeForwardingState.ENABLED, viewModel.uiState.value.codeForwarding)
     }
 }

@@ -13,7 +13,8 @@ import org.robolectric.annotation.Config
 class AndroidCodeForwardingAccessTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private var allowed: Boolean? = false
-    private val access = AndroidCodeForwardingAccess(context) { allowed }
+    private val associations = FakeAssociationApi().apply { associated = true }
+    private val access = AndroidCodeForwardingAccess(context, associations) { allowed }
 
     @Test
     fun `Android 15 and later reports enabled once the app op is allowed`() {
@@ -22,6 +23,15 @@ class AndroidCodeForwardingAccessTest {
         allowed = null // the op could not be read: treat as not enabled
         assertEquals(CodeForwardingState.NOT_ENABLED, access.state())
         allowed = true
+        assertEquals(CodeForwardingState.ENABLED, access.state())
+    }
+
+    @Test
+    fun `an app op set with adb alone is not enabled until the watch association exists`() {
+        allowed = true
+        associations.associated = false
+        assertEquals(CodeForwardingState.NOT_ENABLED, access.state())
+        associations.associated = true
         assertEquals(CodeForwardingState.ENABLED, access.state())
     }
 
