@@ -3,7 +3,9 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
-## [Unreleased]
+## [1.0.5] - 2026-10-28
+
+One-time codes on Android 15 and later without adb: the Mac poses as a watch for a moment.
 
 ### 📱 Android app
 

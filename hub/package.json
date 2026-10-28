@@ -1,6 +1,6 @@
 {
   "name": "carom-hub",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Carom Hub: Cloudflare Worker + Durable Object that relays end-to-end encrypted notifications and clipboard between your devices",
   "type": "module",
   "files": [
