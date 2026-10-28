@@ -242,7 +242,7 @@ from scratch, quit Carom, delete `~/Library/Application Support/Carom/state.json
 | Setting | Value |
 |---|---|
 | Bundle id | `com.mtajchert.carom.mac` |
-| Team | `6ZW8LB554N` (automatic signing, Apple Development), set in `App/Config/Signing.xcconfig`. The team id is the certificate's OU, not the id in its name: `security find-certificate -c "Apple Development" -p \| openssl x509 -noout -subject` |
+| Team | `A7WLJ7NW34` (automatic signing, Apple Development), set in `App/Config/Signing.xcconfig`. The team id is the certificate's OU, not the id in its name: `security find-certificate -c "Apple Development" -p \| openssl x509 -noout -subject` |
 | Hardened runtime | on (`ENABLE_HARDENED_RUNTIME`) |
 | App Sandbox | off for now (Developer ID distribution later); the code avoids sandbox-hostile APIs |
 

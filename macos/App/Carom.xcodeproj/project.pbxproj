@@ -290,11 +290,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					64393777E517CDA8E1D42384 = {
-						DevelopmentTeam = 6ZW8LB554N;
+						DevelopmentTeam = A7WLJ7NW34;
 						ProvisioningStyle = Automatic;
 					};
 					6677A300787E4BD0B1DC48DF = {
-						DevelopmentTeam = 6ZW8LB554N;
+						DevelopmentTeam = A7WLJ7NW34;
 						ProvisioningStyle = Automatic;
 					};
 				};
