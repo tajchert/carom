@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Normal permission: lets the watch-profile association grant RECEIVE_SENSITIVE_NOTIFICATIONS. -->
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_PROFILE_WATCH" />
+
+    <uses-feature
+        android:name="android.software.companion_device_setup"
+        android:required="false" />
 
     <application>
         <!-- Not exported: started by our own prompt notification and by onboarding. -->

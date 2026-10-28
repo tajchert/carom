@@ -95,6 +95,7 @@ struct NotificationSettings: View {
                     Toggle("Copy codes automatically", isOn: Binding(
                         get: { model.preferences.copiesCodes },
                         set: { model.setAutoCopyCodes($0) }))
+                    CompanionBeaconRow()
                 } header: {
                     Text("Verification Codes")
                 } footer: {
@@ -102,6 +103,46 @@ struct NotificationSettings: View {
                 }
             }
             .formStyle(.grouped)
+        }
+    }
+}
+
+/// Makes this Mac briefly discoverable over Bluetooth so an Android 15+ phone can pair it as a
+/// companion "watch", the only way Android shows verification codes to Carom. Stops on its own.
+private struct CompanionBeaconRow: View {
+    @State private var beacon = CompanionBeacon()
+
+    var body: some View {
+        LabeledContent {
+            switch beacon.state {
+            case .starting:
+                ProgressView().controlSize(.small)
+            case .advertising:
+                Button("Stop") { beacon.stop() }
+            default:
+                Button("Make Discoverable") { beacon.start() }
+            }
+        } label: {
+            Text("Android code access")
+            status
+        }
+        .onDisappear { beacon.stop() }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch beacon.state {
+        case .advertising(let until):
+            Text("Discoverable for \(Text(timerInterval: Date.now...until, countsDown: true)). On the phone, open Carom › Verification codes, tap Enable and pick this Mac.")
+        case .bluetoothOff:
+            Text("Turn on Bluetooth and try again.")
+        case .unauthorized:
+            Text("Allow Carom to use Bluetooth in System Settings › Privacy & Security.")
+        case .unsupported:
+            Text("This Mac can't advertise over Bluetooth.")
+        case .failed:
+            Text("Bluetooth didn't start advertising. Try again.")
+        case .idle, .starting:
+            Text("Android 15 and later hides codes until the phone pairs with this Mac. Bluetooth is used only for that step.")
         }
     }
 }

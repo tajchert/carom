@@ -59,6 +59,7 @@ targets:
         LSUIElement: true
         NSHumanReadableCopyright: Copyright © 2026 Michal Tajchert. Licensed under GPL-3.0.
         NSPrincipalClass: NSApplication
+        NSBluetoothAlwaysUsageDescription: Carom uses Bluetooth only while you make this Mac discoverable, so an Android phone can unlock verification codes.
         NSFocusStatusUsageDescription: Carom shows only the quiet macOS notification while a Focus is on.
     entitlements:
       path: Carom.entitlements

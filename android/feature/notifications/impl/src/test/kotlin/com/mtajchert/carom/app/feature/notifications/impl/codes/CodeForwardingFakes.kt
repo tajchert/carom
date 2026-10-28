@@ -21,10 +21,10 @@ class FakeCodeForwardingAccess : CodeForwardingAccess {
 class FakeAssociationApi : AssociationApi {
     var outcome: AssociationOutcome = AssociationOutcome.Created
     var associated = false
-    val calls = mutableListOf<AssociationProfile>()
+    var calls = 0
 
-    override suspend fun associate(profile: AssociationProfile): AssociationOutcome {
-        calls += profile
+    override suspend fun associate(): AssociationOutcome {
+        calls++
         return outcome
     }
 

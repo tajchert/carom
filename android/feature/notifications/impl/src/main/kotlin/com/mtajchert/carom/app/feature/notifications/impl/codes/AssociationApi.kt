@@ -2,15 +2,6 @@ package com.mtajchert.carom.app.feature.notifications.impl.codes
 
 import android.content.IntentSender
 
-/** Which kind of Companion Device Manager association to ask for. Chosen on a device (see AndroidAssociationApi). */
-enum class AssociationProfile {
-    /** A self-managed association: no device discovery, a consent dialog only. */
-    SELF_MANAGED,
-
-    /** A plain request with no profile. Discovery-based, so it usually fails without a device filter. */
-    NONE,
-}
-
 sealed interface AssociationOutcome {
     /** The association exists. */
     data object Created : AssociationOutcome
@@ -24,7 +15,8 @@ sealed interface AssociationOutcome {
 
 /** The Companion Device Manager as this feature needs it. A seam so the flow is tested without the framework. */
 interface AssociationApi {
-    suspend fun associate(profile: AssociationProfile): AssociationOutcome
+    /** Asks for a watch-profile association with the Mac's short-lived Carom beacon. */
+    suspend fun associate(): AssociationOutcome
 
     /** True when this app already has an association. */
     fun hasAssociation(): Boolean

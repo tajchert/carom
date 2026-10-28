@@ -28,6 +28,8 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Carom uses Bluetooth only while you make this Mac discoverable, so an Android phone can unlock verification codes.</string>
 	<key>NSFocusStatusUsageDescription</key>
 	<string>Carom shows only the quiet macOS notification while a Focus is on.</string>
 	<key>NSHumanReadableCopyright</key>

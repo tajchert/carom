@@ -72,9 +72,10 @@ Done (foundation):
   `MediaCommandHandler` runs `media.command@1` through the session's transport controls.
   `ActiveCallTracker` holds the action window open for calls and playing media.
   `ActionsForegroundService` is the "Always" mode. The code-forwarding screen creates a
-  `CompanionDeviceManager` association (self-managed profile first) and falls back to the adb
-  command (`AdbFallback`). `RedactionPrompt` posts the quiet "Tap to enable" notification.
-  Which association profile unlocks codes on Android 15 and 16 still needs checking on a device.
+  watch-profile `CompanionDeviceManager` association with the Mac's short-lived Bluetooth LE beacon
+  (`CompanionBeacon` on macOS). The watch role is what grants `RECEIVE_SENSITIVE_NOTIFICATIONS` to
+  a third-party app, and it lasts across reboots. If codes stay hidden, the screen falls back to
+  the adb command (`AdbFallback`). `RedactionPrompt` posts the quiet "Tap to enable" notification.
 - Settings → "Actions from Mac" (Off / After a notification with 2, 5 or 15 minutes / Always). Off
   removes `notification.action@1` and `media.command@1` from the published `caps`
   (`SetActionsFromMacUseCase`).

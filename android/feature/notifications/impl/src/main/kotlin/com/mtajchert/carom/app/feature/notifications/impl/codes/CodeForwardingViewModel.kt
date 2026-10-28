@@ -63,7 +63,7 @@ class CodeForwardingViewModel @Inject constructor(
         if (state.value != CodeForwardingUi.Intro) return
         state.value = CodeForwardingUi.Working
         viewModelScope.launch {
-            state.value = when (val outcome = associations.associate(PROFILE)) {
+            state.value = when (val outcome = associations.associate()) {
                 AssociationOutcome.Created -> verified()
                 is AssociationOutcome.NeedsConsent -> CodeForwardingUi.Consent(outcome.sender)
                 is AssociationOutcome.Failed -> CodeForwardingUi.UseAdb(access.adbCommand())
@@ -95,13 +95,6 @@ class CodeForwardingViewModel @Inject constructor(
     }
 
     companion object {
-        /**
-         * DEVICE VERIFICATION: which profile unlocks codes on Android 15/16 is unconfirmed.
-         * Self-managed is tried first; if it only produces an association that leaves codes hidden,
-         * the screen shows the adb command (spec §5.2). Change this one value after testing.
-         */
-        val PROFILE = AssociationProfile.SELF_MANAGED
-
         const val SETTLE_MS = 1_500L
         private const val CHECKS = 2
     }

@@ -87,7 +87,7 @@ class CodeForwardingViewModelTest {
         advanceTimeBy(CodeForwardingViewModel.SETTLE_MS)
         runCurrent()
         assertEquals(CodeForwardingUi.Enabled, vm.ui.value)
-        assertEquals(listOf(AssociationProfile.SELF_MANAGED), associations.calls)
+        assertEquals(1, associations.calls)
     }
 
     @Test
@@ -139,6 +139,6 @@ class CodeForwardingViewModelTest {
         vm.enable()
         vm.enable()
         runCurrent()
-        assertEquals(1, associations.calls.size)
+        assertEquals(1, associations.calls)
     }
 }

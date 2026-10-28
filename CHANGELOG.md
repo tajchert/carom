@@ -3,6 +3,20 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [Unreleased]
+
+### 📱 Android app
+
+- **Code forwarding without adb.** Enable code forwarding now pairs the phone with your Mac as a
+  companion watch, the only kind of companion that Android 15 and later trusts with verification
+  codes. It survives reboots, so you no longer need to run the adb command again after each
+  restart. The adb command remains as a fallback.
+
+### 💻 Mac app
+
+- **Make Discoverable** in Settings → Notifications advertises the Mac over Bluetooth LE for 3
+  minutes so the phone can pair with it. Nothing stays connected afterwards.
+
 ## [1.0.4] - 2026-10-15
 
 Change many apps at once, and the forwarding switches now live in Settings.

@@ -194,8 +194,9 @@ Without the state file, use `deploy --new-token` instead.
 Android 15 hides verification codes from notification apps. Without help, a code reaches the Mac as "Sensitive notification content hidden". Carom can ask Android to trust it with those notifications:
 
 1. During setup, the permissions step offers **Verification codes → Enable**. Later, when Carom sees a hidden code, it shows a quiet notification: "Android hides verification codes from notification apps. Tap to enable."
-2. Tap it, choose **Enable code forwarding** and accept Android's prompt. Carom creates a *companion device* association, which makes Android treat it as trusted for these notifications.
-3. Send yourself a test code. If it still arrives hidden, Carom shows the command below.
+2. On the Mac, open **Carom Settings → Notifications** and click **Make Discoverable** next to **Android code access**. The Mac advertises over Bluetooth LE for 3 minutes, then stops.
+3. On the phone, tap the reminder, choose **Enable code forwarding**, keep Bluetooth on and pick your Mac in Android's dialog. Android pairs it as a companion *watch*. That's the only kind of companion that Android lets a regular app trust with codes. Nothing stays connected afterwards, and the trust survives reboots until you remove the association.
+4. Send yourself a test code. If it still arrives hidden, Carom shows the command below.
 
 Some phones and Android versions don't let the association unlock codes. Then the screen reads
 "Turn it on from a computer" and shows the command below. Use it.

@@ -21,11 +21,10 @@
     <string name="feature_notifications_access_action">Allow notification access</string>
 
     <!-- Shown by Android in its association dialog. -->
-    <string name="feature_notifications_codes_association_name">Carom</string>
 
     <!-- Code forwarding (Android 15+ hides verification codes from notification apps). -->
     <string name="feature_notifications_codes_title">Verification codes</string>
-    <string name="feature_notifications_codes_intro">Android 15 and later hides verification codes from notification apps. Allow Carom to see them so you can copy a code on your computer.</string>
+    <string name="feature_notifications_codes_intro">Android 15 and later hides verification codes from notification apps. Allow Carom to see them so you can copy a code on your computer.\n\nFirst, on your Mac, open Carom Settings › Notifications and click Make Discoverable. Then tap the button below, keep Bluetooth on and pick your Mac. Android lists it as a watch; that is the only way it lets an app see codes. Bluetooth is used for this step only.</string>
     <string name="feature_notifications_codes_enable">Enable code forwarding</string>
     <string name="feature_notifications_codes_working">Waiting for Android…</string>
     <string name="feature_notifications_codes_enabled">Code forwarding is on.</string>

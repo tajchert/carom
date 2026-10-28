@@ -1,6 +1,6 @@
 // swift-tools-version: 6.2
 // CaromKit: the reusable core of the Carom macOS app (protocol, Hub client, storage, sync engine).
-// Apple frameworks only (CryptoKit, Foundation, Security, Network, plus AppKit, SwiftUI, UserNotifications, Intents, Carbon and ServiceManagement in CaromDesktop); no third-party dependencies.
+// Apple frameworks only (CryptoKit, Foundation, Security, Network, plus AppKit, SwiftUI, UserNotifications, Intents, Carbon, ServiceManagement and CoreBluetooth in CaromDesktop); no third-party dependencies.
 
 import PackageDescription
 
