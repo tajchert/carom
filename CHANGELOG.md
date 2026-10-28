@@ -3,7 +3,9 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
-## [Unreleased]
+## [1.0.8] - 2026-10-28
+
+The Mac menu fills in again after a restart.
 
 ### 💻 Mac app
 
