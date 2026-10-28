@@ -25,7 +25,6 @@ struct MenuBarView: View {
             if model.phase == .ready {
                 NowPlayingSection()
                 ActivityList()
-                    .frame(maxHeight: 360)
             } else if model.phase == .onboarding {
                 notSetUp
             } else {
@@ -221,7 +220,11 @@ private struct NowPlayingSection: View {
 
 /// Recent notifications and clipboard items (in memory only).
 struct ActivityList: View {
+    /// About two and a half notification rows, so a cut-off row hints that the list scrolls.
+    static let maxHeight: CGFloat = 240
+
     @Environment(AppModel.self) private var model
+    @State private var contentHeight: CGFloat = 0
 
     var body: some View {
         let notifications = model.activity.notifications
@@ -255,7 +258,11 @@ struct ActivityList: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 6)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
             }
+            // The menu-bar window offers no height of its own, so a ScrollView left to size
+            // itself collapses to a sliver. Size it to its content, up to the cap.
+            .frame(height: min(contentHeight, Self.maxHeight))
         }
     }
 }

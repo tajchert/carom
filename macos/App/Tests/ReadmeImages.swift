@@ -94,7 +94,7 @@ struct ReadmeImages {
     static func snapshot(_ view: some View) async throws -> NSImage {
         let host = NSHostingView(rootView: view)
         host.appearance = NSAppearance(named: .aqua)
-        let size = host.fittingSize
+        var size = host.fittingSize
         let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: -10_000, y: -10_000), size: size),
                               styleMask: [.borderless], backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: .aqua)
@@ -104,6 +104,13 @@ struct ReadmeImages {
         host.frame = CGRect(origin: .zero, size: size)
         host.layoutSubtreeIfNeeded()
         try await Task.sleep(for: .milliseconds(300))
+        // Views that size themselves from a measurement (the menu's activity list) settle on the
+        // second pass; resize like the menu-bar window does.
+        size = host.fittingSize
+        window.setContentSize(size)
+        host.frame = CGRect(origin: .zero, size: size)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
         host.layoutSubtreeIfNeeded()
         host.display()
 
