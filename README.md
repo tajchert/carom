@@ -88,6 +88,29 @@ at once. Outside the window they wait until you open Carom, and the Mac says the
 Keys are exchanged by QR code when you pair, and never leave your devices. The Hub stores messages
 only until they're delivered (one or two days at most).
 
+### One-time codes: the Mac poses as a watch
+
+Since Android 15, the system hides one-time codes from notification listeners. Carom sees
+"Sensitive notification content hidden" instead of the code, which defeats the point of reading
+the code on the Mac. Only listeners holding `RECEIVE_SENSITIVE_NOTIFICATIONS` get the real text.
+In AOSP that permission is `signature|role`, and the only roles a regular app can hold that carry
+it are the companion **watch** and **glasses** roles ([`roles.xml`](https://android.googlesource.com/platform/packages/modules/Permission/+/refs/heads/main/PermissionController/res/xml/roles.xml)).
+The fitting *computer* role is reserved for system apps. The usual workaround is an `adb` command,
+but Android resets that grant on every reboot.
+
+So the Mac poses as a watch, briefly:
+
+1. **Make Discoverable** in the Mac's Settings advertises a Carom-specific Bluetooth LE service UUID
+   for 3 minutes. It only advertises: there's no GATT service, and nothing ever connects.
+2. On the phone, **Enable code forwarding** asks `CompanionDeviceManager` for a
+   `DEVICE_PROFILE_WATCH` association, filtered to that UUID. You pick the Mac in Android's dialog.
+3. Android grants Carom the watch role, and with it the permission. The role belongs to the
+   association, so it survives reboots. Carom never observes device presence, so once the
+   advertisement stops there's no Bluetooth link between the two. Codes travel through the Hub like
+   everything else.
+
+The `adb` command remains a fallback for phones where this doesn't work.
+
 ## Get started
 
 You need a Mac with macOS 14+, an Android 10+ phone, a free Cloudflare account and Node.js 22+.
