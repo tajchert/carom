@@ -307,8 +307,8 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
 - **Rich notifications.** `NotificationCoordinator` (CaromDesktop) receives every posted, removed
   and action-result message. With *Show notifications as: Rich* (the default) a non-activating
   `NSPanel` at the top right of the screen under the pointer shows Android-like cards: at most 4
-  stacks, then "+N more"; cards fade after 6 s unless the pointer is over them; conversations,
-  calls and Live Updates stay until handled or removed; one app's group collapses into
+  stacks, then "+N more"; cards (conversations too) fade after 6 s unless the pointer is over them
+  or a reply is open, and stay in the menu list; calls and Live Updates stay until handled or removed; one app's group collapses into
   "App · N new". The native notification is posted at the passive level, so it lands in
   Notification Center without a second banner. The panel takes the keyboard only while a reply
   field is open. During a Focus only the native notification posts. The app's buttons and Reply

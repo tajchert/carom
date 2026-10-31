@@ -134,15 +134,16 @@ import Testing
         #expect(c.onPanel.isEmpty)
     }
 
-    @Test func conversationCallAndLiveCardsStayUntilRemoved() async {
+    @Test func callAndLiveCardsStayUntilRemovedConversationsFade() async {
         let (c, native, _, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.messaging()))
         await c.posted(Fixture.card(Fixture.incomingCall()))
         await c.posted(Fixture.card(Fixture.live()))
         await timers.advance(by: .seconds(60))
-        #expect(c.onPanel.count == 3)
-        c.removed(phoneId: Fixture.phone, key: "chat1")
         #expect(c.onPanel.count == 2)
+        #expect(!c.onPanel.contains(Fixture.id("chat1")))
+        #expect(c.cards[Fixture.id("chat1")] != nil)
+        c.removed(phoneId: Fixture.phone, key: "chat1")
         #expect(c.cards[Fixture.id("chat1")] == nil)
         #expect(native.withdrawn == ["chat1"])
     }

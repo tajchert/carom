@@ -28,7 +28,7 @@ import Testing
         let plain = Fixture.card(Fixture.posted())
         #expect(live.isLive && live.isPinned && live.staysUntilHandled)
         #expect(call.isIncomingCall && call.isPinned && call.staysUntilHandled)
-        #expect(chat.isConversation && !chat.isPinned && chat.staysUntilHandled)
+        #expect(chat.isConversation && !chat.isPinned && !chat.staysUntilHandled)
         #expect(!plain.isPinned && !plain.staysUntilHandled)
         var ongoingCall = Fixture.incomingCall()
         ongoingCall.call?.type = "ongoing"

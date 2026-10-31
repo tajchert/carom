@@ -105,8 +105,8 @@ extension CardItem {
         posted.largeIcon ?? (isConversation ? posted.conversation?.icon : nil)
     }
 
-    /// Messaging, call and Live Update cards stay on the panel until handled or removed.
-    public var staysUntilHandled: Bool { isPinned || isConversation }
+    /// Call and Live Update cards stay on the panel until handled or removed; the rest fade.
+    public var staysUntilHandled: Bool { isPinned }
 
     public var isGroupSummary: Bool { posted.group?.summary == true }
 

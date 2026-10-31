@@ -204,18 +204,15 @@ final class ActionLog {
         #expect(panel.alerts.count == 2)
         #expect(c.status(for: id) == .idle)
         await timers.advance(by: .seconds(60))
-        #expect(c.onPanel.count == 1, "a new message stays until handled")
+        #expect(c.onPanel.isEmpty, "a new message fades like any card")
+        #expect(c.cards[id] != nil, "and stays in the list")
     }
 
-    @Test func handledConversationFades() async {
+    @Test func conversationFadesButStaysInTheList() async {
         let (c, _, _, _) = make()
         await c.posted(Fixture.card(Fixture.messaging("k1")))
         await timers.advance(by: .seconds(60))
-        #expect(c.onPanel.count == 1, "a conversation stays until handled")
-        c.perform(.button(index: 0, title: "Mark as read"), on: id)
-        await settle()
-        c.actionResult(replyTo: "a1", NotificationActionResult(ok: true, error: nil))
-        await timers.advance(by: .seconds(60))
         #expect(c.onPanel.isEmpty)
+        #expect(c.cards[id] != nil)
     }
 }
