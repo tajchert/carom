@@ -3,6 +3,24 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [1.0.9] - 2026-10-31
+
+Calls you make or answer stay on your phone, and conversation cards fade on the Mac.
+
+### 💻 Mac app
+
+- **Conversation cards fade like other notifications.** Messaging cards used to stay on the panel
+  until handled. Now they fade after the usual delay, unless the pointer is over them or a reply
+  is open, and stay in the menu list. Calls and Live Updates still stay until handled or removed.
+
+### 📱 Android app
+
+- **Calls in progress aren't forwarded.** An outgoing call, or one you've answered, no longer
+  shows up on the Mac, so it can't be left behind there after you hang up. Incoming calls still
+  ring on the Mac with Answer and Decline. Turn on **Ongoing: Forward** for the Phone app to get
+  the old behavior.
+- **Answering a call clears it on the Mac.** The ringing card goes away as soon as you pick up.
+
 ## [1.0.8] - 2026-10-28
 
 The Mac menu fills in again after a restart.
