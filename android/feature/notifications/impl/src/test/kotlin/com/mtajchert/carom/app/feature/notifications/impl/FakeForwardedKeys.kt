@@ -10,6 +10,8 @@ class FakeForwardedKeys : ForwardedKeys {
 
     override suspend fun remove(key: String): Boolean = keys.remove(key)
 
+    override suspend fun contains(key: String): Boolean = key in keys
+
     override suspend fun all(): Set<String> = keys.toSet()
 
     override suspend fun clear() = keys.clear()

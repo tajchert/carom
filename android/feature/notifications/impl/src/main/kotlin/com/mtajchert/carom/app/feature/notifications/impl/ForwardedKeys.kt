@@ -17,6 +17,8 @@ interface ForwardedKeys {
     /** Forgets [key]; true when it had been forwarded. */
     suspend fun remove(key: String): Boolean
 
+    suspend fun contains(key: String): Boolean
+
     suspend fun all(): Set<String>
 
     suspend fun clear()
@@ -31,6 +33,8 @@ class RoomForwardedKeys @Inject constructor(
     }
 
     override suspend fun remove(key: String): Boolean = dao.delete(key) > 0
+
+    override suspend fun contains(key: String): Boolean = dao.exists(key)
 
     override suspend fun all(): Set<String> = dao.keys().toSet()
 

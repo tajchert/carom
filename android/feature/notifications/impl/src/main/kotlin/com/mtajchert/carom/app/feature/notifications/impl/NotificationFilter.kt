@@ -55,6 +55,8 @@ object NotificationFilter {
     /** `NotificationManager.IMPORTANCE_MIN`. Silent (LOW) channels are forwarded since V2. */
     private const val IMPORTANCE_MIN = 1
 
+    private const val CALL_TYPE_ONGOING = "ongoing"
+
     /**
      * The checks that depend only on the notification. A notification that fails them is not
      * even recorded in the app list.
@@ -71,13 +73,18 @@ object NotificationFilter {
     }
 
     /**
-     * Ongoing and foreground-service notifications: allowed for Live Updates, progress and calls,
-     * and for apps with "Ongoing: Forward" on. Needs the app setting, so it runs after the app
-     * was recorded (otherwise an app that only posts ongoing notifications could never be turned on).
+     * Ongoing and foreground-service notifications: allowed for Live Updates, progress and ringing
+     * calls, and for apps with "Ongoing: Forward" on. A call in progress (`CallStyle` type
+     * `ongoing`, which includes outgoing calls) is skipped even when flagged as a Live Update: it
+     * is the phone's own call, so there is nothing to answer on the Mac. Needs the app setting, so
+     * it runs after the app was recorded (otherwise an app that only posts ongoing notifications
+     * could never be turned on).
      */
     fun ongoing(n: NotificationSnapshot, forwardOngoing: Boolean): SkipReason? = when {
+        forwardOngoing -> null
+        n.rich.call?.type == CALL_TYPE_ONGOING -> SkipReason.ONGOING
         !(n.ongoing || n.foregroundService) -> null
-        n.promoted || n.rich.progress != null || n.rich.template == RichContent.TEMPLATE_CALL || forwardOngoing -> null
+        n.promoted || n.rich.progress != null || n.rich.template == RichContent.TEMPLATE_CALL -> null
         else -> SkipReason.ONGOING
     }
 

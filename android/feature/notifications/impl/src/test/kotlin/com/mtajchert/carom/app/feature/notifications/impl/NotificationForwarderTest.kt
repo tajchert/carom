@@ -464,19 +464,81 @@ class NotificationForwarderTest {
         assertEquals(100, fake.sent[1].body["progress"]!!.jsonObject["value"]!!.jsonPrimitive.int)
     }
 
+    private fun call(type: String, key: String = "k1") = snapshot(key = key, text = "Anna").copy(
+        ongoing = true,
+        foregroundService = true,
+        rich = RichContent(template = RichContent.TEMPLATE_CALL, call = SnapCall(type = type)),
+    )
+
     @Test
     fun `a call type change is sent at once`() = runTest {
-        fun call(type: String) = snapshot(text = "Anna").copy(
-            rich = RichContent(template = RichContent.TEMPLATE_CALL, call = SnapCall(type = type)),
-        )
+        val f = forwarder()
+        f.onPosted { call("incoming") }
+        runCurrent()
+        advanceTimeBy(100)
+        f.onPosted { call("screening") }
+        runCurrent()
+        assertEquals(2, fake.sent.size)
+        assertEquals("screening", fake.sent[1].body["call"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `an outgoing or ongoing call is not forwarded, even as a Live Update`() = runTest {
+        val f = forwarder()
+        f.onPosted { call("ongoing") }
+        f.onPosted { call("ongoing", key = "promoted").copy(promoted = true) }
+        runCurrent()
+        assertTrue(fake.sent.isEmpty())
+        assertTrue(forwardedKeys.keys.isEmpty())
+
+        f.onRemoved("k1") // hanging up sends nothing either
+        runCurrent()
+        assertTrue(fake.sent.isEmpty())
+    }
+
+    @Test
+    fun `an answered call is withdrawn at once`() = runTest {
         val f = forwarder()
         f.onPosted { call("incoming") }
         runCurrent()
         advanceTimeBy(100)
         f.onPosted { call("ongoing") }
         runCurrent()
+        assertEquals(listOf(MessageTypes.NOTIFICATION_POSTED, MessageTypes.NOTIFICATION_REMOVED), sentTypes)
+        assertEquals("k1", fake.sent[1].body["key"]!!.jsonPrimitive.content)
+
+        f.onPosted { call("ongoing") } // later updates of the call send nothing
+        f.onRemoved("k1")
+        runCurrent()
+        advanceTimeBy(5_000)
+        runCurrent()
         assertEquals(2, fake.sent.size)
-        assertEquals("ongoing", fake.sent[1].body["call"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `an answered call drops a ringing update that was still waiting`() = runTest {
+        val f = forwarder()
+        f.onPosted { call("incoming") }
+        runCurrent()
+        f.onPosted { call("incoming").copy(text = "Anna (work)") } // throttled
+        f.onPosted { call("ongoing") }
+        runCurrent()
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(listOf(MessageTypes.NOTIFICATION_POSTED, MessageTypes.NOTIFICATION_REMOVED), sentTypes)
+    }
+
+    @Test
+    fun `pausing does not withdraw what was already forwarded`() = runTest {
+        val f = forwarder()
+        f.onPosted { snapshot(text = "1") }
+        runCurrent()
+        prefs.setForwardingPaused(true)
+        f.onPosted { snapshot(text = "2") }
+        runCurrent()
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(listOf(MessageTypes.NOTIFICATION_POSTED), sentTypes)
     }
 
     @Test

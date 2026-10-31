@@ -60,6 +60,16 @@ class NotificationFilterTest {
     }
 
     @Test
+    fun `a call in progress is skipped unless the app forwards ongoing notifications`() {
+        val inCall = base.copy(rich = RichContent(template = RichContent.TEMPLATE_CALL, call = SnapCall(type = "ongoing")))
+        assertEquals(SkipReason.ONGOING, NotificationFilter.ongoing(inCall, forwardOngoing = false))
+        assertEquals(SkipReason.ONGOING, NotificationFilter.ongoing(inCall.copy(ongoing = true, promoted = true), forwardOngoing = false))
+        assertNull(NotificationFilter.ongoing(inCall.copy(ongoing = true), forwardOngoing = true))
+        val ringing = inCall.copy(ongoing = true, rich = inCall.rich.copy(call = SnapCall(type = "incoming")))
+        assertNull(NotificationFilter.ongoing(ringing, forwardOngoing = false))
+    }
+
+    @Test
     fun `policy applies pause, then the lock option, then the app mode`() {
         val forward = AppForwardingMode.FORWARD
         assertNull(NotificationFilter.policy(forward, paused = false, onlyWhenLocked = false, screenLocked = false))

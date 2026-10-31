@@ -178,7 +178,7 @@ class NotificationForwarder(
     }
 
     private suspend fun resyncOne(requester: String, n: NotificationSnapshot) {
-        val admitted = admit(n, resync = true) ?: return
+        val admitted = admission(n, resync = true) as? Admission.Admitted ?: return
         // Only the per-app icons: they come from the convergent cache; message-scoped images are skipped.
         val sources = n.imageSources.filterKeys { it.convergent && (!admitted.hide || it == ImageSlot.AppIcon) }
         val encoded = if (sources.isEmpty()) emptyMap() else images.load(sources)
@@ -191,11 +191,14 @@ class NotificationForwarder(
         after(result)
     }
 
-    private class Admitted(val label: String, val hide: Boolean)
+    private sealed interface Admission {
+        class Admitted(val label: String, val hide: Boolean) : Admission
+        class Skipped(val reason: SkipReason) : Admission
+    }
 
-    /** The filters and per-app mode shared by live posts and resync; null when [n] must not be sent. */
-    private suspend fun admit(n: NotificationSnapshot, resync: Boolean): Admitted? {
-        if (NotificationFilter.structural(n, env.ownPackage) != null) return null
+    /** The filters and per-app mode shared by live posts and resync. */
+    private suspend fun admission(n: NotificationSnapshot, resync: Boolean): Admission {
+        NotificationFilter.structural(n, env.ownPackage)?.let { return Admission.Skipped(it) }
         val app = apps.recordSeen(n.packageName, n.appLabel, env.now())
         val prefs = preferences.userPreferences.first()
         // A resync is an explicit request, so "only when the screen is locked" does not apply.
@@ -206,12 +209,21 @@ class NotificationForwarder(
             onlyWhenLocked = onlyWhenLocked,
             screenLocked = onlyWhenLocked && env.isScreenLocked(),
         ) ?: NotificationFilter.ongoing(n, app.forwardOngoing)
-        if (skip != null) return null
-        return Admitted(app.label, hide = app.mode == AppForwardingMode.HIDE_CONTENT)
+        if (skip != null) return Admission.Skipped(skip)
+        return Admission.Admitted(app.label, hide = app.mode == AppForwardingMode.HIDE_CONTENT)
     }
 
     private suspend fun posted(n: NotificationSnapshot) {
-        val admitted = admit(n, resync = false) ?: return
+        val admitted = when (val a = admission(n, resync = false)) {
+            is Admission.Admitted -> a
+            is Admission.Skipped -> {
+                // A key the Mac may show turned into one that is not forwarded (an answered call is now a
+                // call in progress): withdraw it, and drop any update still waiting. Only for ongoing, so
+                // pausing or unlocking the phone does not clear what the Mac already shows.
+                if (a.reason == SkipReason.ONGOING && isKnown(n.key)) submit(n.key, Work.Remove)
+                return
+            }
+        }
         val hide = admitted.hide
         // Content-URI grants end with the notification, so images are loaded now, before any upload.
         // Hide content shows the app icon only: nothing else is loaded, let alone uploaded.
@@ -233,6 +245,9 @@ class NotificationForwarder(
             ),
         )
     }
+
+    private suspend fun isKnown(key: String): Boolean =
+        synchronized(lock) { key in slots } || forwarded.contains(key)
 
     /** Makes [work] the newest state of [key] and starts the key's worker if none is running. */
     private fun submit(key: String, work: Work) {

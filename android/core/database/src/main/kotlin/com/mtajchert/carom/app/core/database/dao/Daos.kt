@@ -117,6 +117,9 @@ interface ForwardedNotificationDao {
     @Query("DELETE FROM forwarded_notifications WHERE `key` = :key")
     suspend fun delete(key: String): Int
 
+    @Query("SELECT EXISTS(SELECT 1 FROM forwarded_notifications WHERE `key` = :key)")
+    suspend fun exists(key: String): Boolean
+
     @Query("SELECT `key` FROM forwarded_notifications")
     suspend fun keys(): List<String>
 
