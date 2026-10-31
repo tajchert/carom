@@ -142,7 +142,9 @@ the phone. The Mac shows "Content hidden on your phone."
     [Media](#media-phone--mac)).
 - Silent (low-importance) notifications are forwarded.
 - Ongoing and foreground-service notifications are skipped unless they are a promoted Live Update,
-  have progress, are a call, or the app's **Ongoing: Forward** switch is on (default off).
+  have progress, are a ringing call, or the app's **Ongoing: Forward** switch is on (default off).
+  A call in progress (`CallStyle` type `ongoing`, outgoing calls included) is always skipped
+  without that switch; when an answered call turns into one, `removed` is sent for its key.
 - **Per-app setting:** *Forward* (default on, except for a small built-in deny list of system
   packages), *Hide content* (see above), or *Off*. The app list is built from apps seen posting
   notifications, without `QUERY_ALL_PACKAGES`.

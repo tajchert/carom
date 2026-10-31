@@ -115,7 +115,7 @@ open **Settings…** (⌘,) from the menu-bar menu.
 Some system apps (Android system, System UI, Settings, Play Store, Google Play services and similar)
 start as **Off**. Carom forwards silent notifications too, but not those from channels Android marks
 as minimum importance. Ongoing notifications (music players, navigation, downloads) are skipped
-unless they are a Live Update, show progress or are a call, or you turn on **Ongoing: Forward** for
+unless they are a Live Update, show progress or are an incoming call, or you turn on **Ongoing: Forward** for
 that app. Media players are not forwarded as notifications: they appear as the Now Playing card.
 You don't need to grant anything more for this. It all runs under notification access.
 
