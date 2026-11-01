@@ -13,6 +13,31 @@ enum AppPhase: Equatable, Sendable {
     case ready
 }
 
+/// A parsed `carom://` link: the kind decides between setting up a Hub and joining devices.
+struct IncomingLink: Equatable, Sendable {
+    enum Kind: Sendable { case setup, pair }
+    let uri: String
+    let kind: Kind
+    let host: String
+
+    init?(uri: String) {
+        let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let payload = QR.parse(trimmed) else { return nil }
+        self.uri = trimmed
+        switch payload {
+        case .setup: kind = .setup
+        case .pair: kind = .pair
+        }
+        host = URLComponents(string: payload.hub)?.host ?? payload.hub
+    }
+}
+
+enum LinkOutcome: Equatable, Sendable {
+    case ignored
+    case alreadyConnected
+    case confirm(IncomingLink)
+}
+
 enum ConnectionState: Equatable, Sendable {
     /// Not set up, or realtime not started.
     case offline
@@ -122,6 +147,10 @@ final class AppModel {
     /// Phone media sessions (`media.state@1`), newest first. A stopped session is removed.
     private(set) var mediaSessions: [MediaSession] = []
     var windowRequest: WindowRequest?
+    /// A `carom://` link the user opened, waiting for the onboarding window to confirm it.
+    private(set) var pendingLink: IncomingLink?
+    /// A link that arrived before the app finished loading.
+    private var queuedLink: URL?
 
     // MARK: Dependencies
 
@@ -280,6 +309,10 @@ final class AppModel {
         } else {
             phase = .onboarding
             request(.onboarding)
+        }
+        if let url = queuedLink {
+            queuedLink = nil
+            receive(link: url)
         }
     }
 
@@ -1001,10 +1034,49 @@ final class AppModel {
 
     // MARK: Onboarding
 
+    /// A `carom://` link opened from outside (the URL scheme). It is never enrolled directly:
+    /// when this Mac still needs onboarding the link waits for the user's confirmation. The URI
+    /// carries secrets and is never logged.
+    @discardableResult
+    func receive(link url: URL) -> LinkOutcome {
+        if phase == .loading {
+            queuedLink = url
+            return .ignored
+        }
+        guard let incoming = IncomingLink(uri: url.absoluteString) else { return .ignored }
+        if phase == .ready || deviceId != nil { return .alreadyConnected }
+        pendingLink = incoming
+        request(.onboarding)
+        return .confirm(incoming)
+    }
+
+    func consumePendingLink() -> IncomingLink? {
+        defer { pendingLink = nil }
+        return pendingLink
+    }
+
+    enum ConnectResult: Equatable, Sendable {
+        case setUp
+        case waiting(fingerprint: String)
+    }
+
+    /// Either kind of code: a setup code sets up the Hub, a pairing code starts a join.
+    func connect(uri: String) async throws -> ConnectResult {
+        let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch QR.parse(trimmed) {
+        case .setup?:
+            try await setUp(uri: trimmed)
+            return .setUp
+        case .pair?:
+            return .waiting(fingerprint: try await beginJoin(uri: trimmed))
+        case nil:
+            throw AppError(UserMessages.notURI)
+        }
+    }
+
     /// "Set up a new hub" with a `carom://setup` URI.
     func setUp(uri: String) async throws {
         let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
-        if case .pair? = QR.parse(trimmed) { throw AppError(UserMessages.pairURIExpected) }
         guard case .setup? = QR.parse(trimmed) else { throw AppError(UserMessages.notURI) }
         try await sync.setup(uri: trimmed)
         await reloadState()
@@ -1013,7 +1085,6 @@ final class AppModel {
     /// "Join" with a `carom://pair` URI: returns the fingerprint to compare on the other device.
     func beginJoin(uri: String) async throws -> String {
         let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
-        if case .setup? = QR.parse(trimmed) { throw AppError(UserMessages.setupURIExpected) }
         guard case .pair? = QR.parse(trimmed) else { throw AppError(UserMessages.notURI) }
         return try await sync.beginJoinReturningFingerprint(uri: trimmed)
     }
