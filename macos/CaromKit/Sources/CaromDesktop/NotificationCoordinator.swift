@@ -175,6 +175,12 @@ public final class NotificationCoordinator {
     /// The card's close button: off the panel, nothing sent to the phone.
     public func close(_ cardId: String) { takeOffPanel(cardId) }
 
+    /// Hides a collapsed group, including its otherwise hidden summary.
+    func close(_ stack: CardStack) {
+        for item in stack.children { close(item.id) }
+        if let summary = stack.summary { close(summary.id) }
+    }
+
     public func setStyle(_ newStyle: NotificationStyle) {
         style = newStyle
         if newStyle == .nativeOnly {

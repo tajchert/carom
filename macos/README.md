@@ -309,8 +309,9 @@ scripts/                 e2e.sh + fake-phone.mjs: the real app against a local H
   `NSPanel` at the top right of the screen under the pointer shows Android-like cards: at most 4
   stacks, then "+N more"; cards (conversations too) fade after 6 s unless the pointer is over them
   or a reply is open, and stay in the menu list; calls and Live Updates stay until handled or removed; one app's group collapses into
-  "App · N new". The native notification is posted at the passive level, so it lands in
-  Notification Center without a second banner. The panel takes the keyboard only while a reply
+  "App · N new". Swipe right with two fingers on a card or collapsed group to hide its banner;
+  this keeps the notification on the phone, in the menu list, and in Notification Center.
+  The native notification is posted at the passive level, so it lands in Notification Center without a second banner. The panel takes the keyboard only while a reply
   field is open. During a Focus only the native notification posts. The app's buttons and Reply
   (`notification.action@1`) appear only for phones whose caps include it; a card
   shows "Sending…", then the phone's result, or "Phone is asleep — will send when it wakes" after

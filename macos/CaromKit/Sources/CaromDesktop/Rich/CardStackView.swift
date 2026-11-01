@@ -45,6 +45,7 @@ struct CardStackView: View {
             if on { coordinator.beginReply(item.id) } else { coordinator.endReply() }
         })
         .modifier(CloseOnHover { [coordinator] in coordinator.close(item.id) })
+        .modifier(SwipeToHide { [coordinator] in coordinator.close(item.id) })
     }
 
     private var collapsed: some View {
@@ -74,6 +75,9 @@ struct CardStackView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(stack.title)
         .accessibilityHint("Shows each notification")
+        .modifier(SwipeToHide { [coordinator, stack] in coordinator.close(stack) })
+        // New members must not inherit an older snapshot's in-flight dismissal state.
+        .id(stack.children.map(\.id))
     }
 
     private var collapseBar: some View {

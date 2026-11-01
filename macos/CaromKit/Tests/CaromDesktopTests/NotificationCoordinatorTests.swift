@@ -166,6 +166,42 @@ import Testing
         #expect(native.withdrawn.isEmpty)
     }
 
+    @Test func swipingAReplyingCardOnlyHidesItAndEndsReplyMode() async {
+        let (c, native, panel, _) = makeCoordinator(timers: timers)
+        var dismissals = 0
+        c.sendDismiss = { _ in dismissals += 1 }
+        await c.posted(Fixture.card(Fixture.withActions(Fixture.posted())))
+        let id = Fixture.id("k1")
+        c.beginReply(id)
+        var swipe = NotificationSwipe()
+        _ = swipe.update(dx: 110, dy: 0, phase: .began)
+        if swipe.update(dx: 0, dy: 0, phase: .ended) == .ended(dismiss: true) { c.close(id) }
+        await Task.yield()
+        #expect(c.onPanel.isEmpty)
+        #expect(c.cards[id] != nil)
+        #expect(c.replyingTo == nil)
+        #expect(panel.replyModes.last == false)
+        #expect(native.withdrawn.isEmpty)
+        #expect(dismissals == 0)
+    }
+
+    @Test func swipingAStackHidesItsSummaryAndChildrenButKeepsOtherCards() async {
+        let (c, native, _, _) = makeCoordinator(timers: timers)
+        var dismissals = 0
+        c.sendDismiss = { _ in dismissals += 1 }
+        for posted in [Fixture.grouped("a"), Fixture.grouped("b"), Fixture.grouped("s", summary: true),
+                       Fixture.posted("other")] {
+            await c.posted(Fixture.card(posted))
+        }
+        let stack = c.stacks.first { $0.summary != nil }!
+        c.close(stack)
+        await Task.yield()
+        #expect(c.onPanel == [Fixture.id("other")])
+        #expect(c.cards.count == 4)
+        #expect(native.withdrawn.isEmpty)
+        #expect(dismissals == 0)
+    }
+
     @Test func onlyTheSummaryAlertsWhenTheGroupSaysSo() async {
         let (c, _, panel, _) = makeCoordinator(timers: timers)
         await c.posted(Fixture.card(Fixture.grouped("a", alert: "summary")))

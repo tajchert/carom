@@ -1,7 +1,16 @@
 # Changelog
 
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
-the Mac app and the Hub are released together under one `vX.Y.Z` tag.
+the Mac app and the Hub are released together under one `vX.Y.Z` tag. Mac-only updates use a
+`macos-vX.Y.Z` tag and leave the Android app and Hub versions unchanged.
+
+## [1.1.1] - 2026-11-01 (macOS only)
+
+### 💻 Mac app
+
+- **Swipe banners away.** Swipe right with two fingers on a notification card or collapsed group
+  to hide it on the Mac. Short or cancelled swipes snap back. The notification stays on your
+  phone, in the Mac menu, and in Notification Center.
 
 ## [1.1.0] - 2026-11-01
 
