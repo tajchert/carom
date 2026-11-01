@@ -71,8 +71,8 @@ final class LinkDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor func application(_ application: NSApplication, open urls: [URL]) {
         guard let model = Self.model, let url = urls.first(where: { $0.scheme == "carom" }) else { return }
-        if model.receive(link: url) == .alreadyConnected { AppEnvironment.showAlreadyConnected() }
         AppEnvironment.activate()
+        if model.receive(link: url) == .alreadyConnected { AppEnvironment.showAlreadyConnected() }
     }
 }
 
