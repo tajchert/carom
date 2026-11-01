@@ -213,6 +213,7 @@ struct Footnote: View {
 enum Links {
     static let project = URL(string: "https://github.com/tajchert/carom")!
     static let hubDocs = URL(string: "https://github.com/tajchert/carom#readme")!
+    static let setupGuide = URL(string: "https://github.com/tajchert/carom/blob/main/docs/SETUP.md")!
     static let notificationSettings = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!
     static let privacySettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy")!
 }

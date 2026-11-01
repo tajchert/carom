@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct CaromApp: App {
+    @NSApplicationDelegateAdaptor(LinkDelegate.self) private var delegate
     @State private var model: AppModel
 
     init() {
@@ -19,6 +20,7 @@ struct CaromApp: App {
             }
         }
         _model = State(initialValue: model)
+        LinkDelegate.model = model
     }
 
     var body: some Scene {
@@ -63,7 +65,24 @@ struct CaromApp: App {
     }
 }
 
+/// Receives `carom://` links (`SwiftUI.onOpenURL` is unreliable for a menu-bar app).
+final class LinkDelegate: NSObject, NSApplicationDelegate {
+    @MainActor static var model: AppModel?
+
+    @MainActor func application(_ application: NSApplication, open urls: [URL]) {
+        guard let model = Self.model, let url = urls.first(where: { $0.scheme == "carom" }) else { return }
+        AppEnvironment.activate()
+        if model.receive(link: url) == .alreadyConnected { AppEnvironment.showAlreadyConnected() }
+    }
+}
+
 enum AppEnvironment {
+    @MainActor static func showAlreadyConnected() {
+        let alert = NSAlert()
+        alert.messageText = UserMessages.alreadyConnected
+        alert.runModal()
+    }
+
     static var isRunningTests: Bool {
         let env = ProcessInfo.processInfo.environment
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil

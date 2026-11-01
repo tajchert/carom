@@ -1,17 +1,25 @@
 import AppKit
 import SwiftUI
 
-/// First run: welcome → set up a new hub or join → name → permissions → done (docs/CLIENTS.md).
+/// First run: welcome → connect (setup or pairing code) → name → permissions → done (docs/CLIENTS.md).
 struct OnboardingView: View {
-    enum Mode { case setup, join }
-
     enum Step: Equatable {
         case welcome
-        case connect(Mode)
+        case connect
+        case hubHelp
+        case confirm(IncomingLink)
         case waitingForApproval(fingerprint: String)
         case name
         case permissions
         case done
+
+        /// Steps where an incoming `carom://` link may still start enrollment.
+        var acceptsLink: Bool {
+            switch self {
+            case .welcome, .connect, .hubHelp, .confirm: true
+            default: false
+            }
+        }
     }
 
     @Environment(AppModel.self) private var model
@@ -25,7 +33,9 @@ struct OnboardingView: View {
             Group {
                 switch step {
                 case .welcome: WelcomeStep(step: $step)
-                case .connect(let mode): ConnectStep(mode: mode, step: $step)
+                case .connect: ConnectStep(step: $step)
+                case .hubHelp: HubHelpStep(step: $step)
+                case .confirm(let link): ConfirmStep(link: link, step: $step)
                 case .waitingForApproval(let fingerprint): WaitingStep(fingerprint: fingerprint, step: $step)
                 case .name: NameStep(step: $step)
                 case .permissions: PermissionsStep(step: $step)
@@ -48,13 +58,25 @@ struct OnboardingView: View {
             // Resume after connecting (for example the app quit before naming the device).
             if model.phase == .onboarding, model.deviceId != nil { step = .name }
             if model.phase == .ready { step = .done }
+            takePendingLink()
         }
+        .onChange(of: model.pendingLink) { _, _ in takePendingLink() }
         .onChange(of: model.phase) { _, phase in
             // Set up elsewhere while this window was open (for example a scripted Debug launch):
             // don't leave it on Welcome.
-            if phase == .ready, step == .welcome || step == .connect(.setup) || step == .connect(.join) {
+            if phase == .ready, step == .welcome || step == .connect || step == .hubHelp {
                 step = .done
             }
+        }
+    }
+
+    /// A `carom://` link opened the app: ask before using it, and only while still connecting.
+    private func takePendingLink() {
+        guard let link = model.consumePendingLink() else { return }
+        if step.acceptsLink {
+            step = .confirm(link)
+        } else {
+            AppEnvironment.showAlreadyConnected()
         }
     }
 }
@@ -99,34 +121,25 @@ private struct WelcomeStep: View {
             StepHeader(symbol: "", brand: true,
                        title: "Welcome to Carom",
                        subtitle: "See your phone's notifications on this Mac and share the clipboard between your devices. Everything is end-to-end encrypted and goes through your own Hub on Cloudflare.")
-            Link("How to deploy your own Hub", destination: Links.hubDocs)
-                .font(.callout)
             Spacer()
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Button {
-                    step = .connect(.join)
+                    step = .connect
                 } label: {
-                    Text("Join My Devices").frame(maxWidth: 260)
+                    Text("Get Started").frame(maxWidth: 260)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
-                Button {
-                    step = .connect(.setup)
-                } label: {
-                    Text("Set Up a New Hub").frame(maxWidth: 260)
-                }
-                .controlSize(.large)
-                Text("Choose Join if another device already uses Carom.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Button("Don't have a Hub yet?") { step = .hubHelp }
+                    .buttonStyle(.link)
+                    .font(.callout)
             }
         }
     }
 }
 
 private struct ConnectStep: View {
-    let mode: OnboardingView.Mode
     @Binding var step: OnboardingView.Step
     @Environment(AppModel.self) private var model
     @State private var uri = ""
@@ -136,15 +149,13 @@ private struct ConnectStep: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            StepHeader(symbol: mode == .setup ? "server.rack" : "qrcode.viewfinder",
-                       title: mode == .setup ? "Set Up a New Hub" : "Join My Devices",
-                       subtitle: mode == .setup
-                           ? "Paste the carom://setup link printed by npx carom-hub deploy, or drop a screenshot of its QR code."
-                           : "On a paired device, choose Add Device. Then paste the carom://pair link here, or drop a screenshot of the QR code.")
+            StepHeader(symbol: "qrcode.viewfinder",
+                       title: "Connect to Your Hub",
+                       subtitle: "Use the setup code from carom-hub deploy if this is your first device, or the code from Add Device on a device that already uses Carom.")
 
             dropZone
 
-            TextField(mode == .setup ? "carom://setup?…" : "carom://pair?…", text: $uri, axis: .vertical)
+            TextField("carom://…", text: $uri, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.callout, design: .monospaced))
                 .lineLimit(2...3)
@@ -163,9 +174,12 @@ private struct ConnectStep: View {
             HStack {
                 Button("Back") { step = .welcome }
                     .disabled(working)
+                Button("Don't have a Hub yet?") { step = .hubHelp }
+                    .buttonStyle(.link)
+                    .disabled(working)
                 Spacer()
                 if working { ProgressView().controlSize(.small) }
-                Button(mode == .setup ? "Set Up" : "Continue", action: connect)
+                Button("Continue", action: connect)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || working)
@@ -226,14 +240,7 @@ private struct ConnectStep: View {
         Task {
             defer { working = false }
             do {
-                switch mode {
-                case .setup:
-                    try await model.setUp(uri: value)
-                    step = .name
-                case .join:
-                    let fingerprint = try await model.beginJoin(uri: value)
-                    step = .waitingForApproval(fingerprint: fingerprint)
-                }
+                step = try await model.connect(uri: value).step
                 uri = ""
             } catch let e as AppError {
                 error = e.message
@@ -241,6 +248,120 @@ private struct ConnectStep: View {
                 self.error = UserMessages.describe(error)
             }
         }
+    }
+}
+
+private extension AppModel.ConnectResult {
+    var step: OnboardingView.Step {
+        switch self {
+        case .setUp: .name
+        case .waiting(let fingerprint): .waitingForApproval(fingerprint: fingerprint)
+        }
+    }
+}
+
+private struct ConfirmStep: View {
+    let link: IncomingLink
+    @Binding var step: OnboardingView.Step
+    @Environment(AppModel.self) private var model
+    @State private var error: String?
+    @State private var working = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            StepHeader(symbol: link.kind == .setup ? "server.rack" : "link",
+                       title: link.kind == .setup ? "Set Up Your Hub?" : "Join Your Devices?",
+                       subtitle: "Carom was opened with a link to \(link.host). Continue only if you started this yourself.")
+            if let error {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
+            Spacer()
+            HStack {
+                Button("Cancel") { step = .connect }
+                    .disabled(working)
+                Spacer()
+                if working { ProgressView().controlSize(.small) }
+                Button("Continue", action: proceed)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(working)
+            }
+        }
+    }
+
+    private func proceed() {
+        working = true
+        error = nil
+        Task {
+            defer { working = false }
+            do {
+                step = try await model.connect(uri: link.uri).step
+            } catch let e as AppError {
+                error = e.message
+            } catch {
+                self.error = UserMessages.describe(error)
+            }
+        }
+    }
+}
+
+private struct HubHelpStep: View {
+    static let command = """
+    git clone https://github.com/tajchert/carom.git && cd carom
+    npm install
+    node hub/bin/carom-hub.mjs deploy
+    """
+
+    @Binding var step: OnboardingView.Step
+    @State private var copied = false
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text("Set Up Your Hub")
+                .font(.title2.weight(.semibold))
+            Text("Your Hub is a free Cloudflare Worker that passes encrypted messages between your devices. You set it up once, from a computer with Node.js 22 or newer and a free Cloudflare account:")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(Self.command)
+                .font(.system(size: 11, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            HStack(spacing: 10) {
+                Button(copied ? "Copied" : "Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(Self.command, forType: .string)
+                    copied = true
+                }
+                Button("Open Terminal", action: Self.openTerminal)
+                Link("Setup Guide", destination: Links.setupGuide)
+            }
+            .controlSize(.small)
+            Text("It logs you in to Cloudflare, then opens Carom on this Mac with your setup code.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            HStack {
+                Spacer()
+                Button("I Have a Code") { step = .connect }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .frame(maxWidth: 440)
+    }
+
+    private static func openTerminal() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 }
 
@@ -279,7 +400,7 @@ private struct WaitingStep: View {
             HStack {
                 Button(error == nil ? "Cancel" : "Back") {
                     task?.cancel()
-                    step = .connect(.join)
+                    step = .connect
                 }
                 Spacer()
             }

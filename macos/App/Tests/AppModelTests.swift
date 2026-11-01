@@ -782,13 +782,64 @@ struct AppModelTests {
 
     // MARK: Onboarding
 
-    @Test func setupRejectsAPairLink() async {
+    static let setupLink = "carom://setup?v=1&h=https%3A%2F%2Fhub.example.com&t=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    static let pairLink = "carom://pair?v=1&h=https%3A%2F%2Fhub.example.com&c=AAAAAAAAAAAAAAAAAAAAAA&s=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+    @Test func connectDispatchesOnCodeKind() async throws {
         let h = Harness(configured: false)
         await h.start()
-        let pair = "carom://pair?v=1&h=https%3A%2F%2Fhub.example.com&c=AAAAAAAAAAAAAAAAAAAAAA&s=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        await #expect(throws: AppError(UserMessages.pairURIExpected)) { try await h.model.setUp(uri: pair) }
-        await #expect(throws: AppError(UserMessages.notURI)) { try await h.model.setUp(uri: "hello") }
+        await #expect(throws: AppError(UserMessages.notURI)) { try await h.model.connect(uri: "hello") }
+        #expect(try await h.model.connect(uri: Self.setupLink) == .setUp)
+        #expect(await h.sync.setupURIs == [Self.setupLink])
+        let join = try await h.model.connect(uri: " " + Self.pairLink + "\n")
+        if case .waiting = join {} else { Issue.record("expected waiting, got \(join)") }
+    }
+
+    @Test func linkOnboardingHoldsItForConfirmation() async {
+        let h = Harness(configured: false)
+        await h.start()
+        let outcome = h.model.receive(link: URL(string: Self.setupLink)!)
+        let link = IncomingLink(uri: Self.setupLink)!
+        #expect(outcome == .confirm(link))
+        #expect(link.kind == .setup)
+        #expect(link.host == "hub.example.com")
+        #expect(h.model.pendingLink == link)
+        #expect(h.model.windowRequest?.window == .onboarding)
         #expect(await h.sync.setupURIs.isEmpty)
+        #expect(h.model.consumePendingLink() == link)
+        #expect(h.model.pendingLink == nil)
+    }
+
+    @Test func pairLinkIsKindPair() async {
+        let h = Harness(configured: false)
+        await h.start()
+        let outcome = h.model.receive(link: URL(string: Self.pairLink)!)
+        guard case .confirm(let link) = outcome else { Issue.record("expected confirm"); return }
+        #expect(link.kind == .pair)
+    }
+
+    @Test func linkIgnoredWhenInvalid() async {
+        let h = Harness(configured: false)
+        await h.start()
+        #expect(h.model.receive(link: URL(string: "carom://setup?v=1&h=nope")!) == .ignored)
+        #expect(h.model.receive(link: URL(string: "carom://other")!) == .ignored)
+        #expect(h.model.pendingLink == nil)
+    }
+
+    @Test func linkWhenReadyIsAlreadyConnected() async {
+        let h = Harness()
+        await h.start()
+        #expect(h.model.phase == .ready)
+        #expect(h.model.receive(link: URL(string: Self.setupLink)!) == .alreadyConnected)
+        #expect(h.model.pendingLink == nil)
+        #expect(await h.sync.setupURIs.isEmpty)
+    }
+
+    @Test func linkBeforeLoadingWaitsForStart() async {
+        let h = Harness(configured: false)
+        #expect(h.model.receive(link: URL(string: Self.setupLink)!) == .ignored)
+        await h.start()
+        #expect(h.model.pendingLink?.kind == .setup)
     }
 
     @Test func removeDeviceRevokes() async throws {
