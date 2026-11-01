@@ -133,6 +133,11 @@ The `carom-hub` CLI (separate) runs, from this folder:
 wrangler deploy --secrets-file <file with SETUP_TOKEN> --var HUB_JURISDICTION:<"" or eu>
 ```
 
+`deploy`, `qr` and `reset` print the setup QR code and URI. On macOS they then run
+`open -b com.mtajchert.carom.mac <uri>`, so Carom opens with the setup code and you confirm there.
+Only Carom receives the link (`-b`), not another app that claims the `carom` scheme. If Carom isn't
+installed nothing extra happens. Pass `--no-open` to skip it. Nothing opens once the Hub is claimed.
+
 There is no build step beyond Wrangler's bundler, and `wrangler` is a runtime dependency of
 this package. The Deploy to Cloudflare button reads `.dev.vars.example` to ask for
 `SETUP_TOKEN`. Never rename the `Hub` class or edit the `v1` migration.

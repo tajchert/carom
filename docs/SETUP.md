@@ -53,9 +53,11 @@ output? `node hub/bin/carom-hub.mjs qr` prints the setup QR again until a device
 
 1. Open **Carom**. The onboarding window opens. Carom has no Dock icon; later you'll find it in the
    menu bar.
-2. Click **Set Up a New Hub**.
-3. Paste the `carom://setup…` link from the terminal, or drop a screenshot of the QR code onto the
-   window (or **Open Image…**). Click **Set Up**.
+2. On a Mac, `deploy` opens Carom for you with the setup code. Check the Hub host, then click
+   **Continue** to confirm. (Run it with `--no-open` to skip this, or if Carom isn't installed
+   yet.) Otherwise click **Get Started** and paste the `carom://setup…` link from the terminal, or
+   drop a screenshot of the QR code onto the window (or **Open Image…**).
+3. Carom connects to your Hub and sets it up.
 4. **Name This Mac**. Your other devices show this name. Click **Continue**.
 5. **Permissions**, then click **Continue**:
    - **Notifications → Allow**, so phone notifications can appear on the Mac. It shows *Allowed* if
@@ -75,8 +77,7 @@ output? `node hub/bin/carom-hub.mjs qr` prints the setup QR again until a device
 
 ## 3. Add your phone
 
-1. Install and open **Carom** on the phone, tap **Get started**, then choose **Join with a code**.
-   Don't choose *Set up a new hub*: that's only for the very first device.
+1. Install and open **Carom** on the phone, tap **Get started**.
 2. Tap **Allow camera** and scan the QR code on the Mac. To paste instead, click **Copy Link** in the
    Mac's *Add a Device* window and paste into the phone's **Code** field (or tap **Paste from
    clipboard**).
@@ -151,8 +152,8 @@ On any paired device:
 - **Mac:** **Add Device…** in the menu.
 
 Then:
-- **New phone:** choose **Join with a code** and scan the QR code.
-- **New Mac:** choose **Join My Devices** and paste the `carom://pair…` link. On a phone, use
+- **New phone:** tap **Get started** and scan the QR code.
+- **New Mac:** click **Get Started** and paste the `carom://pair…` link. On a phone, use
   **Copy code instead** under the QR code and get the link to the Mac, for example with a note.
 - Approve **Add device `<code>`?** on the device showing the QR code.
 
@@ -169,9 +170,9 @@ You can pair any number of phones and Macs.
   over a new key first, then erases its own keys. It needs a connection to the Hub.
 - **A device the Hub refused** was removed, or the Hub was reset. To pair it again from a device that still works:
   - **Phone:** the home screen says *"Your Hub refused this phone…"*. Tap **Pair again → Delete and
-    pair again**, then choose **Join with a code**.
+    pair again**, then tap **Get started** and scan the new QR code.
   - **Mac:** the menu says *"Your Hub refused the request because this device was removed."* Click
-    **Pair Again… → Erase and Pair Again**, then choose **Join My Devices**.
+    **Pair Again… → Erase and Pair Again**, then click **Get Started** and paste the new link.
 
 ## Hub maintenance
 
@@ -217,7 +218,7 @@ Use `com.mtajchert.carom.app.debug` for a debug build. Android may reset this af
 |---|---|
 | `deploy` stops with a workers.dev subdomain message | Register one under **Workers & Pages → Account details → Subdomain → Change**, then run `deploy` again |
 | `deploy` refuses because a Hub already exists | This machine has no `~/.config/carom-hub/<name>.json`. Copy it from the machine that deployed, or start over on purpose with `deploy --new-token` (signs out every device) |
-| "This Hub is already set up" | A device already used the setup code. Use **Join** from a paired device instead |
+| "This Hub is already set up" | A device already used the setup code. Add the device from a paired device instead (**Add device**) |
 | "The code expired" | Pairing codes last 5 minutes and work once. Choose **Show a new code** (phone) or **Show a New Code** (Mac) |
 | Mac shows no notifications | **System Settings → Notifications → Carom**: allow, and turn on banners. Also check the phone is on in **Settings → Notifications** |
 | Phone forwards nothing | The home screen shows a banner if notification access is off. Check **Settings → Apps**: the app may be **Off**, **Pause forwarding** may be on, or **Forward only when the screen is locked** is on while the screen is unlocked |

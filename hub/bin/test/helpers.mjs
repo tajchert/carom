@@ -67,7 +67,8 @@ export function fakeFetch(routes) {
   return fn;
 }
 
-export function makeDeps({ wrangler = fakeWrangler(), fetch = fakeFetch({ 'GET /v1/info': INFO }), answers = [] } = {}) {
+export function makeDeps({ wrangler = fakeWrangler(), fetch = fakeFetch({ 'GET /v1/info': INFO }), answers = [], platform = 'darwin', openOk = true } = {}) {
+  const opened = [];
   const out = [];
   const err = [];
   const prompts = [];
@@ -78,6 +79,9 @@ export function makeDeps({ wrangler = fakeWrangler(), fetch = fakeFetch({ 'GET /
     prompt: async (question) => { prompts.push(question); return answers.shift() ?? ''; },
     qr: async (text) => `[QR:${text}]`,
     sleep: async () => {},
+    platform,
+    openApp: async (uri) => { opened.push(uri); return openOk; },
+    opened,
     out,
     err,
     prompts,

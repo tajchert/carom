@@ -8,7 +8,7 @@ import { statePath } from '../lib/state.mjs';
 import { INFO, SAMPLE_OUTPUT, exists, fakeFetch, fakeWrangler, jsonResponse, makeDeps, useTempHome } from './helpers.mjs';
 
 const URL_ = 'https://carom-hub.my-sub.workers.dev';
-const opts = (extra = {}) => ({ name: 'carom-hub', jurisdiction: null, url: null, yes: false, newToken: false, ...extra });
+const opts = (extra = {}) => ({ name: 'carom-hub', jurisdiction: null, url: null, yes: false, newToken: false, noOpen: false, ...extra });
 const allOutput = (deps) => deps.out.join('\n');
 
 let temp;
@@ -36,7 +36,7 @@ describe('deploy', () => {
     const uri = `carom://setup?v=1&h=${encodeURIComponent(URL_)}&t=${state.setupToken}`;
     assert.ok(text.includes(`Setup URI: ${uri}`));
     assert.ok(text.includes(`[QR:${uri}]`));
-    assert.ok(text.includes('Set up new hub'));
+    assert.ok(text.includes('choose Get Started'));
     assert.ok(text.includes('cannot be changed later'));
   });
 
@@ -348,5 +348,54 @@ describe('reset', () => {
 
   test('requires saved state', async () => {
     await assert.rejects(reset(makeDeps(), opts({ yes: true })), /Copy that file.*carom-hub deploy --name/);
+  });
+});
+
+describe('opening Carom on the Mac', () => {
+  const SETUP = `carom://setup?v=1&h=${encodeURIComponent(URL_)}&t=tok`;
+  const saved = () => writeState('carom-hub', { hubUrl: URL_, setupToken: 'tok', jurisdiction: null, deployedAt: 'x' });
+
+  test('darwin: opens the setup link and says so', async () => {
+    await saved();
+    const deps = makeDeps();
+    await qr(deps, opts());
+    assert.deepEqual(deps.opened, [SETUP]);
+    assert.match(allOutput(deps), /Opened Carom on this Mac\. Confirm there to finish setup\./);
+  });
+
+  test('darwin: prints nothing extra when the app is missing', async () => {
+    await saved();
+    const deps = makeDeps({ openOk: false });
+    await qr(deps, opts());
+    assert.equal(deps.opened.length, 1);
+    assert.ok(!allOutput(deps).includes('Opened Carom'));
+  });
+
+  test('deploy opens it too', async () => {
+    const deps = makeDeps();
+    await deploy(deps, opts());
+    assert.equal(deps.opened.length, 1);
+  });
+
+  test('other platforms do not open anything', async () => {
+    await saved();
+    const deps = makeDeps({ platform: 'linux' });
+    await qr(deps, opts());
+    assert.deepEqual(deps.opened, []);
+    assert.ok(!allOutput(deps).includes('Opened Carom'));
+  });
+
+  test('--no-open skips it', async () => {
+    await saved();
+    const deps = makeDeps();
+    await qr(deps, opts({ noOpen: true }));
+    assert.deepEqual(deps.opened, []);
+  });
+
+  test('a claimed hub opens nothing', async () => {
+    await saved();
+    const deps = makeDeps({ fetch: fakeFetch({ 'GET /v1/info': { ...INFO, setup_done: true } }) });
+    await qr(deps, opts());
+    assert.deepEqual(deps.opened, []);
   });
 });

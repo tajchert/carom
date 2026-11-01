@@ -7,7 +7,7 @@ import { buildSetupUri, detectWorkerUrl, generateSetupToken, needsWorkersSubdoma
 
 /*
  * Every command takes (deps, options). deps = { wrangler, fetch, io: { out, err },
- * prompt, qr, sleep } so the whole flow can run against fakes in tests.
+ * prompt, qr, sleep, openApp, platform } so the whole flow can run against fakes in tests.
  */
 
 const INFO_ATTEMPTS = 5;
@@ -88,7 +88,7 @@ async function forgetTokenIfClaimed(name, state, info) {
   return rest;
 }
 
-async function printSetup(deps, state, info) {
+async function printSetup(deps, state, info, options = {}) {
   const { io } = deps;
   if (info.setup_done) {
     io.out('This Hub is already set up (claimed by a first device).');
@@ -105,10 +105,13 @@ async function printSetup(deps, state, info) {
   io.out(await deps.qr(uri));
   io.out(`Setup URI: ${uri}`);
   io.out('');
-  io.out('Open Carom on your Mac -> Set up new hub -> scan the QR code or paste the URI.');
+  io.out('Open Carom on your Mac or phone, choose Get Started, then scan the QR code or paste the URI.');
   io.out('The URI contains your setup token: do not share it or post it anywhere.');
   io.out('The token works once. It is deleted from this computer as soon as a device has set up the Hub.');
   io.out('To start over later, run "carom-hub reset": it needs your Cloudflare login, erases the Hub and signs out every device.');
+  if (!options.noOpen && deps.platform === 'darwin' && (await deps.openApp(uri))) {
+    io.out('Opened Carom on this Mac. Confirm there to finish setup.');
+  }
 }
 
 /**
@@ -156,7 +159,7 @@ export async function deploy(deps, options) {
   } else {
     io.out('Warning: the jurisdiction (for example --jurisdiction eu) cannot be changed later without a full reset.');
   }
-  await printSetup(deps, state, info);
+  await printSetup(deps, state, info, options);
 }
 
 export async function update(deps, options) {
@@ -198,7 +201,7 @@ export async function qr(deps, options) {
   let state = await requireState(options.name);
   const result = await fetchInfo(deps.fetch, state.hubUrl);
   state = await forgetTokenIfClaimed(options.name, state, result);
-  await printSetup(deps, state, result);
+  await printSetup(deps, state, result, options);
 }
 
 /** The user must type the hub name; --yes skips the prompt. */
@@ -248,5 +251,5 @@ export async function reset(deps, options) {
     throw error;
   }
   io.out('Hub data erased and the setup token rotated: every device is signed out.');
-  await printSetup(deps, state, result);
+  await printSetup(deps, state, result, options);
 }

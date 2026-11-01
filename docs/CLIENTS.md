@@ -28,22 +28,50 @@ When the app finds it has no usable keys (reinstall or restore), it starts onboa
 
 ## Onboarding
 
-1. **Welcome:** explain what Carom does and that you need your own Hub (link to the docs).
-2. **Connect:** either
-   - **Set up a new hub:** scan or paste the `carom://setup` URI printed by `npx carom-hub deploy`,
-     then `POST /v1/setup`, generate `K` (kv 1) and publish the record; or
-   - **Join:** scan or paste a `carom://pair` URI shown by an already-paired device.
+Flow: **Welcome → Connect → (Confirm) → Name → Permissions → Done**. There is no "set up or join"
+choice.
+
+1. **Welcome:** explain what Carom does and that you need your own Hub. One primary button, *Get
+   Started*, plus a "Don't have a Hub yet?" link to the Hub help step.
+2. **Connect:** scan, paste or drop any code. The code kind decides what happens:
+   - `carom://setup` (from `carom-hub deploy`): `POST /v1/setup`, generate `K` (kv 1) and publish
+     the record.
+   - `carom://pair` (from Add device on a paired device): join.
    Phones scan with the camera. Macs paste the URI, or read a QR code from a dropped or pasted
-   image. A Mac can also *show* a pair QR code for a phone to scan.
-3. **Name this device:** the default comes from the system device name.
-4. **Permissions:**
+   image. A Mac can also *show* a pair QR code for a phone to scan. The Working and Failed screens
+   word themselves by the code kind.
+3. **Hub help:** "Set up your Hub": what the Hub is (a free Cloudflare Worker), the three commands
+   (clone, `npm install`, `node hub/bin/carom-hub.mjs deploy`) with a Copy button, and a link to
+   the setup guide (`carom-hub` isn't on npm yet, so no `npx`). The Mac also has
+   *Open Terminal* (it runs nothing).
+4. **`carom://` links:** both apps register the scheme (Android intent filter on `MainActivity`,
+   Mac `CFBundleURLTypes` handled in `application(_:open:)`). Links carry secrets: never log them,
+   never enroll without asking.
+   - While onboarding is at Welcome, Connect, Hub help or Failed, a link opens a **Confirm** step
+     ("Set up your Hub?" or "Join your devices?", showing the Hub host). *Continue* runs the normal
+     enroll path; *Cancel* returns to Connect.
+   - Already connected, or past Connect: don't enroll, show "Carom is already connected to a Hub."
+   - Invalid links are ignored silently.
+   - Android consumes a link once: it clears `intent.data` and ignores intents launched from
+     history, so recents and configuration changes never replay it.
+   - On a Mac, `carom-hub` runs `open -b com.mtajchert.carom.mac <uri>` after printing the setup
+     QR code, so only Carom receives the token (`--no-open` skips it).
+5. **Name this device:** the default comes from the system device name.
+6. **Permissions:**
    - Android: notification access (deep link to the listener settings, with a hint about
      "restricted settings" for sideloaded APKs), the `POST_NOTIFICATIONS` runtime permission, an
      optional battery-optimisation exemption, and on Android 15 and later a **Verification codes**
-     step (see [One-time codes](#one-time-codes)).
+     step (see [One-time codes](#one-time-codes)). Notification access is required: *Continue*
+     without it opens a "Carom needs notification access" step with no skip (*Allow notification
+     access*, plus the restricted-settings hint and *Open App info*). It moves on to Done by
+     itself once access is granted.
    - macOS: notification permission, plus a pasteboard access explanation (*Always allow*). With
      *Show notifications as: Rich*, macOS also asks once for Focus status (see
      [Desktop presentation](#desktop-presentation)).
+7. **Done:** Mac offers *Add a Phone* when it has no phones. When an Android phone set up the Hub
+   (first device), Done says "Add your Mac next" and *Add your Mac* opens the pairing screen
+   (back stack Home, Pairing); the Mac then chooses *Get Started* and drops a screenshot of the
+   code or pastes it. A phone that joined goes straight to Home.
 
 ## Pairing UI (the device that invites)
 

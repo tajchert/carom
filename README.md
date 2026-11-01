@@ -146,13 +146,14 @@ can't be changed later).
 
 **4. Set up the Mac**
 
-Open Carom (it lives in the menu bar) → **Set Up a New Hub** → paste the `carom://setup…` link, or
-drop a screenshot of the QR code → **Set Up**. Name the Mac, allow notifications, then click
+On a Mac the deploy opens Carom for you: check the Hub host and click **Continue** (`--no-open`
+skips this). Otherwise open Carom (it lives in the menu bar) → **Get Started** → paste the
+`carom://setup…` link, or drop a screenshot of the QR code. Name the Mac, allow notifications, then click
 **Add a Phone** to show a pairing QR code (valid for 5 minutes).
 
 **5. Pair the phone**
 
-Open Carom → **Get started** → **Join with a code** → scan the QR code on the Mac. Check that both
+Open Carom → **Get started** → scan the QR code on the Mac. Check that both
 screens show the same short code and click **Add Device** on the Mac. Name the phone, then tap
 **Notification access**.
 

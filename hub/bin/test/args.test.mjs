@@ -15,8 +15,8 @@ test('--help and --version win over the command', () => {
 test('deploy options and defaults', () => {
   const { command, options } = parseCli(['deploy', '--name', 'my-hub', '--jurisdiction', 'eu', '--yes']);
   assert.equal(command, 'deploy');
-  assert.deepEqual(options, { name: 'my-hub', jurisdiction: 'eu', url: null, yes: true, newToken: false });
-  assert.deepEqual(parseCli(['update']).options, { name: 'carom-hub', jurisdiction: null, url: null, yes: false, newToken: false });
+  assert.deepEqual(options, { name: 'my-hub', jurisdiction: 'eu', url: null, yes: true, newToken: false, noOpen: false });
+  assert.deepEqual(parseCli(['update']).options, { name: 'carom-hub', jurisdiction: null, url: null, yes: false, newToken: false, noOpen: false });
 });
 
 test('deploy --new-token and info --url', () => {
