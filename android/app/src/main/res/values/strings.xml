@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Carom</string>
+    <string name="already_connected">Carom is already connected to a Hub.</string>
 </resources>

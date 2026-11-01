@@ -16,18 +16,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.CheckCircle
 import com.mtajchert.carom.app.core.designsystem.component.CaromStateChip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AddLink
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.GppMaybe
 import androidx.compose.material.icons.outlined.NoPhotography
@@ -73,6 +78,7 @@ internal fun WelcomeStep(actions: OnboardingActions) {
         brandMark = true,
         body = stringResource(R.string.feature_onboarding_body),
         primary = StepAction(stringResource(R.string.feature_onboarding_get_started), actions.onStart),
+        secondary = StepAction(stringResource(R.string.feature_onboarding_no_hub), actions.onHubHelp),
     ) {
         Text(
             stringResource(R.string.feature_onboarding_hub_note),
@@ -84,51 +90,51 @@ internal fun WelcomeStep(actions: OnboardingActions) {
 }
 
 @Composable
-internal fun ConnectStep(actions: OnboardingActions) {
+internal fun HubHelpStep(actions: OnboardingActions) {
     OnboardingStepLayout(
-        title = stringResource(R.string.feature_onboarding_connect_title),
-        body = stringResource(R.string.feature_onboarding_connect_body),
+        title = stringResource(R.string.feature_onboarding_hub_help_title),
+        body = stringResource(R.string.feature_onboarding_hub_help_body),
+        primary = StepAction(stringResource(R.string.feature_onboarding_hub_help_have_code), actions.onHaveCode),
+        secondary = StepAction(stringResource(R.string.feature_onboarding_hub_help_guide), actions.onOpenSetupGuide),
     ) {
-        ChoiceCard(
-            icon = Icons.Outlined.CloudQueue,
-            title = stringResource(R.string.feature_onboarding_connect_setup),
-            body = stringResource(R.string.feature_onboarding_connect_setup_body),
-            onClick = { actions.onChoose(ConnectMode.SETUP) },
-        )
-        ChoiceCard(
-            icon = Icons.Outlined.AddLink,
-            title = stringResource(R.string.feature_onboarding_connect_join),
-            body = stringResource(R.string.feature_onboarding_connect_join_body),
-            onClick = { actions.onChoose(ConnectMode.JOIN) },
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    HUB_COMMANDS,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                )
+                FilledTonalButton(onClick = actions.onCopyCommands) {
+                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.feature_onboarding_hub_help_copy))
+                }
+            }
+        }
+        Text(
+            stringResource(R.string.feature_onboarding_hub_help_after),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
     }
 }
 
 @Composable
-private fun ChoiceCard(icon: ImageVector, title: String, body: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            CaromIconTile(icon)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+internal fun ConfirmStep(step: OnboardingStep.Confirm, actions: OnboardingActions) {
+    val setup = step.mode == ConnectMode.SETUP
+    OnboardingStepLayout(
+        title = stringResource(if (setup) R.string.feature_onboarding_confirm_setup_title else R.string.feature_onboarding_confirm_join_title),
+        icon = if (setup) Icons.Outlined.CloudQueue else Icons.Outlined.AddLink,
+        body = stringResource(R.string.feature_onboarding_confirm_body, step.host),
+        primary = StepAction(stringResource(R.string.feature_onboarding_continue), actions.onConfirmLink),
+        secondary = StepAction(stringResource(R.string.feature_onboarding_cancel), actions.onCancelLink),
+    )
 }
 
 @Composable
@@ -138,15 +144,15 @@ internal fun ScanStep(
     actions: OnboardingActions,
     cameraPreview: @Composable (Modifier) -> Unit,
 ) {
-    val setup = step.mode == ConnectMode.SETUP
     OnboardingStepLayout(
-        title = stringResource(if (setup) R.string.feature_onboarding_scan_setup_title else R.string.feature_onboarding_scan_join_title),
-        body = stringResource(if (setup) R.string.feature_onboarding_scan_setup_body else R.string.feature_onboarding_scan_join_body),
+        title = stringResource(R.string.feature_onboarding_scan_title),
+        body = stringResource(R.string.feature_onboarding_scan_body),
         primary = StepAction(
             stringResource(R.string.feature_onboarding_continue),
             actions.onSubmit,
             enabled = step.input.isNotBlank(),
         ),
+        secondary = StepAction(stringResource(R.string.feature_onboarding_no_hub), actions.onHubHelp),
     ) {
         CameraArea(camera, actions, cameraPreview)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -480,12 +486,37 @@ private fun PermissionCard(
 }
 
 @Composable
-internal fun DoneStep(actions: OnboardingActions) {
+internal fun NotificationAccessRequiredStep(actions: OnboardingActions) {
+    OnboardingStepLayout(
+        title = stringResource(R.string.feature_onboarding_access_required_title),
+        icon = Icons.Outlined.NotificationsOff,
+        tone = StepTone.WARNING,
+        body = stringResource(R.string.feature_onboarding_access_required_body),
+        primary = StepAction(stringResource(R.string.feature_onboarding_access_required_action), actions.onOpenNotificationAccess),
+    ) {
+        Text(
+            stringResource(R.string.feature_onboarding_restricted_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        CaromTextButton(onClick = actions.onOpenAppInfo, text = stringResource(R.string.feature_onboarding_open_app_info))
+    }
+}
+
+@Composable
+internal fun DoneStep(mode: ConnectMode, actions: OnboardingActions) {
+    val setup = mode == ConnectMode.SETUP
     OnboardingStepLayout(
         title = stringResource(R.string.feature_onboarding_done_title),
         icon = Icons.Outlined.CheckCircle,
         tone = StepTone.SUCCESS,
-        body = stringResource(R.string.feature_onboarding_done_body),
-        primary = StepAction(stringResource(R.string.feature_onboarding_open_carom), actions.onFinish),
+        body = stringResource(if (setup) R.string.feature_onboarding_done_setup_body else R.string.feature_onboarding_done_body),
+        primary = if (setup) {
+            StepAction(stringResource(R.string.feature_onboarding_add_mac), actions.onAddDevice)
+        } else {
+            StepAction(stringResource(R.string.feature_onboarding_open_carom), actions.onFinish)
+        },
+        secondary = if (setup) StepAction(stringResource(R.string.feature_onboarding_open_carom), actions.onFinish) else null,
     )
 }

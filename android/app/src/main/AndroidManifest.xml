@@ -9,7 +9,8 @@
         token must never leave the device (SPEC §5.3).
 
         Exported components in the merged manifest, each reviewed:
-        - MainActivity (launcher), ShareTargetActivity (ACTION_SEND text/plain, reads nothing but
+        - MainActivity (launcher; carom://setup and carom://pair links, which only open a confirmation
+          step and never enroll by themselves), ShareTargetActivity (ACTION_SEND text/plain, reads nothing but
           the shared text), ClipboardTileService (BIND_QUICK_SETTINGS_TILE) and
           CaromListenerService (BIND_NOTIFICATION_LISTENER_SERVICE);
         - system-only library components: WorkManager SystemJobService (BIND_JOB_SERVICE) and
@@ -37,6 +38,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="carom" android:host="setup" />
+                <data android:scheme="carom" android:host="pair" />
             </intent-filter>
         </activity>
 

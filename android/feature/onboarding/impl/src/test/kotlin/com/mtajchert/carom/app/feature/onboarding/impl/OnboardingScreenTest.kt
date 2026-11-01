@@ -46,7 +46,10 @@ class OnboardingScreenTest {
                 actions = OnboardingActions(
                     onBack = { if (vm.step.value.canGoBack()) vm.back() else events += "leave" },
                     onStart = vm::start,
-                    onChoose = vm::choose,
+                    onHubHelp = vm::showHubHelp,
+                    onHaveCode = vm::haveCode,
+                    onConfirmLink = vm::confirmLink,
+                    onCancelLink = vm::cancelLink,
                     onAllowCamera = { events += "camera" },
                     onInputChange = vm::onInputChange,
                     onSubmit = vm::submit,
@@ -57,8 +60,9 @@ class OnboardingScreenTest {
                     onOpenAppInfo = { events += "appInfo" },
                     onRequestPostNotifications = { events += "post" },
                     onOpenBatterySettings = { events += "battery" },
-                    onPermissionsDone = vm::permissionsDone,
+                    onPermissionsDone = { vm.permissionsDone(permissions.notificationAccess) },
                     onFinish = { events += "finish" },
+                    onAddDevice = { events += "addDevice" },
                 ),
                 camera = CameraAccess.NEEDS_PERMISSION,
                 permissions = permissions,
@@ -73,10 +77,7 @@ class OnboardingScreenTest {
 
         composeRule.onNodeWithText("Welcome to Carom").assertIsDisplayed()
         composeRule.onNodeWithText("Get started").performClick()
-        composeRule.onNodeWithText("Connect to your Hub").assertIsDisplayed()
-        composeRule.onNodeWithText("Set up a new hub").performClick()
-
-        composeRule.onNodeWithText("Scan your setup code").assertIsDisplayed()
+        composeRule.onNodeWithText("Scan your code").assertIsDisplayed()
         composeRule.onNodeWithText("Allow camera").performClick()
         assertEquals(listOf("camera"), events)
 
@@ -99,10 +100,14 @@ class OnboardingScreenTest {
         composeRule.onNodeWithText("Allow access").assertIsDisplayed()
         composeRule.onNodeWithText("Open App info").performScrollTo().performClick()
         composeRule.onNodeWithText("Continue").performClick()
+        composeRule.onNodeWithText("Carom needs notification access").assertIsDisplayed()
+        composeRule.onNodeWithText("Allow notification access").performClick()
+        composeRule.runOnUiThread { vm.onNotificationAccess(true) }
         composeRule.onNodeWithText("You're all set").assertIsDisplayed()
+        composeRule.onNodeWithText("Add your Mac").assertIsDisplayed()
         composeRule.onNodeWithText("Open Carom").performClick()
 
-        assertEquals(listOf("camera", "appInfo", "finish"), events)
+        assertEquals(listOf("camera", "appInfo", "listener", "finish"), events)
         assertEquals("Work phone", device.preferences.current.deviceName)
     }
 
@@ -112,12 +117,23 @@ class OnboardingScreenTest {
         composeRule.setContent { Harness(vm, PermissionStatus(false, null, false, false)) }
         composeRule.onNodeWithContentDescription("Navigate back").assertDoesNotExist()
         composeRule.onNodeWithText("Get started").performClick()
-        composeRule.onNodeWithText("Join with a code").performClick()
-        composeRule.onNodeWithText("Scan the code on your other device").assertIsDisplayed()
+        composeRule.onNodeWithText("Scan your code").assertIsDisplayed()
         composeRule.onNodeWithText("Continue").assertIsNotEnabled()
         composeRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeRule.onNodeWithContentDescription("Navigate back").performClick()
         composeRule.onNodeWithText("Welcome to Carom").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Navigate back").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Hub help from the scan step returns to it with I have a code`() {
+        val vm = device.onboarding()
+        composeRule.setContent { Harness(vm, PermissionStatus(false, null, false, false)) }
+        composeRule.onNodeWithText("Get started").performClick()
+        composeRule.onNodeWithText("Don't have a Hub yet?").performClick()
+        composeRule.onNodeWithText("Set up your Hub").assertIsDisplayed()
+        composeRule.onNodeWithText("Copy").assertIsDisplayed()
+        composeRule.onNodeWithText("I have a code").performClick()
+        composeRule.onNodeWithText("Scan your code").assertIsDisplayed()
     }
 
     @Test

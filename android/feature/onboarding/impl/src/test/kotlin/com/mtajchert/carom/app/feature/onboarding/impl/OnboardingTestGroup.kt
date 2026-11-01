@@ -10,6 +10,7 @@ import com.mtajchert.carom.app.core.testing.repository.FakeUserPreferencesReposi
 import com.mtajchert.carom.app.core.testing.security.InMemorySecretVault
 import com.mtajchert.carom.app.core.testing.sync.FakeCaromSync
 import com.mtajchert.carom.app.core.testing.sync.InMemorySyncState
+import com.mtajchert.carom.app.feature.onboarding.api.IncomingLink
 
 /** Counts record publishes on top of [FakeCaromSync]. */
 class CountingSync(private val fake: FakeCaromSync = FakeCaromSync()) : CaromSync by fake {
@@ -29,9 +30,10 @@ class TestDevice(hub: FakeHub, clock: Clock) {
     val enrollment = Enrollment(vault, hub.factory, hubProvider, state, sync, clock)
     val preferences = FakeUserPreferencesRepository()
     val codeForwarding = FakeCodeForwardingAccess()
+    val incomingLink = IncomingLink()
 
     fun onboarding(defaultName: String = "Pixel 9") =
-        OnboardingViewModel(enrollment, preferences, sync, DeviceNameProvider { defaultName }, codeForwarding)
+        OnboardingViewModel(enrollment, preferences, sync, DeviceNameProvider { defaultName }, codeForwarding, incomingLink)
 }
 
 fun FakeHub.setupUri(): String = QrUri.buildSetup(url, setupToken)

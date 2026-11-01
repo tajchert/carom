@@ -68,6 +68,11 @@ fun CaromNavHost(
                     backStack.clear()
                     backStack.add(HomeRoute)
                 },
+                onAddDevice = {
+                    backStack.clear()
+                    backStack.add(HomeRoute)
+                    backStack.add(PairingRoute)
+                },
             )
             pairingEntries(onBack = back)
             devicesEntries(onBack = back)

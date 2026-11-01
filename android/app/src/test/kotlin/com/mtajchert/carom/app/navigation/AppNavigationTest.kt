@@ -46,7 +46,7 @@ class AppNavigationTest {
     fun `a fresh install starts in onboarding and Back walks its steps`() {
         awaitText("Welcome to Carom").assertIsDisplayed()
         awaitText("Get started").performClick()
-        awaitText("Connect to your Hub").assertIsDisplayed()
+        awaitText("Scan your code").assertIsDisplayed()
         back()
         awaitText("Welcome to Carom").assertIsDisplayed()
         back()
