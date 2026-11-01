@@ -10,6 +10,7 @@ const OPTIONS = {
   url: { type: 'string' },
   yes: { type: 'boolean', short: 'y' },
   'new-token': { type: 'boolean' },
+  'no-open': { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
 };
@@ -55,6 +56,7 @@ export function parseCli(argv) {
       url: values.url ?? null,
       yes: values.yes ?? false,
       newToken: values['new-token'] ?? false,
+      noOpen: values['no-open'] ?? false,
     },
   };
 }
@@ -75,6 +77,7 @@ Options:
   --jurisdiction <j>     deploy: Durable Object jurisdiction, e.g. eu (cannot be changed later)
   --url <url>            info: query this Hub URL instead of a deployed one
   --new-token            deploy: allow replacing the token of an existing Hub you have no saved state for
+  --no-open              deploy, qr, reset: don't open Carom on this Mac with the setup code
   -y, --yes              Skip confirmation prompts
   -h, --help             Show this help
   -v, --version          Show the version

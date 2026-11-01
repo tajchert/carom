@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -24,6 +25,17 @@ async function renderQr(text) {
   return new Promise((resolve) => qrcode.generate(text, { small: true }, resolve));
 }
 
+/** Opens the setup link in the Carom Mac app only (-b), so no other app claiming the scheme sees the token. */
+function openInCarom(uri) {
+  return new Promise((resolve) => {
+    try {
+      execFile('open', ['-b', 'com.mtajchert.carom.mac', uri], (error) => resolve(!error));
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 async function prompt(question) {
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   try {
@@ -46,6 +58,8 @@ async function main(argv) {
     prompt,
     qr: renderQr,
     sleep,
+    openApp: openInCarom,
+    platform: process.platform,
   };
   await commands[command](deps, options);
 }
