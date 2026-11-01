@@ -3,22 +3,13 @@
     <!-- Welcome -->
     <string name="feature_onboarding_title">Welcome to Carom</string>
     <string name="feature_onboarding_body">Carom sends notifications and your clipboard between your own devices. Everything is end-to-end encrypted.</string>
-    <string name="feature_onboarding_hub_note">It runs through your own Hub: a free Cloudflare Worker you set up once with npx carom-hub deploy.</string>
+    <string name="feature_onboarding_hub_note">It runs through your own Hub: a free Cloudflare Worker that you set up once.</string>
     <string name="feature_onboarding_get_started">Get started</string>
-
-    <!-- Connect -->
-    <string name="feature_onboarding_connect_title">Connect to your Hub</string>
-    <string name="feature_onboarding_connect_body">Is this your first device with Carom?</string>
-    <string name="feature_onboarding_connect_setup">Set up a new hub</string>
-    <string name="feature_onboarding_connect_setup_body">This is my first device. I have the code from npx carom-hub deploy.</string>
-    <string name="feature_onboarding_connect_join">Join with a code</string>
-    <string name="feature_onboarding_connect_join_body">Carom already runs on another device. It will show me a code.</string>
+    <string name="feature_onboarding_no_hub">Don\'t have a Hub yet?</string>
 
     <!-- Scan -->
-    <string name="feature_onboarding_scan_setup_title">Scan your setup code</string>
-    <string name="feature_onboarding_scan_setup_body">Run npx carom-hub deploy on your computer. It shows a code that starts with carom://setup.</string>
-    <string name="feature_onboarding_scan_join_title">Scan the code on your other device</string>
-    <string name="feature_onboarding_scan_join_body">On a paired device, open Add device. Then scan the code it shows.</string>
+    <string name="feature_onboarding_scan_title">Scan your code</string>
+    <string name="feature_onboarding_scan_body">Use the setup code from carom-hub deploy if this is your first device, or the code from Add device on a device that already uses Carom.</string>
     <string name="feature_onboarding_camera_rationale">Carom uses the camera only to read the code, and only on this screen.</string>
     <string name="feature_onboarding_camera_allow">Allow camera</string>
     <string name="feature_onboarding_camera_denied">Camera access is off. Turn it on in Settings, or paste the code below.</string>
@@ -31,6 +22,20 @@
     <string name="feature_onboarding_invalid_code">That isn\'t a Carom code. Use the code that starts with carom://.</string>
     <string name="feature_onboarding_clipboard_empty">The clipboard has no text. Copy the code first.</string>
     <string name="feature_onboarding_continue">Continue</string>
+
+    <!-- Hub help -->
+    <string name="feature_onboarding_hub_help_title">Set up your Hub</string>
+    <string name="feature_onboarding_hub_help_body">Your Hub is a free Cloudflare Worker that passes encrypted messages between your devices. You set it up once, from a computer with Node.js 22 or newer and a free Cloudflare account:</string>
+    <string name="feature_onboarding_hub_help_after">It logs you in to Cloudflare, then shows a setup code. Scan it here.</string>
+    <string name="feature_onboarding_hub_help_copy">Copy</string>
+    <string name="feature_onboarding_hub_help_copied">Commands copied</string>
+    <string name="feature_onboarding_hub_help_guide">Setup guide</string>
+    <string name="feature_onboarding_hub_help_have_code">I have a code</string>
+
+    <!-- Link confirmation -->
+    <string name="feature_onboarding_confirm_setup_title">Set up your Hub?</string>
+    <string name="feature_onboarding_confirm_join_title">Join your devices?</string>
+    <string name="feature_onboarding_confirm_body">Carom was opened with a link to %1$s. Continue only if you started this yourself.</string>
 
     <!-- Working -->
     <string name="feature_onboarding_working_setup">Setting up your Hub…</string>
@@ -50,7 +55,7 @@
     <string name="feature_onboarding_error_already_set_up_title">This Hub is already set up</string>
     <string name="feature_onboarding_error_already_set_up_body">Join instead: on a device that is already paired, open Add device and scan its code.</string>
     <string name="feature_onboarding_error_refused_setup_title">The setup code was refused</string>
-    <string name="feature_onboarding_error_refused_setup_body">Your Hub didn\'t accept this code. Copy the newest code from npx carom-hub deploy and try again.</string>
+    <string name="feature_onboarding_error_refused_setup_body">Your Hub didn\'t accept this code. Copy the newest code from carom-hub deploy and try again.</string>
     <string name="feature_onboarding_error_refused_join_title">Your Hub said no</string>
     <string name="feature_onboarding_error_refused_join_body">The other device didn\'t add this one, or the Hub refused it. Show a new code on your other device and scan it again.</string>
     <string name="feature_onboarding_error_expired_title">The code expired</string>
@@ -83,8 +88,15 @@
     <string name="feature_onboarding_allow">Allow</string>
     <string name="feature_onboarding_allowed">Allowed</string>
 
+    <!-- Notification access required -->
+    <string name="feature_onboarding_access_required_title">Carom needs notification access</string>
+    <string name="feature_onboarding_access_required_body">Carom forwards notifications by reading them on this phone. Without notification access it can\'t send anything to your other devices.</string>
+    <string name="feature_onboarding_access_required_action">Allow notification access</string>
+
     <!-- Done -->
     <string name="feature_onboarding_done_title">You\'re all set</string>
     <string name="feature_onboarding_done_body">Carom now syncs notifications and your clipboard. Add more devices from the home screen.</string>
+    <string name="feature_onboarding_done_setup_body">Your Hub is ready. Add your Mac next: open Carom on it, choose Get Started, then drop a screenshot of the code or paste it.</string>
+    <string name="feature_onboarding_add_mac">Add your Mac</string>
     <string name="feature_onboarding_open_carom">Open Carom</string>
 </resources>

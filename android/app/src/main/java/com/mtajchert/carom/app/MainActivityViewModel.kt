@@ -8,11 +8,18 @@ import com.mtajchert.carom.app.core.model.DarkThemeConfig
 import com.mtajchert.carom.app.core.model.SessionState
 import com.mtajchert.carom.app.core.model.ThemeBrand
 import com.mtajchert.carom.app.core.model.UserPreferences
+import com.mtajchert.carom.app.core.protocol.QrUri
+import com.mtajchert.carom.app.feature.onboarding.api.IncomingLink
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 // =============================================================================
@@ -55,7 +62,26 @@ sealed interface MainActivityUiState {
 class MainActivityViewModel @Inject constructor(
     userPreferencesRepository: UserPreferencesRepository,
     sessionRepository: SessionRepository,
+    private val incomingLink: IncomingLink,
 ) : ViewModel() {
+
+    private val notices = Channel<Unit>(Channel.BUFFERED)
+
+    /** Emits when a link arrives on a device that is already connected to a Hub. */
+    val alreadyConnected: Flow<Unit> = notices.receiveAsFlow()
+
+    /**
+     * A carom:// link opened the app. Links that do not parse are ignored. Once the session is known,
+     * a device that needs onboarding hands the link to onboarding (which asks before enrolling);
+     * a connected one only gets a notice. The link carries a secret: never log it.
+     */
+    fun onLink(uri: String) {
+        if (QrUri.parse(uri) == null) return
+        viewModelScope.launch {
+            val ready = uiState.first { it is MainActivityUiState.Success } as MainActivityUiState.Success
+            if (ready.needsOnboarding) incomingLink.offer(uri) else notices.send(Unit)
+        }
+    }
 
     /**
      * UI state for the main activity.

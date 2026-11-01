@@ -7,10 +7,11 @@ import com.mtajchert.carom.app.feature.onboarding.impl.OnboardingScreen
 
 /**
  * Onboarding's navigation contribution. [onBack] leaves from the first step; [onFinished] runs
- * after "Open Carom" and should replace the back stack with Home.
+ * after "Open Carom" and should replace the back stack with Home; [onAddDevice] runs after "Add your
+ * Mac" and should set the back stack to Home, then Add device.
  */
-fun EntryProviderScope<NavKey>.onboardingEntries(onBack: () -> Unit, onFinished: () -> Unit) {
+fun EntryProviderScope<NavKey>.onboardingEntries(onBack: () -> Unit, onFinished: () -> Unit, onAddDevice: () -> Unit) {
     entry<OnboardingRoute> {
-        OnboardingScreen(onBack = onBack, onFinished = onFinished)
+        OnboardingScreen(onBack = onBack, onFinished = onFinished, onAddDevice = onAddDevice)
     }
 }

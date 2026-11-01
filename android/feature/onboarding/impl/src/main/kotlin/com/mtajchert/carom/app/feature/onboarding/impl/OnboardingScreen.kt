@@ -1,9 +1,13 @@
 package com.mtajchert.carom.app.feature.onboarding.impl
 
 import android.Manifest
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,7 +41,12 @@ enum class CameraAccess { GRANTED, NEEDS_PERMISSION, DENIED }
 class OnboardingActions(
     val onBack: () -> Unit = {},
     val onStart: () -> Unit = {},
-    val onChoose: (ConnectMode) -> Unit = {},
+    val onHubHelp: () -> Unit = {},
+    val onHaveCode: () -> Unit = {},
+    val onCopyCommands: () -> Unit = {},
+    val onOpenSetupGuide: () -> Unit = {},
+    val onConfirmLink: () -> Unit = {},
+    val onCancelLink: () -> Unit = {},
     val onAllowCamera: () -> Unit = {},
     val onOpenAppSettings: () -> Unit = {},
     val onInputChange: (String) -> Unit = {},
@@ -53,22 +62,25 @@ class OnboardingActions(
     val onEnableCodeForwarding: () -> Unit = {},
     val onPermissionsDone: () -> Unit = {},
     val onFinish: () -> Unit = {},
+    val onAddDevice: () -> Unit = {},
 )
 
 /** Whether Back moves to an earlier step; otherwise it leaves onboarding (the device may already be enrolled). */
 fun OnboardingStep.canGoBack(): Boolean = when (this) {
-    OnboardingStep.Welcome, is OnboardingStep.Name, OnboardingStep.Done -> false
+    OnboardingStep.Welcome, is OnboardingStep.Name, is OnboardingStep.Done -> false
     else -> true
 }
 
 /**
- * Onboarding (docs/CLIENTS.md): Welcome → Connect → scan or paste → progress → Name →
- * Permissions → Done. [onFinished] leaves for Home; [onBack] leaves from the first step.
+ * Onboarding (docs/CLIENTS.md): Welcome → scan or paste → progress → Name →
+ * Permissions → Done. [onFinished] leaves for Home, [onAddDevice] for Add device; [onBack] leaves from
+ * the first step.
  */
 @Composable
 fun OnboardingScreen(
     onBack: () -> Unit,
     onFinished: () -> Unit,
+    onAddDevice: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
@@ -94,6 +106,7 @@ fun OnboardingScreen(
     // The user comes back from system settings or the enable screen: re-check everything.
     LifecycleResumeEffect(Unit) {
         permissions = readPermissions()
+        viewModel.onNotificationAccess(permissions.notificationAccess)
         cameraGranted = SystemAccess.hasCamera(context)
         if (cameraGranted) cameraBlocked = false
         onPauseOrDispose { }
@@ -103,7 +116,12 @@ fun OnboardingScreen(
         OnboardingActions(
             onBack = { if (viewModel.step.value.canGoBack()) viewModel.back() else onBack() },
             onStart = viewModel::start,
-            onChoose = viewModel::choose,
+            onHubHelp = viewModel::showHubHelp,
+            onHaveCode = viewModel::haveCode,
+            onCopyCommands = { copyHubCommands(context) },
+            onOpenSetupGuide = { openSetupGuide(context) },
+            onConfirmLink = viewModel::confirmLink,
+            onCancelLink = viewModel::cancelLink,
             onAllowCamera = { cameraLauncher.launch(Manifest.permission.CAMERA) },
             onOpenAppSettings = { SystemAccess.openAppInfo(context) },
             onInputChange = viewModel::onInputChange,
@@ -127,8 +145,9 @@ fun OnboardingScreen(
             },
             onOpenBatterySettings = { SystemAccess.openBatterySettings(context) },
             onEnableCodeForwarding = { context.startActivity(viewModel.codeForwardingIntent(context)) },
-            onPermissionsDone = viewModel::permissionsDone,
+            onPermissionsDone = { viewModel.permissionsDone(readPermissions().notificationAccess) },
             onFinish = onFinished,
+            onAddDevice = onAddDevice,
         )
     }
     val description = stringResource(R.string.feature_onboarding_camera_description)
@@ -170,17 +189,37 @@ fun OnboardingContent(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (step) {
                 OnboardingStep.Welcome -> WelcomeStep(actions)
-                OnboardingStep.Connect -> ConnectStep(actions)
                 is OnboardingStep.Scan -> ScanStep(step, camera, actions, cameraPreview)
+                OnboardingStep.HubHelp -> HubHelpStep(actions)
+                is OnboardingStep.Confirm -> ConfirmStep(step, actions)
                 is OnboardingStep.Working -> WorkingStep(step.mode, actions)
                 is OnboardingStep.AwaitingApproval -> AwaitingApprovalStep(step.fingerprint, actions)
                 is OnboardingStep.Failed -> FailedStep(step, actions)
                 is OnboardingStep.Name -> NameStep(step, actions)
                 OnboardingStep.Permissions -> PermissionsStep(permissions, actions)
-                OnboardingStep.Done -> DoneStep(actions)
+                OnboardingStep.NotificationAccessRequired -> NotificationAccessRequiredStep(actions)
+                is OnboardingStep.Done -> DoneStep(step.mode, actions)
             }
         }
     }
+}
+
+/** The three hub deploy commands; no secret, so a normal clipboard copy. */
+internal const val HUB_COMMANDS = "git clone https://github.com/tajchert/carom.git && cd carom\nnpm install\nnode hub/bin/carom-hub.mjs deploy"
+
+private const val SETUP_GUIDE_URL = "https://github.com/tajchert/carom/blob/main/docs/SETUP.md"
+
+private fun copyHubCommands(context: Context) {
+    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("carom-hub", HUB_COMMANDS))
+    // Android 13+ shows its own clipboard confirmation.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        Toast.makeText(context, R.string.feature_onboarding_hub_help_copied, Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openSetupGuide(context: Context) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(SETUP_GUIDE_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
 }
 
 /** The clipboard's text, read once on a user tap while Carom is in the foreground. Never logged. */

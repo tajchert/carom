@@ -56,30 +56,40 @@ private fun Onboarding(
 fun WelcomeScreenshotTest() = Onboarding(OnboardingStep.Welcome)
 
 @PreviewTest
-@PhoneThemePreviews
-@Composable
-fun ConnectScreenshotTest() = Onboarding(OnboardingStep.Connect)
-
-@PreviewTest
 @FormFactorPreviews
 @Composable
-fun ConnectFormFactorsScreenshotTest() = Onboarding(OnboardingStep.Connect)
+fun ScanFormFactorsScreenshotTest() = Onboarding(OnboardingStep.Scan())
 
 @PreviewTest
 @PhoneThemePreviews
 @Composable
-fun ScanNeedsCameraScreenshotTest() = Onboarding(OnboardingStep.Scan(ConnectMode.SETUP))
+fun HubHelpScreenshotTest() = Onboarding(OnboardingStep.HubHelp)
+
+@PreviewTest
+@PhonePreview
+@Composable
+fun ConfirmSetupScreenshotTest() = Onboarding(OnboardingStep.Confirm(ConnectMode.SETUP, "carom-hub.example.workers.dev", "carom://"))
+
+@PreviewTest
+@PhonePreview
+@Composable
+fun ConfirmJoinScreenshotTest() = Onboarding(OnboardingStep.Confirm(ConnectMode.JOIN, "carom-hub.example.workers.dev", "carom://"))
 
 @PreviewTest
 @PhoneThemePreviews
 @Composable
-fun ScanCameraScreenshotTest() = Onboarding(OnboardingStep.Scan(ConnectMode.JOIN), camera = CameraAccess.GRANTED)
+fun ScanNeedsCameraScreenshotTest() = Onboarding(OnboardingStep.Scan())
+
+@PreviewTest
+@PhoneThemePreviews
+@Composable
+fun ScanCameraScreenshotTest() = Onboarding(OnboardingStep.Scan(), camera = CameraAccess.GRANTED)
 
 @PreviewTest
 @PhonePreview
 @Composable
 fun ScanInvalidCodeScreenshotTest() = Onboarding(
-    OnboardingStep.Scan(ConnectMode.JOIN, input = "https://example.com", error = CodeError.INVALID),
+    OnboardingStep.Scan(input = "https://example.com", error = CodeError.INVALID),
     camera = CameraAccess.DENIED,
 )
 
@@ -129,4 +139,14 @@ fun PermissionsLargeFontScreenshotTest() = Onboarding(OnboardingStep.Permissions
 @PreviewTest
 @PhoneThemePreviews
 @Composable
-fun DoneScreenshotTest() = Onboarding(OnboardingStep.Done)
+fun DoneScreenshotTest() = Onboarding(OnboardingStep.Done(ConnectMode.JOIN))
+
+@PreviewTest
+@PhoneThemePreviews
+@Composable
+fun DoneSetupScreenshotTest() = Onboarding(OnboardingStep.Done(ConnectMode.SETUP))
+
+@PreviewTest
+@PhoneThemePreviews
+@Composable
+fun NotificationAccessRequiredScreenshotTest() = Onboarding(OnboardingStep.NotificationAccessRequired)

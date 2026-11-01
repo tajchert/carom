@@ -7,7 +7,7 @@
 
     <!-- Showing the code -->
     <string name="feature_pairing_code_title">Scan this code on the new device</string>
-    <string name="feature_pairing_code_body">Open Carom on the other device and choose Join with a code.</string>
+    <string name="feature_pairing_code_body">Open Carom on the other device and choose Get Started. On a Mac, drop a screenshot of this code or paste the copied code.</string>
     <string name="feature_pairing_code_description">QR code for pairing a new device</string>
     <string name="feature_pairing_expires_in">Expires in %1$s</string>
     <string name="feature_pairing_waiting">Waiting for the other device…</string>

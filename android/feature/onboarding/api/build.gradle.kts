@@ -27,6 +27,9 @@ android {
 }
 
 dependencies {
+    // IncomingLink exposes a StateFlow.
+    api(libs.kotlinx.coroutines.core)
+
     implementation(libs.kotlinx.serialization.json)
 
     // Navigation 3 NavKey interface for route definitions

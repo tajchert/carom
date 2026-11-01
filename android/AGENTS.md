@@ -6,7 +6,7 @@ Read [README](README.md) for implemented behavior and the module map, [`protocol
 - Features may depend on another feature's API, never its implementation. Core modules do not depend on features. `core:protocol` and `core:model` stay pure Kotlin/JVM.
 - New libraries go into `gradle/libs.versions.toml` and new modules into `settings.gradle.kts` only when there is a concrete requirement; the common ones are already registered.
 - Secrets (identity keys, group keys, device token) live only in `core:security`. Nothing is backed up or transferred. Never log keys, tokens, setup/pair URIs, or notification and clipboard content; log error codes and ids.
-- Only the launcher activity is exported. Every new exported component (listener, tile, share target) is a deliberate, reviewed decision.
+- Only the launcher activity (which also takes carom:// links) is exported. Every new exported component (listener, tile, share target) is a deliberate, reviewed decision.
 - Room is the source of truth for local state. Never use destructive migrations; export every schema and add a tested migration for each change.
 - ViewModels expose typed state/errors. Resolve user-facing text from resources in Compose (prefix string names with the module), preserve cancellation, and collect state with lifecycle awareness.
 - Use [Android CLI and official skills](docs/AGENT_SETUP.md) for current guidance. Keep stable dependencies; screenshot testing is the documented alpha exception.
