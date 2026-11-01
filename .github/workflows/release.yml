@@ -63,7 +63,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$APP" "Carom-$VERSION-macos.zip"
           shasum -a 256 "Carom-$VERSION-macos.zip" > "Carom-$VERSION-macos.zip.sha256"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carom-macos
           path: mac-dist/*
@@ -192,7 +192,7 @@ jobs:
           fi
 
       - name: Upload mapping and dry-run artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carom-release
           path: android/dist/*
