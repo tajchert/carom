@@ -42,7 +42,7 @@ choice.
    word themselves by the code kind.
 3. **Hub help:** "Set up your Hub": what the Hub is (a free Cloudflare Worker), the three commands
    (clone, `npm install`, `node hub/bin/carom-hub.mjs deploy`) with a Copy button, and a link to
-   the setup guide. `carom-hub` is not on npm, so never show `npx carom-hub`. The Mac also has
+   the setup guide (`carom-hub` isn't on npm yet, so no `npx`). The Mac also has
    *Open Terminal* (it runs nothing).
 4. **`carom://` links:** both apps register the scheme (Android intent filter on `MainActivity`,
    Mac `CFBundleURLTypes` handled in `application(_:open:)`). Links carry secrets: never log them,
