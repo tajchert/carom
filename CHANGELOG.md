@@ -3,6 +3,31 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
+## [Unreleased]
+
+A simpler first run: one Get Started for any code, and Carom opens straight from `carom://` links.
+
+### 💻 Mac app
+
+- **One Get Started.** There is no "set up or join" choice any more: paste or drop any code and
+  Carom does the right thing. A "Don't have a Hub yet?" link shows how to set one up.
+- **`carom://` links open Carom.** Carom asks you to confirm before it sets up or joins, and
+  ignores the link if it is already connected.
+
+### 📱 Android app
+
+- **One Get Started.** Scan or paste any code; no "set up or join" choice. A "Don't have a Hub
+  yet?" link shows how to set one up.
+- **`carom://` links open Carom**, with the same confirmation step.
+- **Notification access is required.** Setup no longer lets you skip it, since Carom can't send
+  anything without it.
+- **Add your Mac after setup.** The phone that sets up the Hub offers to show the code for your Mac.
+
+### ☁️ Hub
+
+- **`carom-hub deploy` opens Carom on your Mac** with the setup code, so you only confirm. Use
+  `--no-open` to skip it.
+
 ## [1.0.9] - 2026-10-31
 
 Calls you make or answer stay on your phone, and conversation cards fade on the Mac.
