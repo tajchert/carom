@@ -3,7 +3,7 @@
 All notable changes to Carom are listed here. Versions apply to the whole project: the Android app,
 the Mac app and the Hub are released together under one `vX.Y.Z` tag.
 
-## [Unreleased]
+## [1.1.0] - 2026-11-01
 
 A simpler first run: one Get Started for any code, and Carom opens straight from `carom://` links.
 
