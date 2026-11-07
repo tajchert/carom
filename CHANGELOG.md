@@ -4,6 +4,16 @@ All notable changes to Carom are listed here. Versions apply to the whole projec
 the Mac app and the Hub are released together under one `vX.Y.Z` tag. Mac-only updates use a
 `macos-vX.Y.Z` tag and leave the Android app and Hub versions unchanged.
 
+## [1.1.2] - 2026-11-07 (macOS only)
+
+### 💻 Mac app
+
+- **Actions clear the notification.** When you press one of the app's buttons or send a reply
+  and the phone confirms it, the notification is dismissed on the phone and on the Mac. Turn it
+  off with **Dismiss after an action** in Settings → Notifications.
+- **One Copy code button.** Apps that add their own "Copy code" (WhatsApp does) no longer show
+  a second one next to Carom's, which copies to the Mac.
+
 ## [1.1.1] - 2026-11-01 (macOS only)
 
 ### 💻 Mac app
