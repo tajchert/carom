@@ -113,7 +113,7 @@ struct AppModelTests {
         #expect(h.presenter.presented.first?.0.passive == true, "the native copy is quiet while the panel shows")
     }
 
-    @Test func replyFromACardSendsTheActionAndShowsTheResult() async {
+    @Test func replyFromACardSendsTheActionAndDismissesOnceConfirmed() async {
         let phone = actionPhone(phoneA, "Pixel")
         let h = Harness(directory: [entry(phone)])
         await h.start()
@@ -128,7 +128,11 @@ struct AppModelTests {
         #expect(h.model.notifications.status(for: id) == .sending)
         await h.model.dispatch(.notificationActionResult(NotificationActionResult(ok: true, error: nil)),
                                msgId: "r1", sender: phone, replyTo: "act-1")
-        #expect(h.model.notifications.status(for: id) == .sent)
+        await settle()
+        #expect(h.model.notifications.cards[id] == nil, "dismissed after the confirmed reply")
+        #expect(await h.sync.sent.last == FakeSync.Sent(type: .notificationDismiss,
+                                                       body: NotificationDismiss(key: "k1").json,
+                                                       replyTo: "m1", only: nil))
     }
 
     @Test func phoneWithoutTheActionCapGetsNoActions() async {
@@ -297,6 +301,15 @@ struct AppModelTests {
         await h.model.dispatch(posted(), msgId: "m1", sender: pixel, sentAt: sentAgo(h, 5))
         #expect(h.presenter.presented.count == 1)
         #expect(h.clipboard.written == [ClipboardItem(text: "482913", sensitive: true)])
+    }
+
+    @Test func dismissAfterActionSettingReachesTheCoordinator() async {
+        let h = Harness()
+        await h.start()
+        #expect(h.model.notifications.dismissesAfterAction)
+        h.model.setDismissAfterAction(false)
+        #expect(!h.model.notifications.dismissesAfterAction)
+        #expect(!h.model.preferences.dismissesAfterAction)
     }
 
     @Test func lateNotificationIsQuietButListedAndNotCopied() async {

@@ -20,10 +20,11 @@ final class ActionLog {
     /// A coordinator whose sends are logged and answered with `delivery`.
     let timers = CoordinatorTimers()
 
-    func make(delivery: ActionDelivery = .accepted(msgId: "a1"))
+    func make(delivery: ActionDelivery = .accepted(msgId: "a1"), dismissing: Bool = false)
         -> (NotificationCoordinator, ActionLog, FakeNative, FakePanel)
     {
         let (c, native, panel, _) = makeCoordinator(timers: timers)
+        c.dismissesAfterAction = dismissing
         let log = ActionLog()
         c.sendAction = { item, ref in
             log.sent.append(.init(msgId: item.msgId, action: ref))
@@ -94,6 +95,7 @@ final class ActionLog {
     /// Plan Review Focus 3: the socket can deliver the result before the POST returns.
     @Test func resultBeforeSendReturnsIsKept() async {
         let (c, _, _, _) = makeCoordinator(timers: timers)
+        c.dismissesAfterAction = false
         c.sendAction = { [weak c] _, _ in
             c?.actionResult(replyTo: "a1", NotificationActionResult(ok: true, error: nil))
             return .accepted(msgId: "a1")
@@ -115,6 +117,58 @@ final class ActionLog {
         #expect(c.statuses.isEmpty)
         await timers.advance(by: .seconds(60))
         #expect(c.statuses.isEmpty, "no asleep switch for a forgotten card")
+    }
+
+    @Test func confirmedButtonDismissesOnThePhoneAndHere() async {
+        let (c, log, native, _) = make(dismissing: true)
+        await c.posted(Fixture.card(Fixture.withActions(Fixture.posted())))
+        c.perform(.button(index: 0, title: "Mark as read"), on: id)
+        await settle()
+        #expect(log.dismissed.isEmpty, "nothing is dismissed before the phone confirms")
+        c.actionResult(replyTo: "a1", NotificationActionResult(ok: true, error: nil))
+        await settle()
+        #expect(log.dismissed == ["k1"])
+        #expect(native.withdrawn == ["k1"])
+        #expect(c.cards.isEmpty && c.onPanel.isEmpty)
+    }
+
+    @Test func failedActionKeepsTheCardWithItsStatus() async {
+        let (c, log, _, _) = make(dismissing: true)
+        await c.posted(Fixture.card(Fixture.withActions(Fixture.posted())))
+        c.perform(.button(index: 0, title: "Mark as read"), on: id)
+        await settle()
+        c.actionResult(replyTo: "a1", NotificationActionResult(ok: false, error: "changed"))
+        await settle()
+        #expect(log.dismissed.isEmpty)
+        #expect(c.status(for: id) == .changed)
+    }
+
+    @Test func callAnswerDoesNotDismiss() async {
+        let (c, log, _, _) = make(dismissing: true)
+        await c.posted(Fixture.card(Fixture.incomingCall()))
+        c.perform(.answer, on: Fixture.card(Fixture.incomingCall()).id)
+        await settle()
+        c.actionResult(replyTo: "a1", NotificationActionResult(ok: true, error: nil))
+        await settle()
+        #expect(log.dismissed.isEmpty)
+    }
+
+    /// The app adds the user's reply to the notification it just lost: dismissed again, not shown.
+    @Test func ownReplyRepostAfterDismissIsDismissedAgain() async {
+        let (c, log, native, panel) = make(dismissing: true)
+        await c.posted(Fixture.card(incoming()))
+        c.perform(.reply(index: 1, title: "Reply", text: "On my way"), on: id)
+        await settle()
+        c.actionResult(replyTo: "a1", NotificationActionResult(ok: true, error: nil))
+        var echoed = incoming()
+        echoed.messages!.append(.init(sender: nil, text: "On my way", ts: 1_800_000_008_000, image: nil))
+        await c.posted(Fixture.card(echoed, msgId: "m2"))
+        await settle()
+        #expect(log.dismissed == ["k1", "k1"])
+        #expect(c.cards.isEmpty && panel.alerts.count == 1 && native.presented.count == 1)
+
+        await c.posted(Fixture.card(incoming("Great"), msgId: "m3"))
+        #expect(panel.alerts.count == 2, "a new message from someone else shows as usual")
     }
 
     @Test func unknownResultChangesNothing() async {

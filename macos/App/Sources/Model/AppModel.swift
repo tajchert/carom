@@ -360,6 +360,7 @@ final class AppModel {
         if loadPreferences {
             preferences = Preferences(json: await sync.settings[Preferences.settingsKey])
             notifications.setStyle(preferences.showAs)
+            notifications.dismissesAfterAction = preferences.dismissesAfterAction
             applyLiveChipSetting()
         }
         applyDirectory(await sync.directory)
@@ -911,6 +912,12 @@ final class AppModel {
     func setAutoCopyCodes(_ on: Bool) {
         preferences.autoCopyCodes = on
         savePreferences()
+    }
+
+    func setDismissAfterAction(_ on: Bool) {
+        preferences.dismissAfterAction = on
+        savePreferences()
+        notifications.dismissesAfterAction = on
     }
 
     func setAutomaticClipboard(_ on: Bool) {

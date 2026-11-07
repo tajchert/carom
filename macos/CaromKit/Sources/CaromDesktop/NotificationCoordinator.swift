@@ -57,6 +57,9 @@ public final class NotificationCoordinator {
         public var asleepAfter: Duration = .seconds(30)
         /// Stacks on the panel; the rest are summed up as "+N more".
         public var maxVisible = 4
+        /// After dismissing following an action, the app's re-post with the user's own reply
+        /// within this long is dismissed again instead of shown.
+        public var dismissedEchoWindow: Duration = .seconds(30)
         public init() {}
     }
 
@@ -71,6 +74,9 @@ public final class NotificationCoordinator {
     /// The card whose reply field is open. The panel may be key only then.
     public private(set) var replyingTo: String?
     public private(set) var isHovering = false
+    /// "Dismiss after an action": once the phone confirms an app button or a reply, the
+    /// notification is dismissed on the phone and here.
+    public var dismissesAfterAction = true
 
     /// Where card images come from (M4b's BlobStore; placeholders until then).
     @ObservationIgnored public var images: any ImageProvider = NoImageProvider()
@@ -94,6 +100,10 @@ public final class NotificationCoordinator {
     @ObservationIgnored private var asleepTasks: [String: Task<Void, Never>] = [:]
     /// Action msg_id → card id, until the phone's result arrives.
     @ObservationIgnored private var pendingActions: [String: String] = [:]
+    /// Cards whose action in flight dismisses the notification once the phone confirms it.
+    @ObservationIgnored private var dismissOnSuccess: Set<String> = []
+    /// Cards dismissed after an action, and when.
+    @ObservationIgnored private var dismissedAfterAction: [String: Date] = [:]
     /// Results that arrived before their send returned its msg_id (newest last, at most 16).
     @ObservationIgnored private var earlyResults: [(msgId: String, result: NotificationActionResult)] = []
 
@@ -122,6 +132,11 @@ public final class NotificationCoordinator {
     /// delivered after an offline gap) only records the card, so a later removal or live update
     /// still finds it: no panel card, no native notification.
     public func posted(_ item: CardItem, quiet: Bool = false) async {
+        if isEchoOfDismissed(item) {
+            let send = sendDismiss
+            await send?(item)
+            return
+        }
         let isUpdate = cards[item.id] != nil
         cards[item.id] = item
         if quiet { return }
@@ -135,6 +150,17 @@ public final class NotificationCoordinator {
         }
         await native.present(PresentedNotification(card: item, passive: style == .rich || ownReply),
                              showPhoneName: item.phoneName != nil)
+    }
+
+    /// The app re-posted a notification just dismissed after an action, adding the user's reply.
+    private func isEchoOfDismissed(_ item: CardItem) -> Bool {
+        pruneDismissed()
+        return dismissedAfterAction[item.id] != nil && Self.endsWithOwnMessage(item)
+    }
+
+    private func pruneDismissed() {
+        let window = Double(options.dismissedEchoWindow.components.seconds), at = now()
+        dismissedAfterAction = dismissedAfterAction.filter { at.timeIntervalSince($0.value) < window }
     }
 
     /// The newest message is the phone user's own (it has no sender).
@@ -237,10 +263,10 @@ public final class NotificationCoordinator {
             Task { await send?(item) }
             removed(phoneId: item.phoneId, key: item.posted.key)
         case .button(let index, let title):
-            deliver(.button(index: index, title: title, replyText: nil), for: item)
+            deliver(.button(index: index, title: title, replyText: nil), for: item, dismissing: dismissesAfterAction)
         case .reply(let index, let title, let text):
             if replyingTo == cardId { endReply() }
-            deliver(.button(index: index, title: title, replyText: text), for: item)
+            deliver(.button(index: index, title: title, replyText: text), for: item, dismissing: dismissesAfterAction)
         case .answer:
             deliver(.answer, for: item)
         case .decline:
@@ -259,8 +285,9 @@ public final class NotificationCoordinator {
         apply(result, to: cardId)
     }
 
-    private func deliver(_ ref: ActionRef, for item: CardItem) {
+    private func deliver(_ ref: ActionRef, for item: CardItem, dismissing: Bool = false) {
         guard item.phoneAcceptsActions, let send = sendAction else { return }
+        if dismissing { dismissOnSuccess.insert(item.id) } else { dismissOnSuccess.remove(item.id) }
         statuses[item.id] = .sending
         armAsleep(item.id)
         Task { [weak self] in
@@ -281,6 +308,7 @@ public final class NotificationCoordinator {
             }
         case .failed:
             asleepTasks.removeValue(forKey: cardId)?.cancel()
+            dismissOnSuccess.remove(cardId)
             statuses[cardId] = .failed
             markHandled(cardId)
         }
@@ -288,7 +316,15 @@ public final class NotificationCoordinator {
 
     private func apply(_ result: NotificationActionResult, to cardId: String) {
         asleepTasks.removeValue(forKey: cardId)?.cancel()
-        guard cards[cardId] != nil else { return }
+        guard let item = cards[cardId] else { return }
+        if dismissOnSuccess.remove(cardId) != nil, result.ok {
+            pruneDismissed()
+            dismissedAfterAction[cardId] = now()
+            let send = sendDismiss
+            Task { await send?(item) }
+            removed(phoneId: item.phoneId, key: item.posted.key)
+            return
+        }
         statuses[cardId] = ActionStatus(result: result)
         markHandled(cardId)
     }
@@ -363,6 +399,7 @@ public final class NotificationCoordinator {
         cards[id] = nil
         handled.remove(id)
         statuses[id] = nil
+        dismissOnSuccess.remove(id)
         asleepTasks.removeValue(forKey: id)?.cancel()
         pendingActions = pendingActions.filter { $0.value != id }
     }

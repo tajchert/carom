@@ -42,6 +42,14 @@ struct NotificationSettings: View {
                 }
 
                 Section {
+                    Toggle("Dismiss after an action", isOn: Binding(
+                        get: { model.preferences.dismissesAfterAction },
+                        set: { model.setDismissAfterAction($0) }))
+                } footer: {
+                    Footnote("When you press one of the app's buttons or send a reply and the phone confirms it, the notification is dismissed on the phone and on this Mac.")
+                }
+
+                Section {
                     if model.phones.isEmpty {
                         Footnote("No phones yet. Choose Add Device in the menu to pair one.")
                     }

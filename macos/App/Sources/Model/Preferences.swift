@@ -37,6 +37,8 @@ struct Preferences: Codable, Equatable, Sendable {
     var liveChip: Bool?
     /// "Copy codes automatically". `nil` follows the default: off.
     var autoCopyCodes: Bool?
+    /// "Dismiss after an action". `nil` follows the default: on.
+    var dismissAfterAction: Bool?
 
     init() {}
 
@@ -58,6 +60,8 @@ struct Preferences: Codable, Equatable, Sendable {
     var showsLiveChip: Bool { liveChip ?? true }
 
     var copiesCodes: Bool { autoCopyCodes ?? false }
+
+    var dismissesAfterAction: Bool { dismissAfterAction ?? true }
 
     /// Records an app; returns true when something changed.
     @discardableResult

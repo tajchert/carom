@@ -108,6 +108,14 @@ struct PreferencesTests {
         #expect(back == p && back.copiesCodes)
     }
 
+    @Test func dismissAfterActionIsOnByDefaultAndRoundTrips() {
+        #expect(Preferences().dismissesAfterAction)
+        var p = Preferences()
+        p.dismissAfterAction = false
+        let back = Preferences(json: p.json)
+        #expect(back == p && !back.dismissesAfterAction)
+    }
+
     @Test func noteAppReportsChanges() {
         var p = Preferences()
         let first = p.noteApp(id: "a", name: "A")
