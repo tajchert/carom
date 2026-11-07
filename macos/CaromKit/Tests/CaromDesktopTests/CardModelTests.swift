@@ -50,6 +50,14 @@ import Testing
         #expect(Fixture.card(p).phoneButtons.map(\.index) == [0, 1, 2])
     }
 
+    @Test func appsOwnCopyCodeIsLeftOutWhenCaromHasTheCode() {
+        var p = Fixture.posted(text: "233223 to kod weryfikacyjny.")
+        p.actions = [.init(index: 0, title: "Copy code"), .init(index: 1, title: "Mark as read")]
+        #expect(Fixture.card(p).phoneButtons.map(\.title) == ["Mark as read"])
+        p.text = "No code here"
+        #expect(Fixture.card(p).phoneButtons.map(\.title) == ["Copy code", "Mark as read"])
+    }
+
     @Test func stackKeyGroupsByPhoneAppAndGroup() {
         let a = Fixture.card(Fixture.grouped("a"))
         let b = Fixture.card(Fixture.grouped("b"))

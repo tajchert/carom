@@ -117,10 +117,18 @@ extension CardItem {
     }
 
     /// The app's plain buttons the Mac may press: none unless the phone takes actions, at most
-    /// three as on Android.
+    /// three as on Android. With a code found, the app's own "Copy code" (WhatsApp adds one) is
+    /// left out, since Carom's copies to the Mac instead.
     public var phoneButtons: [NotificationPosted.Action] {
         guard phoneAcceptsActions else { return [] }
-        return Array((posted.actions ?? []).filter { $0.reply == nil }.prefix(3))
+        let hasCode = code != nil
+        let plain = (posted.actions ?? []).filter { $0.reply == nil && !(hasCode && Self.isCopyCode($0.title)) }
+        return Array(plain.prefix(3))
+    }
+
+    static func isCopyCode(_ title: String) -> Bool {
+        let t = title.lowercased()
+        return (t.contains("copy") && t.contains("code")) || t.contains("kopiuj kod")
     }
 
     /// The app's inline-reply action, when the phone takes actions.
